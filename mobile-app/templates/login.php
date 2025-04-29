@@ -145,6 +145,12 @@
             background-color: #e8f5e9;
             color: #2e7d32;
             border: 1px solid #a5d6a7;
+            transition: opacity 1s ease-in-out;
+        }
+        
+        /* Animation for fading out */
+        .fade-out {
+            opacity: 0;
         }
     </style>
 </head>
@@ -164,7 +170,7 @@
             <?php endif; ?>
             
             <?php if (isset($_GET['success'])): ?>
-                <div class="flash-message flash-success">
+                <div class="flash-message flash-success" id="successMessage">
                     <?php echo htmlspecialchars($_GET['success']); ?>
                 </div>
             <?php endif; ?>
@@ -183,14 +189,7 @@
             </div>
         </div>
     </div>
-    
-    <div class="navigation-bar">
-        <button class="nav-button">≡</button>
-        <button class="nav-button">○</button>
-        <button class="nav-button">≡</button>
-    </div>
 
-    <!-- Scripts -->
     <script src="assets/js/app.js"></script>
     <!-- Register Service Worker for PWA -->
     <script>
@@ -205,6 +204,27 @@
                     });
             });
         }
+        
+        // Auto-hide success message after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const successMessage = document.getElementById('successMessage');
+            
+            if (successMessage) {
+                // Check if it contains "logged out" message (case insensitive)
+                const messageText = successMessage.textContent.toLowerCase();
+                if (messageText.includes('logged out')) {
+                    // Start the timeout to fade out after 5 seconds
+                    setTimeout(function() {
+                        successMessage.classList.add('fade-out');
+                        
+                        // Remove the element after fade completes
+                        setTimeout(function() {
+                            successMessage.style.display = 'none';
+                        }, 1000); // Match the transition duration (1s)
+                    }, 1500);
+                }
+            }
+        });
     </script>
 </body>
 </html> 

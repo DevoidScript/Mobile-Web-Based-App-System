@@ -255,11 +255,6 @@ if (!$donor_details && $user) {
         </form>
     </div>
     
-    <div class="navigation-bar">
-        <button class="nav-button">≡</button>
-        <button class="nav-button">○</button>
-        <button class="nav-button">≡</button>
-    </div>
     
     <!-- Scripts -->
     <script src="assets/js/app.js"></script>

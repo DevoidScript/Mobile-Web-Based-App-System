@@ -83,6 +83,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($_POST['password'] !== $_POST['confirm_password']) {
             $errors[] = "Passwords do not match";
         }
+        
+        // If permanent_address is empty but we have address components, let's combine them
+        if (empty($_POST['permanent_address']) && 
+            (!empty($_POST['barangay']) || !empty($_POST['municipality']) || !empty($_POST['province']))) {
+            
+            $address_parts = [];
+            if (!empty($_POST['house_no'])) $address_parts[] = sanitize_input($_POST['house_no']);
+            if (!empty($_POST['street'])) $address_parts[] = sanitize_input($_POST['street']);
+            if (!empty($_POST['barangay'])) $address_parts[] = sanitize_input($_POST['barangay']);
+            if (!empty($_POST['municipality'])) $address_parts[] = sanitize_input($_POST['municipality']);
+            if (!empty($_POST['province'])) $address_parts[] = sanitize_input($_POST['province']);
+            if (!empty($_POST['postal_code'])) $address_parts[] = sanitize_input($_POST['postal_code']);
+            
+            if (!empty($address_parts)) {
+                $_POST['permanent_address'] = implode(', ', $address_parts);
+            } else {
+                $errors[] = "Permanent Address is required";
+            }
+        }
 
         // If no errors, proceed with registration
         if (empty($errors)) {
@@ -434,7 +453,7 @@ if ($validated) {
         /* Mobile-specific adjustments */
         @media (max-width: 480px) {
             .container {
-                padding: 12px;
+            padding: 12px;
             }
             
             .form-container {
@@ -460,8 +479,59 @@ if ($validated) {
             }
             
             .section-title {
-                font-size: 16px;
+            font-size: 16px;
             }
+        }
+        
+        /**
+         * Detailed Address Form Styling
+         * - Provides structured fields for Philippine addresses
+         * - Layout optimized for mobile viewing
+         * - Groups related address fields for better organization
+         */
+        .address-title {
+            font-weight: 600;
+            color: #c01f1f;
+            margin: 10px 0 5px;
+            font-size: 15px;
+        }
+        
+        .address-note {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 15px;
+            font-style: italic;
+        }
+        
+        .address-fields {
+            margin-bottom: 15px;
+        }
+        
+        .address-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .address-row .field-group {
+            flex: 1;
+        }
+        
+        .field-group label {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 4px;
+            color: #444;
+        }
+        
+        .combined-address-preview {
+            background-color: #f9f9f9;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            margin: 15px 0;
+                font-size: 14px;
+            line-height: 1.4;
         }
     </style>
 </head>
@@ -478,15 +548,15 @@ if ($validated) {
                     <?php endforeach; ?>
                 </ul>
                 <p><small>If this error persists, please contact technical support with the error details above.</small></p>
-            </div>
-        <?php endif; ?>
-        
+                </div>
+            <?php endif; ?>
+            
         <?php if (!empty($success_message)): ?>
             <div class="success-message">
                 <?php echo $success_message; ?>
-            </div>
-        <?php endif; ?>
-        
+                </div>
+            <?php endif; ?>
+            
         <div class="form-container">
             <!-- Progress indicators with colored line -->
             <div class="progress-container">
@@ -532,20 +602,20 @@ if ($validated) {
                     
                     <label class="label required" for="sex">Sex:</label>
                     <select id="sex" name="sex" class="select" required>
-                        <option value="">Select Sex</option>
+                            <option value="">Select Sex</option>
                         <option value="Male" <?php if (isset($_POST['sex']) && $_POST['sex'] == 'Male') echo 'selected'; ?>>Male</option>
                         <option value="Female" <?php if (isset($_POST['sex']) && $_POST['sex'] == 'Female') echo 'selected'; ?>>Female</option>
                         <option value="Others" <?php if (isset($_POST['sex']) && $_POST['sex'] == 'Others') echo 'selected'; ?>>Others</option>
-                    </select>
+                        </select>
                     
                     <label class="label required" for="civil_status">Civil Status:</label>
                     <select id="civil_status" name="civil_status" class="select" required>
-                        <option value="">Select Civil Status</option>
+                            <option value="">Select Civil Status</option>
                         <option value="Single" <?php if (isset($_POST['civil_status']) && $_POST['civil_status'] == 'Single') echo 'selected'; ?>>Single</option>
                         <option value="Married" <?php if (isset($_POST['civil_status']) && $_POST['civil_status'] == 'Married') echo 'selected'; ?>>Married</option>
                         <option value="Widowed" <?php if (isset($_POST['civil_status']) && $_POST['civil_status'] == 'Widowed') echo 'selected'; ?>>Widowed</option>
                         <option value="Divorced" <?php if (isset($_POST['civil_status']) && $_POST['civil_status'] == 'Divorced') echo 'selected'; ?>>Divorced</option>
-                    </select>
+                        </select>
                     
                     <div class="form-navigation">
                         <button type="button" class="nav-button prev-button" data-prev="1">Previous</button>
@@ -557,8 +627,51 @@ if ($validated) {
                 <div class="form-step" data-step="3">
                     <div class="section-title">ADDRESS INFORMATION</div>
                     
-                    <label class="label required" for="permanent_address">Permanent Address:</label>
-                    <input type="text" id="permanent_address" name="permanent_address" class="input" value="<?php echo $_POST['permanent_address'] ?? ''; ?>" placeholder="Enter your complete address" required>
+                    <!-- Detailed address form -->
+                    <div class="address-title">PERMANENT ADDRESS</div>
+                    <p class="address-note">Please provide your complete permanent address information below.</p>
+                    
+                    <div class="address-fields">
+                        <div class="address-row">
+                            <div class="field-group">
+                                <label for="house_no">House/Lot/Apt No.</label>
+                                <input type="text" id="house_no" name="house_no" class="input" value="<?php echo $_POST['house_no'] ?? ''; ?>" placeholder="e.g. 123">
+                    </div>
+                            <div class="field-group">
+                                <label for="street">Street</label>
+                                <input type="text" id="street" name="street" class="input" value="<?php echo $_POST['street'] ?? ''; ?>" placeholder="e.g. Main St.">
+                            </div>
+                    </div>
+                    
+                        <div class="field-group">
+                            <label for="barangay" class="required">Barangay</label>
+                            <input type="text" id="barangay" name="barangay" class="input" value="<?php echo $_POST['barangay'] ?? ''; ?>" placeholder="Enter your barangay" required>
+                    </div>
+                    
+                        <div class="field-group">
+                            <label for="municipality" class="required">Municipality/City</label>
+                            <input type="text" id="municipality" name="municipality" class="input" value="<?php echo $_POST['municipality'] ?? ''; ?>" placeholder="Enter your municipality or city" required>
+                    </div>
+                    
+                        <div class="address-row">
+                            <div class="field-group">
+                                <label for="province" class="required">Province</label>
+                                <input type="text" id="province" name="province" class="input" value="<?php echo $_POST['province'] ?? ''; ?>" placeholder="Enter your province" required>
+                    </div>
+                            <div class="field-group">
+                                <label for="postal_code">Postal Code</label>
+                                <input type="text" id="postal_code" name="postal_code" class="input" value="<?php echo $_POST['postal_code'] ?? ''; ?>" placeholder="e.g. 1234">
+                </div>
+                    </div>
+                    </div>
+                    
+                    <!-- Hidden field to store the combined address -->
+                    <input type="hidden" id="permanent_address" name="permanent_address" value="<?php echo $_POST['permanent_address'] ?? ''; ?>">
+                    
+                    <!-- Combined address preview -->
+                    <div class="combined-address-preview" id="addressPreview">
+                        Your complete address will appear here as you type.
+                    </div>
                     
                     <label class="label required" for="mobile">Mobile Number:</label>
                     <input type="tel" id="mobile" name="mobile" class="input" value="<?php echo $_POST['mobile'] ?? ''; ?>" placeholder="e.g. 09123456789" required>
@@ -678,7 +791,7 @@ if ($validated) {
                     } else if (stepNum < stepNumber) {
                         step.classList.remove('active');
                         step.classList.add('completed');
-                    } else {
+                } else {
                         step.classList.remove('active', 'completed');
                     }
                 });
@@ -723,6 +836,20 @@ if ($validated) {
                 if (!isValid) {
                     // Show toast notification instead of alert for better mobile UX
                     showToast('Please fill in all required fields.');
+                }
+                
+                // Special case for step 5 (the final step)
+                if (stepNumber === 5 && isValid) {
+                    // Password matching validation
+                    const password = document.getElementById('password').value;
+                    const confirmPassword = document.getElementById('confirm_password').value;
+                    
+                    if (password !== confirmPassword) {
+                        showToast('Passwords do not match!');
+                        document.getElementById('confirm_password').style.borderColor = '#d32f2f';
+                        document.getElementById('confirm_password').style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
+                return false;
+                    }
                 }
                 
                 return isValid;
@@ -782,7 +909,7 @@ if ($validated) {
             
             // Next button click
             nextButtons.forEach(button => {
-                button.addEventListener('click', function() {
+                    button.addEventListener('click', function() {
                     const currentStep = parseInt(this.closest('.form-step').dataset.step);
                     if (validateStep(currentStep)) {
                         navigateToStep(parseInt(this.dataset.next));
@@ -800,28 +927,137 @@ if ($validated) {
             // Initialize progress line
             updateProgressLine(1);
             
+            // Add address-related functionality
+            // Function to combine address fields and update the hidden permanent_address field
+            function updateCombinedAddress() {
+                const houseNo = document.getElementById('house_no').value.trim();
+                const street = document.getElementById('street').value.trim();
+                const barangay = document.getElementById('barangay').value.trim();
+                const municipality = document.getElementById('municipality').value.trim();
+                const province = document.getElementById('province').value.trim();
+                const postalCode = document.getElementById('postal_code').value.trim();
+                
+                // Build address parts
+                const addressParts = [];
+                
+                if (houseNo) addressParts.push(houseNo);
+                if (street) addressParts.push(street);
+                if (barangay) addressParts.push(barangay);
+                if (municipality) addressParts.push(municipality);
+                if (province) addressParts.push(province);
+                if (postalCode) addressParts.push(postalCode);
+                
+                // Combine address parts
+                const combinedAddress = addressParts.join(', ');
+                
+                // Update hidden field
+                document.getElementById('permanent_address').value = combinedAddress;
+                
+                // Update address preview
+                const previewElement = document.getElementById('addressPreview');
+                if (combinedAddress) {
+                    previewElement.textContent = combinedAddress;
+                    } else {
+                    previewElement.textContent = 'Your complete address will appear here as you type.';
+                }
+                
+                return combinedAddress;
+            }
+            
+            // Add event listeners to all address fields
+            const addressFields = ['house_no', 'street', 'barangay', 'municipality', 'province', 'postal_code'];
+            addressFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.addEventListener('input', updateCombinedAddress);
+                    field.addEventListener('change', updateCombinedAddress);
+                }
+            });
+            
+            // Update the combined address on page load
+            window.addEventListener('DOMContentLoaded', function() {
+                // If there's an existing permanent_address but no individual fields,
+                // we can try to parse it (for returning users)
+                const permanentAddress = document.getElementById('permanent_address').value;
+                if (permanentAddress && !document.getElementById('barangay').value) {
+                    // We won't implement parsing logic here, just show the address
+                    document.getElementById('addressPreview').textContent = permanentAddress;
+                    } else {
+                    // Otherwise, build from individual fields
+                    updateCombinedAddress();
+                }
+            });
+            
+            // Function to validate step 3 specifically for address fields
+            function validateStep3() {
+                const requiredFields = ['barangay', 'municipality', 'province'];
+                let isValid = true;
+                
+                requiredFields.forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    if (!field.value.trim()) {
+                        field.style.borderColor = '#d32f2f';
+                        field.style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
+                        isValid = false;
+                    }
+                });
+                
+                if (!isValid) {
+                    showToast('Please fill in all required address fields.');
+                    return false;
+                }
+                
+                // Ensure the address is combined before proceeding
+                updateCombinedAddress();
+                
+                // Validate if we have a combined address now
+                if (!document.getElementById('permanent_address').value) {
+                    showToast('Please provide a valid address.');
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            // Override next button click for step 3
+            document.querySelector('.form-step[data-step="3"] .next-button').addEventListener('click', function(e) {
+                if (!validateStep3()) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+                
+                // Continue with normal next button behavior
+                navigateToStep(parseInt(this.dataset.next));
+            });
+            
+            // Before form submission, ensure address is combined
+            document.getElementById('registrationForm').addEventListener('submit', function() {
+                updateCombinedAddress();
+            });
+            
             // Form submission handler
             document.getElementById('registrationForm').addEventListener('submit', function(e) {
                 const currentStepNum = parseInt(stepInput.value);
-                if (!validateStep(currentStepNum)) {
-                    e.preventDefault();
+                
+                // Always ensure we're on step 5 when submitting
+                if (currentStepNum !== 5) {
+                    // If we're not on the final step, prevent submission
+                e.preventDefault();
                     return;
                 }
                 
-                // Password matching validation
-                const password = document.getElementById('password').value;
-                const confirmPassword = document.getElementById('confirm_password').value;
-                
-                if (password !== confirmPassword) {
-                    showToast('Passwords do not match!');
-                    document.getElementById('confirm_password').style.borderColor = '#d32f2f';
-                    document.getElementById('confirm_password').style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
+                // Validate the current step fields
+                if (!validateStep(currentStepNum)) {
                     e.preventDefault();
                     return;
                 }
                 
                 // Handle form submission via AJAX instead of traditional form submission
                 e.preventDefault();
+                
+                // Make sure the step is set to 5 when submitting
+                stepInput.value = 5;
                 
                 // Show loading indicator
                 const formContainer = document.querySelector('.form-container');
@@ -851,8 +1087,22 @@ if ($validated) {
                     if (data.success) {
                         // Show success message and redirect
                         showToast('Registration successful! Redirecting...');
+                        
+                        /**
+                         * Enhanced Redirect Handling
+                         * - Properly handles both relative and absolute paths
+                         * - Ensures consistent navigation to Mobile-Web-Based-App-System/mobile-app/index.php
+                         * - Maintains compatibility with server-provided redirect paths
+                         */
                         setTimeout(() => {
-                            window.location.href = data.data.redirect || 'login.php';
+                            // Use the redirect path from server if available,
+                            // otherwise fall back to the absolute path
+                            if (data.data && data.data.redirect) {
+                                window.location.href = data.data.redirect;
+                            } else {
+                                // Default absolute path as fallback
+                                window.location.href = '/Mobile-Web-Based-App-System/mobile-app/index.php';
+                            }
                         }, 1500);
                     } else {
                         // Show error message
@@ -881,7 +1131,22 @@ if ($validated) {
                     // Show error message
                     showToast('An unexpected error occurred. Please try again later.');
                     console.error('Error:', error);
-                });
+                    });
+            });
+            
+            // Add a specific handler for the register button (submit button) to ensure it works properly
+            document.querySelector('.submit-button').addEventListener('click', function(e) {
+                // Make sure we're on step 5 when clicking the register button
+                stepInput.value = 5;
+                
+                // Validate the current step
+                if (!validateStep(5)) {
+                    e.preventDefault();
+                    return false;
+                }
+                
+                // Let the form submission continue
+                return true;
             });
         });
     </script>

@@ -125,6 +125,13 @@ try {
         }
     }
     
+    /**
+     * Redirect Configuration Update
+     * - Updated to use absolute path for consistent redirection regardless of request origin
+     * - Points to the Mobile-Web-Based-App-System/mobile-app/index.php file
+     * - Ensures users always return to the main application entry point
+     */
+    
     // Method 1: Try using standard supabase_request with service role
     $headers = [
         'Prefer: return=representation',
@@ -135,7 +142,7 @@ try {
     
     if ($standard_result['success']) {
         $_SESSION['success'] = "Registration successful! Please login with your new account.";
-        send_response(true, "Registration successful", ['redirect' => '../login.php'], 201);
+        send_response(true, "Registration successful", ['redirect' => '/Mobile-Web-Based-App-System/mobile-app/index.php'], 201);
         exit;
     }
     
@@ -165,12 +172,12 @@ try {
     
     if (!$error && $status_code >= 200 && $status_code < 300) {
         $_SESSION['success'] = "Registration successful! Please login with your new account.";
-        send_response(true, "Registration successful", ['redirect' => '../login.php'], 201);
+        send_response(true, "Registration successful", ['redirect' => '/Mobile-Web-Based-App-System/mobile-app/index.php'], 201);
         exit;
     }
     
     // Let the user know something went wrong in a friendly way
-    send_response(false, "Registration was successful, but we couldn't save your donor details. Please log in and update your profile information.", ['redirect' => '../login.php?update_profile=true'], 201);
+    send_response(false, "Registration was successful, but we couldn't save your donor details. Please log in and update your profile information.", ['redirect' => '/Mobile-Web-Based-App-System/mobile-app/index.php?update_profile=true'], 201);
     
 } catch (Exception $e) {
     send_response(false, 'An unexpected error occurred: ' . $e->getMessage(), null, 500);
