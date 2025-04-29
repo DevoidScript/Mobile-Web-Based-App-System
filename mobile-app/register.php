@@ -14,6 +14,13 @@
  * 
  * Data is stored in the donors_detail table in Supabase, with authentication
  * handled through Supabase Auth.
+ * 
+ * MOBILE OPTIMIZATION:
+ * The UI has been optimized for mobile devices with:
+ * - Improved step indicators that adapt to small screens
+ * - Touch-friendly input elements and buttons
+ * - Responsive layout that works on any screen size
+ * - Streamlined visual design for better user experience
  */
 
 // Include configuration files
@@ -103,105 +110,139 @@ if ($validated) {
     <meta name="theme-color" content="#d32f2f">
     <title>Blood Donor Registration - Red Cross</title>
     <style>
-        /* Base styles */
+        /* Base styles optimized for mobile */
         body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
             line-height: 1.6;
             margin: 0;
             padding: 0;
-            background-color: #f2f2f2;
+            background-color: #f5f5f5;
+            color: #333;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
         
         .container {
-            max-width: 800px;
-            margin: 20px auto;
-            padding: 20px;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 16px;
+            box-sizing: border-box;
         }
         
         .form-container {
             background-color: white;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            position: relative;
         }
         
         .title {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: bold;
             text-align: center;
-            margin-bottom: 20px;
+            margin: 16px 0 24px;
             color: #d32f2f;
+            letter-spacing: 0.5px;
         }
         
         .label {
-            font-size: 16px;
-            font-weight: bold;
-            margin-top: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            margin-top: 16px;
+            margin-bottom: 6px;
             display: block;
         }
         
         .section-title {
-            font-size: 18px;
+            font-size: 17px;
             font-weight: bold;
-            margin-top: 20px;
-            margin-bottom: 10px;
-            padding-bottom: 5px;
+            margin: 0 0 20px;
+            padding-bottom: 8px;
             border-bottom: 1px solid #eee;
             color: #d32f2f;
+            text-transform: uppercase;
         }
         
         .input {
             width: 100%;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 5px 0 15px;
-            border: 1px solid #ccc;
+            padding: 13px 16px;
+            border-radius: 8px;
+            margin: 0 0 16px;
+            border: 1px solid #ddd;
             box-sizing: border-box;
+            font-size: 16px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            -webkit-appearance: none;
+        }
+        
+        .input:focus, .select:focus {
+            outline: none;
+            border-color: #d32f2f;
+            box-shadow: 0 0 0 2px rgba(211, 47, 47, 0.2);
         }
         
         .select {
             width: 100%;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 5px 0 15px;
-            border: 1px solid #ccc;
+            padding: 13px 16px;
+            border-radius: 8px;
+            margin: 0 0 16px;
+            border: 1px solid #ddd;
             background-color: white;
             box-sizing: border-box;
+            font-size: 16px;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 8.825L1.175 4 2.25 2.925 6 6.675 9.75 2.925 10.825 4z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 40px;
         }
         
         .submit-button {
-            background-color: #d32f2f;
+            background-color: #c01f1f; /* Match the next button color */
             color: white;
-            padding: 15px;
+            padding: 14px 20px;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 18px;
-            font-weight: bold;
-            width: 100%;
-            margin-top: 20px;
+            font-size: 15px;
+            font-weight: 600;
+            min-width: 100px;
+            text-align: center;
+            transition: background-color 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            -webkit-tap-highlight-color: transparent;
+            margin-top: 0;
         }
         
-        .submit-button:hover {
-            background-color: #b71c1c;
+        .submit-button:hover, .submit-button:focus {
+            background-color: #a51a1a; /* Darker on hover */
+        }
+        
+        .submit-button:active {
+            transform: translateY(1px);
         }
         
         .error-message {
             background-color: #ffebee;
             color: #c62828;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
             border: 1px solid #ef9a9a;
+            font-size: 14px;
         }
         
         .success-message {
             background-color: #e8f5e9;
             color: #2e7d32;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
             border: 1px solid #a5d6a7;
+            font-size: 14px;
         }
         
         .required::after {
@@ -209,51 +250,96 @@ if ($validated) {
             color: #d32f2f;
         }
         
-        /* Progress indicators */
+        /**
+         * Improved Progress Indicator Styling
+         * - Fixed step 4 line alignment issue
+         * - Precise positioning of progress line
+         * - Enhanced visual appearance for mobile
+         */
+        
+        /* Improved progress container */
         .progress-container {
             display: flex;
             justify-content: space-between;
             margin-bottom: 30px;
             position: relative;
+            padding: 0 16px;
         }
         
+        /* Background line connecting steps */
         .progress-container::before {
             content: '';
             position: absolute;
             top: 50%;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background-color: #ddd;
+            left: 16px; /* From first step center */
+            right: 16px; /* To last step center */
+            height: 3px;
+            background-color: #d9d9d9;
             z-index: 1;
+            transform: translateY(-50%);
         }
         
+        /* Colored progress line */
+        .progress-line {
+            position: absolute;
+            top: 50%;
+            left: 16px;
+            height: 3px;
+            background-color: #c01f1f;
+            z-index: 2;
+            transform: translateY(-50%);
+            transform-origin: left;
+            transition: width 0.5s ease;
+        }
+        
+        /* Progress indicators - Updated for mobile */
+        /* No longer needed - this section was replaced above */
+        
+        /* Step styling with better positioning */
         .step {
-            width: 30px;
-            height: 30px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
-            background-color: #ddd;
+            background-color: #d9d9d9; 
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
             position: relative;
-            z-index: 2;
+            z-index: 3; /* Higher than both line elements */
+            font-size: 14px;
+            color: #444;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
         }
         
         .step.active {
-            background-color: #d32f2f;
+            background-color: #c01f1f; /* Darker active color */
             color: white;
+            box-shadow: 0 2px 8px rgba(192, 31, 31, 0.4);
+            transform: scale(1.1);
         }
         
         .step.completed {
-            background-color: #4caf50;
+            background-color: #c01f1f; /* Darker completed color */
             color: white;
+            opacity: 0.9; /* Less transparent for stronger color */
+        }
+        
+        /* Step connecting lines */
+        .step::after {
+            display: none; /* Hide default connectors */
         }
         
         /* Form steps */
         .form-step {
             display: none;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         .form-step.active {
@@ -264,66 +350,118 @@ if ($validated) {
         .form-navigation {
             display: flex;
             justify-content: space-between;
-            margin-top: 20px;
+            margin-top: 24px;
         }
         
         .nav-button {
-            padding: 10px 20px;
-            border-radius: 5px;
+            padding: 14px 20px;
+            border-radius: 8px;
             cursor: pointer;
-            font-weight: bold;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s;
+            min-width: 100px;
+            text-align: center;
+            -webkit-tap-highlight-color: transparent;
         }
         
         .prev-button {
             background-color: #f5f5f5;
             border: 1px solid #ddd;
+            color: #555;
+        }
+        
+        .prev-button:active {
+            background-color: #e0e0e0;
         }
         
         .next-button {
-            background-color: #d32f2f;
+            background-color: #c01f1f; /* Darker color to match step indicators */
             color: white;
             border: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         
-        .next-button:hover {
-            background-color: #b71c1c;
+        .next-button:hover, .next-button:focus {
+            background-color: #a51a1a; /* Even darker on hover */
         }
         
-        /* Add styles for loading overlay */
+        .next-button:active {
+            transform: translateY(1px);
+        }
+        
+        /* Loading overlay - optimized for mobile */
         .loading-overlay {
-            position: absolute;
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(255, 255, 255, 0.8);
+            background-color: rgba(255, 255, 255, 0.9);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 1000;
+            -webkit-backdrop-filter: blur(3px);
+            backdrop-filter: blur(3px);
         }
         
         .loading-content {
             background-color: white;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
             text-align: center;
+            width: 85%;
+            max-width: 300px;
         }
         
         .loading-spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #d32f2f;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #d32f2f;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            margin: 0 auto 15px;
-            animation: spin 2s linear infinite;
+            width: 36px;
+            height: 36px;
+            margin: 0 auto 16px;
+            animation: spin 1.2s linear infinite;
         }
         
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        
+        /* Mobile-specific adjustments */
+        @media (max-width: 480px) {
+            .container {
+                padding: 12px;
+            }
+            
+            .form-container {
+                padding: 16px;
+                border-radius: 10px;
+            }
+            
+            .title {
+                font-size: 20px;
+                margin: 10px 0 20px;
+            }
+            
+            .step {
+                width: 28px;
+                height: 28px;
+                font-size: 13px;
+            }
+            
+            .nav-button {
+                padding: 12px 15px;
+                font-size: 14px;
+                min-width: 90px;
+            }
+            
+            .section-title {
+                font-size: 16px;
+            }
         }
     </style>
 </head>
@@ -350,8 +488,9 @@ if ($validated) {
         <?php endif; ?>
         
         <div class="form-container">
-            <!-- Progress indicators -->
+            <!-- Progress indicators with colored line -->
             <div class="progress-container">
+                <div class="progress-line" id="progress-line"></div>
                 <div class="step active" data-step="1">1</div>
                 <div class="step" data-step="2">2</div>
                 <div class="step" data-step="3">3</div>
@@ -367,13 +506,13 @@ if ($validated) {
                     <div class="section-title">PERSONAL INFORMATION</div>
                     
                     <label class="label required" for="surname">Surname:</label>
-                    <input type="text" id="surname" name="surname" class="input" value="<?php echo $_POST['surname'] ?? ''; ?>" required>
+                    <input type="text" id="surname" name="surname" class="input" value="<?php echo $_POST['surname'] ?? ''; ?>" placeholder="Enter your surname" required>
                     
                     <label class="label required" for="first_name">First Name:</label>
-                    <input type="text" id="first_name" name="first_name" class="input" value="<?php echo $_POST['first_name'] ?? ''; ?>" required>
+                    <input type="text" id="first_name" name="first_name" class="input" value="<?php echo $_POST['first_name'] ?? ''; ?>" placeholder="Enter your first name" required>
                     
                     <label class="label" for="middle_name">Middle Name:</label>
-                    <input type="text" id="middle_name" name="middle_name" class="input" value="<?php echo $_POST['middle_name'] ?? ''; ?>">
+                    <input type="text" id="middle_name" name="middle_name" class="input" value="<?php echo $_POST['middle_name'] ?? ''; ?>" placeholder="Enter your middle name (optional)">
                     
                     <div class="form-navigation">
                         <div></div> <!-- Empty div for spacing -->
@@ -389,7 +528,7 @@ if ($validated) {
                     <input type="date" id="birthdate" name="birthdate" class="input" value="<?php echo $_POST['birthdate'] ?? ''; ?>" required>
                     
                     <label class="label required" for="age">Age:</label>
-                    <input type="number" id="age" name="age" class="input" value="<?php echo $_POST['age'] ?? ''; ?>" required>
+                    <input type="number" id="age" name="age" class="input" value="<?php echo $_POST['age'] ?? ''; ?>" placeholder="Your age will be calculated" required>
                     
                     <label class="label required" for="sex">Sex:</label>
                     <select id="sex" name="sex" class="select" required>
@@ -419,10 +558,10 @@ if ($validated) {
                     <div class="section-title">ADDRESS INFORMATION</div>
                     
                     <label class="label required" for="permanent_address">Permanent Address:</label>
-                    <input type="text" id="permanent_address" name="permanent_address" class="input" value="<?php echo $_POST['permanent_address'] ?? ''; ?>" required>
+                    <input type="text" id="permanent_address" name="permanent_address" class="input" value="<?php echo $_POST['permanent_address'] ?? ''; ?>" placeholder="Enter your complete address" required>
                     
                     <label class="label required" for="mobile">Mobile Number:</label>
-                    <input type="text" id="mobile" name="mobile" class="input" value="<?php echo $_POST['mobile'] ?? ''; ?>" required>
+                    <input type="tel" id="mobile" name="mobile" class="input" value="<?php echo $_POST['mobile'] ?? ''; ?>" placeholder="e.g. 09123456789" required>
                     
                     <div class="form-navigation">
                         <button type="button" class="nav-button prev-button" data-prev="2">Previous</button>
@@ -435,16 +574,16 @@ if ($validated) {
                     <div class="section-title">ADDITIONAL INFORMATION</div>
                     
                     <label class="label required" for="nationality">Nationality:</label>
-                    <input type="text" id="nationality" name="nationality" class="input" value="<?php echo $_POST['nationality'] ?? ''; ?>" required>
+                    <input type="text" id="nationality" name="nationality" class="input" value="<?php echo $_POST['nationality'] ?? ''; ?>" placeholder="e.g. Filipino" required>
                     
                     <label class="label" for="religion">Religion:</label>
-                    <input type="text" id="religion" name="religion" class="input" value="<?php echo $_POST['religion'] ?? ''; ?>">
+                    <input type="text" id="religion" name="religion" class="input" value="<?php echo $_POST['religion'] ?? ''; ?>" placeholder="e.g. Catholic (optional)">
                     
                     <label class="label" for="education">Education:</label>
-                    <input type="text" id="education" name="education" class="input" value="<?php echo $_POST['education'] ?? ''; ?>">
+                    <input type="text" id="education" name="education" class="input" value="<?php echo $_POST['education'] ?? ''; ?>" placeholder="Highest educational attainment (optional)">
                     
                     <label class="label required" for="occupation">Occupation:</label>
-                    <input type="text" id="occupation" name="occupation" class="input" value="<?php echo $_POST['occupation'] ?? ''; ?>" required>
+                    <input type="text" id="occupation" name="occupation" class="input" value="<?php echo $_POST['occupation'] ?? ''; ?>" placeholder="e.g. Student, Engineer, Teacher" required>
                     
                     <div class="form-navigation">
                         <button type="button" class="nav-button prev-button" data-prev="3">Previous</button>
@@ -457,17 +596,17 @@ if ($validated) {
                     <div class="section-title">ACCOUNT INFORMATION</div>
                     
                     <label class="label required" for="email">Email Address:</label>
-                    <input type="email" id="email" name="email" class="input" value="<?php echo $_POST['email'] ?? ''; ?>" required>
+                    <input type="email" id="email" name="email" class="input" value="<?php echo $_POST['email'] ?? ''; ?>" placeholder="youremail@example.com" required>
                     
                     <label class="label required" for="password">Password:</label>
-                    <input type="password" id="password" name="password" class="input" required>
+                    <input type="password" id="password" name="password" class="input" placeholder="Enter a secure password" required>
                     
                     <label class="label required" for="confirm_password">Confirm Password:</label>
-                    <input type="password" id="confirm_password" name="confirm_password" class="input" required>
+                    <input type="password" id="confirm_password" name="confirm_password" class="input" placeholder="Confirm your password" required>
                     
                     <div class="form-navigation">
                         <button type="button" class="nav-button prev-button" data-prev="4">Previous</button>
-                        <button type="submit" class="submit-button">Register</button>
+                        <button type="submit" class="nav-button next-button submit-button">Register</button>
                     </div>
                 </div>
             </form>
@@ -482,6 +621,7 @@ if ($validated) {
             const nextButtons = document.querySelectorAll('.next-button');
             const prevButtons = document.querySelectorAll('.prev-button');
             const stepInput = document.getElementById('step');
+            const progressLine = document.getElementById('progress-line');
             
             // Calculate age from birthdate
             const birthdateInput = document.getElementById('birthdate');
@@ -500,16 +640,41 @@ if ($validated) {
                 ageInput.value = age;
             });
             
+            // Function to calculate line width based on step number
+            function updateProgressLine(stepNumber) {
+                // Calculate the total container width (excluding padding)
+                const containerWidth = document.querySelector('.progress-container').offsetWidth - 32; // 32px for left+right padding
+                
+                // For a 5-step process, each step represents 25% progress (4 segments)
+                const totalSegments = 4; // Total steps minus 1
+                
+                // Calculate the right width percentage for this step
+                let segmentsCompleted = stepNumber - 1;
+                let progressWidth = (segmentsCompleted / totalSegments) * containerWidth;
+                
+                // Set the line width directly in pixels for more precision
+                progressLine.style.width = progressWidth + 'px';
+            }
+            
+            // Handle window resize to recalculate line positions
+            window.addEventListener('resize', function() {
+                updateProgressLine(parseInt(stepInput.value));
+            });
+            
             // Function to navigate between steps
             function navigateToStep(stepNumber) {
                 // Update hidden step input
                 stepInput.value = stepNumber;
+                
+                // Update progress line
+                updateProgressLine(stepNumber);
                 
                 // Update step indicators
                 steps.forEach(step => {
                     const stepNum = parseInt(step.dataset.step);
                     if (stepNum === stepNumber) {
                         step.classList.add('active');
+                        step.classList.remove('completed');
                     } else if (stepNum < stepNumber) {
                         step.classList.remove('active');
                         step.classList.add('completed');
@@ -518,7 +683,7 @@ if ($validated) {
                     }
                 });
                 
-                // Show/hide form steps
+                // Show/hide form steps with smooth transitions
                 formSteps.forEach(formStep => {
                     if (parseInt(formStep.dataset.step) === stepNumber) {
                         formStep.classList.add('active');
@@ -526,9 +691,12 @@ if ($validated) {
                         formStep.classList.remove('active');
                     }
                 });
+                
+                // Scroll to top of form for better mobile experience
+                document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
             
-            // Function to validate current step
+            // Function to validate current step with visual feedback
             function validateStep(stepNumber) {
                 const currentStep = document.querySelector(`.form-step[data-step="${stepNumber}"]`);
                 const requiredFields = currentStep.querySelectorAll('[required]');
@@ -537,18 +705,80 @@ if ($validated) {
                 requiredFields.forEach(field => {
                     if (!field.value.trim()) {
                         field.style.borderColor = '#d32f2f';
+                        field.style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
+                        field.classList.add('shake');
+                        
+                        // Remove shake animation after it completes
+                        setTimeout(() => {
+                            field.classList.remove('shake');
+                        }, 500);
+                        
                         isValid = false;
                     } else {
                         field.style.borderColor = '#ccc';
+                        field.style.backgroundColor = 'white';
                     }
                 });
                 
                 if (!isValid) {
-                    alert('Please fill in all required fields before proceeding.');
+                    // Show toast notification instead of alert for better mobile UX
+                    showToast('Please fill in all required fields.');
                 }
                 
                 return isValid;
             }
+            
+            // Toast notification for better mobile experience
+            function showToast(message) {
+                const toast = document.createElement('div');
+                toast.className = 'toast-message';
+                toast.textContent = message;
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.classList.add('show');
+                }, 100);
+                
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => {
+                        document.body.removeChild(toast);
+                    }, 300);
+                }, 3000);
+            }
+            
+            // Add animation class for shake effect
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    20%, 60% { transform: translateX(-5px); }
+                    40%, 80% { transform: translateX(5px); }
+                }
+                .shake {
+                    animation: shake 0.5s ease-in-out;
+                }
+                .toast-message {
+                    position: fixed;
+                    bottom: -60px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background-color: rgba(33, 33, 33, 0.9);
+                    color: white;
+                    padding: 12px 24px;
+                    border-radius: 24px;
+                    font-size: 14px;
+                    z-index: 9999;
+                    transition: bottom 0.3s ease-in-out;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+                    text-align: center;
+                    max-width: 85%;
+                }
+                .toast-message.show {
+                    bottom: 30px;
+                }
+            `;
+            document.head.appendChild(style);
             
             // Next button click
             nextButtons.forEach(button => {
@@ -567,6 +797,9 @@ if ($validated) {
                 });
             });
             
+            // Initialize progress line
+            updateProgressLine(1);
+            
             // Form submission handler
             document.getElementById('registrationForm').addEventListener('submit', function(e) {
                 const currentStepNum = parseInt(stepInput.value);
@@ -580,7 +813,9 @@ if ($validated) {
                 const confirmPassword = document.getElementById('confirm_password').value;
                 
                 if (password !== confirmPassword) {
-                    alert('Passwords do not match!');
+                    showToast('Passwords do not match!');
+                    document.getElementById('confirm_password').style.borderColor = '#d32f2f';
+                    document.getElementById('confirm_password').style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
                     e.preventDefault();
                     return;
                 }
@@ -598,7 +833,7 @@ if ($validated) {
                         <p>Processing registration...</p>
                     </div>
                 `;
-                formContainer.appendChild(loadingOverlay);
+                document.body.appendChild(loadingOverlay);
                 
                 // Get form data
                 const formData = new FormData(this);
@@ -615,11 +850,13 @@ if ($validated) {
                     
                     if (data.success) {
                         // Show success message and redirect
-                        alert('Registration successful! Redirecting to login page.');
-                        window.location.href = data.data.redirect || 'login.php';
+                        showToast('Registration successful! Redirecting...');
+                        setTimeout(() => {
+                            window.location.href = data.data.redirect || 'login.php';
+                        }, 1500);
                     } else {
                         // Show error message
-                        alert('Registration failed: ' + data.message);
+                        showToast('Registration failed: ' + data.message);
                         
                         // Add error message to the page
                         const errorContainer = document.createElement('div');
@@ -642,7 +879,7 @@ if ($validated) {
                     loadingOverlay.remove();
                     
                     // Show error message
-                    alert('An unexpected error occurred. Please try again later.');
+                    showToast('An unexpected error occurred. Please try again later.');
                     console.error('Error:', error);
                 });
             });
