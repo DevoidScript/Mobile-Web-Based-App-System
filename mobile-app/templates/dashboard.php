@@ -326,7 +326,7 @@ if (!$donor_details && $user) {
         <div class="card">
             <h3>Donate Blood</h3>
             <!-- Make the entire card clickable for blood donation -->
-            <a href="../blood_donation.php" class="card-link">
+            <a href="blood_donation.php" class="card-link">
                 <div class="card-content">
                     <div class="card-icon">❤️</div>
                     <div class="card-text">Schedule your next blood donation appointment</div>
@@ -337,7 +337,7 @@ if (!$donor_details && $user) {
         <div class="card">
             <h3>Donation History</h3>
             <!-- Card to view donation history -->
-            <a href="../donation_history.php" class="card-link">
+            <a href="donation_history.php" class="card-link">
                 <div class="card-content">
                     <div class="card-icon">📋</div>
                     <div class="card-text">View your past donations and upcoming appointments</div>
@@ -348,17 +348,13 @@ if (!$donor_details && $user) {
         <div class="card">
             <h3>Find Blood Centers</h3>
             <!-- Card to find nearest blood centers -->
-            <a href="../blood_centers.php" class="card-link">
+            <a href="blood_centers.php" class="card-link">
                 <div class="card-content">
                     <div class="card-icon">🏥</div>
                     <div class="card-text">Locate the nearest Red Cross blood center</div>
                 </div>
             </a>
         </div>
-        
-        <form action="../api/auth.php?logout" method="POST">
-            <button type="submit" class="logout-btn">Logout</button>
-        </form>
     </div>
     
     <!-- Mobile-optimized bottom navigation bar -->
@@ -367,15 +363,15 @@ if (!$donor_details && $user) {
             <div class="nav-icon">🏠</div>
             <div class="nav-label">Home</div>
         </a>
-        <a href="../blood_donation.php" class="nav-button">
+        <a href="blood-session.php" class="nav-button">
             <div class="nav-icon">❤️</div>
             <div class="nav-label">Donate</div>
         </a>
-        <a href="../donation_history.php" class="nav-button">
+        <a href="donation_history.php" class="nav-button">
             <div class="nav-icon">📋</div>
             <div class="nav-label">History</div>
         </a>
-        <a href="../profile.php" class="nav-button">
+        <a href="profile.php" class="nav-button">
             <div class="nav-icon">👤</div>
             <div class="nav-label">Profile</div>
         </a>

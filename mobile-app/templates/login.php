@@ -185,7 +185,7 @@
                     </div>
                     <button type="submit" class="btn-login">Login</button>
                 </form>
-                <a href="register.php"><button type="button" class="btn-register">Register</button></a>
+                <a href="templates/register.php"><button type="button" class="btn-register">Register</button></a>
             </div>
         </div>
     </div>
