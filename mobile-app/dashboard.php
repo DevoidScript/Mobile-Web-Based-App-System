@@ -42,7 +42,8 @@ if (!$donor_details && $user) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Enhanced viewport settings for better mobile rendering -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#FF0000">
     <title>Red Cross Dashboard</title>
     <link rel="stylesheet" href="assets/css/styles.css">
@@ -53,12 +54,20 @@ if (!$donor_details && $user) {
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <style>
+        /* 
+         * Mobile-optimized styles for the Red Cross Dashboard
+         * Designed specifically for mobile phone displays with touch interactions
+         * Includes responsive design elements for various screen sizes
+         */
+        
         /* Additional styles specific to the dashboard page */
         body {
             margin: 0;
             padding: 0;
             background-color: #f5f5f5;
             font-family: Arial, sans-serif;
+            font-size: 16px; /* Base font size for better readability on mobile */
+            -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
         }
         
         .header {
@@ -67,6 +76,9 @@ if (!$donor_details && $user) {
             padding: 15px;
             text-align: center;
             position: relative;
+            width: 100%;
+            box-sizing: border-box;
+            z-index: 100;
         }
         
         .logo-small {
@@ -84,17 +96,21 @@ if (!$donor_details && $user) {
         .header h1 {
             margin: 0;
             font-size: 20px;
+            padding: 0 40px; /* Make space for the logo */
         }
         
         .dashboard-container {
-            padding: 20px;
-            margin-bottom: 60px; /* Space for bottom navigation */
+            padding: 15px;
+            margin-bottom: 70px; /* Increased space for bottom navigation */
+            max-width: 600px; /* Limit width for larger phones */
+            margin-left: auto;
+            margin-right: auto;
         }
         
         .user-info {
             background-color: white;
             border-radius: 10px;
-            padding: 20px;
+            padding: 15px;
             margin-bottom: 20px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
@@ -105,39 +121,45 @@ if (!$donor_details && $user) {
             font-size: 18px;
             border-bottom: 1px solid #eee;
             padding-bottom: 10px;
+            margin-bottom: 15px;
         }
         
         .user-detail {
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             display: flex;
+            flex-wrap: wrap; /* Allow wrapping on very small screens */
         }
         
         .detail-label {
             font-weight: bold;
-            min-width: 120px;
+            min-width: 100px;
+            padding-right: 10px;
         }
         
         .detail-value {
             flex: 1;
+            word-break: break-word; /* Prevent overflow for long values */
         }
         
         .card {
             background-color: white;
             border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
         .card h3 {
             color: #FF0000;
             margin-top: 0;
-            font-size: 16px;
+            margin-bottom: 15px;
+            font-size: 18px;
         }
         
         .card-content {
             display: flex;
             align-items: center;
+            min-height: 60px; /* Ensure minimum height for better touch targets */
         }
         
         .card-icon {
@@ -151,6 +173,31 @@ if (!$donor_details && $user) {
             margin-right: 15px;
             font-size: 24px;
             color: #FF0000;
+            flex-shrink: 0; /* Prevent icon from shrinking */
+        }
+        
+        .card-link {
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            padding: 5px; /* Additional padding for touch area */
+            border-radius: 8px;
+            transition: background-color 0.2s ease;
+        }
+        
+        .card-link:hover {
+            text-decoration: none;
+        }
+        
+        .card-link:active {
+            background-color: #f5f5f5; /* Visual feedback on touch */
+        }
+        
+        .card-link:hover .card-icon,
+        .card-link:active .card-icon {
+            background-color: #ffcdd2;
+            transform: scale(1.05);
+            transition: all 0.2s ease;
         }
         
         .card-text {
@@ -168,6 +215,13 @@ if (!$donor_details && $user) {
             cursor: pointer;
             font-weight: bold;
             margin-top: 20px;
+            -webkit-appearance: none; /* Remove default styling on iOS */
+            min-height: 50px; /* Ensure good touch target size */
+        }
+        
+        .logout-btn:active {
+            background-color: #D50000; /* Darker red on touch */
+            transform: translateY(1px); /* Slight visual feedback */
         }
         
         .navigation-bar {
@@ -179,6 +233,10 @@ if (!$donor_details && $user) {
             display: flex;
             justify-content: space-around;
             padding: 10px 0;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+            z-index: 1000;
+            height: 60px; /* Fixed height for consistency */
+            box-sizing: border-box;
         }
         
         .nav-button {
@@ -187,6 +245,50 @@ if (!$donor_details && $user) {
             border: none;
             font-size: 24px;
             cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 25%;
+            padding: 5px 0;
+            touch-action: manipulation; /* Optimize for touch */
+            text-decoration: none; /* Remove underline from links */
+        }
+        
+        .nav-button:active {
+            opacity: 0.7; /* Visual feedback on touch */
+        }
+        
+        .nav-icon {
+            font-size: 24px;
+            margin-bottom: 2px;
+        }
+        
+        .nav-label {
+            font-size: 10px;
+            text-align: center;
+        }
+        
+        /* Add responsive adjustments */
+        @media (max-width: 360px) {
+            /* For very small screens */
+            .card-content {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .card-icon {
+                margin-bottom: 10px;
+                margin-right: 0;
+            }
+            
+            .user-detail {
+                flex-direction: column;
+            }
+            
+            .detail-label {
+                margin-bottom: 5px;
+            }
         }
     </style>
 </head>
@@ -228,26 +330,35 @@ if (!$donor_details && $user) {
         
         <div class="card">
             <h3>Donate Blood</h3>
-            <div class="card-content">
-                <div class="card-icon">❤️</div>
-                <div class="card-text">Schedule your next blood donation appointment</div>
-            </div>
+            <!-- Make the entire card clickable for blood donation -->
+            <a href="blood_donation.php" class="card-link">
+                <div class="card-content">
+                    <div class="card-icon">❤️</div>
+                    <div class="card-text">Schedule your next blood donation appointment</div>
+                </div>
+            </a>
         </div>
         
         <div class="card">
             <h3>Donation History</h3>
-            <div class="card-content">
-                <div class="card-icon">📋</div>
-                <div class="card-text">View your past donations and upcoming appointments</div>
-            </div>
+            <!-- Card to view donation history -->
+            <a href="donation_history.php" class="card-link">
+                <div class="card-content">
+                    <div class="card-icon">📋</div>
+                    <div class="card-text">View your past donations and upcoming appointments</div>
+                </div>
+            </a>
         </div>
         
         <div class="card">
             <h3>Find Blood Centers</h3>
-            <div class="card-content">
-                <div class="card-icon">🏥</div>
-                <div class="card-text">Locate the nearest Red Cross blood center</div>
-            </div>
+            <!-- Card to find nearest blood centers -->
+            <a href="blood_centers.php" class="card-link">
+                <div class="card-content">
+                    <div class="card-icon">🏥</div>
+                    <div class="card-text">Locate the nearest Red Cross blood center</div>
+                </div>
+            </a>
         </div>
         
         <form action="api/auth.php?logout" method="POST">
@@ -255,6 +366,25 @@ if (!$donor_details && $user) {
         </form>
     </div>
     
+    <!-- Mobile-optimized bottom navigation bar -->
+    <div class="navigation-bar">
+        <a href="dashboard.php" class="nav-button">
+            <div class="nav-icon">🏠</div>
+            <div class="nav-label">Home</div>
+        </a>
+        <a href="blood_donation.php" class="nav-button">
+            <div class="nav-icon">❤️</div>
+            <div class="nav-label">Donate</div>
+        </a>
+        <a href="donation_history.php" class="nav-button">
+            <div class="nav-icon">📋</div>
+            <div class="nav-label">History</div>
+        </a>
+        <a href="profile.php" class="nav-button">
+            <div class="nav-icon">👤</div>
+            <div class="nav-label">Profile</div>
+        </a>
+    </div>
     
     <!-- Scripts -->
     <script src="assets/js/app.js"></script>
