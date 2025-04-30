@@ -2,6 +2,10 @@
 /**
  * Dashboard page for the Red Cross Mobile App
  * This page is shown after successful login
+ * 
+ * MOVED TO TEMPLATES:
+ * This file has been moved to the templates directory for better organization.
+ * Paths have been adjusted to maintain functionality.
  */
 
 // Set error reporting in development
@@ -9,9 +13,9 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-// Include configuration files
-require_once 'config/database.php';
-require_once 'includes/functions.php';
+// Include configuration files - adjusted paths for templates directory
+require_once '../config/database.php';
+require_once '../includes/functions.php';
 
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
@@ -20,7 +24,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Check if user is logged in
 if (!is_logged_in()) {
-    header('Location: index.php?error=Please login to access the dashboard');
+    header('Location: ../index.php?error=Please login to access the dashboard');
     exit;
 }
 
@@ -46,9 +50,9 @@ if (!$donor_details && $user) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#FF0000">
     <title>Red Cross Dashboard</title>
-    <link rel="stylesheet" href="assets/css/styles.css">
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="assets/icons/icon-192x192.png">
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link rel="manifest" href="../manifest.json">
+    <link rel="apple-touch-icon" href="../assets/icons/icon-192x192.png">
     <!-- PWA meta tags -->
     <meta name="description" content="Red Cross Mobile Application - Dashboard">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -295,7 +299,7 @@ if (!$donor_details && $user) {
 </head>
 <body>
     <div class="header">
-        <img src="assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="logo-small">
+        <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="logo-small">
         <h1>Philippine Red Cross</h1>
     </div>
     
@@ -322,7 +326,7 @@ if (!$donor_details && $user) {
         <div class="card">
             <h3>Donate Blood</h3>
             <!-- Make the entire card clickable for blood donation -->
-            <a href="blood_donation.php" class="card-link">
+            <a href="../blood_donation.php" class="card-link">
                 <div class="card-content">
                     <div class="card-icon">❤️</div>
                     <div class="card-text">Schedule your next blood donation appointment</div>
@@ -333,7 +337,7 @@ if (!$donor_details && $user) {
         <div class="card">
             <h3>Donation History</h3>
             <!-- Card to view donation history -->
-            <a href="donation_history.php" class="card-link">
+            <a href="../donation_history.php" class="card-link">
                 <div class="card-content">
                     <div class="card-icon">📋</div>
                     <div class="card-text">View your past donations and upcoming appointments</div>
@@ -344,7 +348,7 @@ if (!$donor_details && $user) {
         <div class="card">
             <h3>Find Blood Centers</h3>
             <!-- Card to find nearest blood centers -->
-            <a href="blood_centers.php" class="card-link">
+            <a href="../blood_centers.php" class="card-link">
                 <div class="card-content">
                     <div class="card-icon">🏥</div>
                     <div class="card-text">Locate the nearest Red Cross blood center</div>
@@ -352,7 +356,7 @@ if (!$donor_details && $user) {
             </a>
         </div>
         
-        <form action="api/auth.php?logout" method="POST">
+        <form action="../api/auth.php?logout" method="POST">
             <button type="submit" class="logout-btn">Logout</button>
         </form>
     </div>
@@ -363,27 +367,27 @@ if (!$donor_details && $user) {
             <div class="nav-icon">🏠</div>
             <div class="nav-label">Home</div>
         </a>
-        <a href="blood_donation.php" class="nav-button">
+        <a href="../blood_donation.php" class="nav-button">
             <div class="nav-icon">❤️</div>
             <div class="nav-label">Donate</div>
         </a>
-        <a href="donation_history.php" class="nav-button">
+        <a href="../donation_history.php" class="nav-button">
             <div class="nav-icon">📋</div>
             <div class="nav-label">History</div>
         </a>
-        <a href="profile.php" class="nav-button">
+        <a href="../profile.php" class="nav-button">
             <div class="nav-icon">👤</div>
             <div class="nav-label">Profile</div>
         </a>
     </div>
     
     <!-- Scripts -->
-    <script src="assets/js/app.js"></script>
+    <script src="../assets/js/app.js"></script>
     <!-- Register Service Worker for PWA -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('service-worker.js')
+                navigator.serviceWorker.register('../service-worker.js')
                     .then(function(registration) {
                         console.log('ServiceWorker registration successful with scope: ', registration.scope);
                     })

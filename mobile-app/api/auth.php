@@ -91,7 +91,7 @@ function handleLogin() {
         }
         
         // Redirect to dashboard or home page
-        header('Location: ../dashboard.php');
+        header('Location: ../templates/dashboard.php');
         exit;
     } else {
         // Something went wrong
@@ -119,7 +119,7 @@ function handleRegistration($postData = null) {
     // If not a direct call, check if it's a POST request
     if (!$isDirectCall && $_SERVER['REQUEST_METHOD'] !== 'POST') {
         if (!$isDirectCall) {
-            header('Location: ../register.php?error=Invalid request method');
+            header('Location: ../templates/register.php?error=Invalid request method');
             exit;
         }
         return "Invalid request method";
@@ -133,7 +133,7 @@ function handleRegistration($postData = null) {
     // Check if password match
     if ($password !== $confirm_password) {
         if (!$isDirectCall) {
-            header('Location: ../register.php?error=Passwords do not match');
+            header('Location: ../templates/register.php?error=Passwords do not match');
             exit;
         }
         return "Passwords do not match";
@@ -150,7 +150,7 @@ function handleRegistration($postData = null) {
         if (!$user_data) {
             if (!$isDirectCall) {
                 $_SESSION['error'] = "Failed to create user account.";
-                header('Location: ../register.php');
+                header('Location: ../templates/register.php');
                 exit;
             }
             return "Failed to create user account";
@@ -218,7 +218,7 @@ function handleRegistration($postData = null) {
         if (!$result) {
             if (!$isDirectCall) {
                 $_SESSION['error'] = "Registration failed. Please try again.";
-                header('Location: ../register.php');
+                header('Location: ../templates/register.php');
                 exit;
             }
             return "Failed to insert donor details";
@@ -228,7 +228,7 @@ function handleRegistration($postData = null) {
         if (!$result['success'] || empty($result['data'])) {
             if (!$isDirectCall) {
                 $_SESSION['error'] = "Registration failed. Database error occurred.";
-                header('Location: ../register.php');
+                header('Location: ../templates/register.php');
                 exit;
             }
             return "Database error occurred during registration";
@@ -242,12 +242,8 @@ function handleRegistration($postData = null) {
         // Complete the registration and redirect to login page
         $_SESSION['success'] = "Registration successful! Please login with your new account.";
         
-        // Check if login.php exists, otherwise redirect to index.php
-        if (file_exists('../login.php')) {
-            header('Location: ../login.php');
-        } else {
-            header('Location: ../index.php?success=Registration successful! Please login with your new account.');
-        }
+        // Redirect to index.php (which includes the login.php template)
+        header('Location: ../index.php?success=Registration successful! Please login with your new account.');
         exit;
     }
     
@@ -257,7 +253,7 @@ function handleRegistration($postData = null) {
     }
     
     // Default redirect for form submissions
-    header('Location: ../register.php?error=Invalid registration request');
+    header('Location: ../templates/register.php?error=Invalid registration request');
     exit;
 }
 
@@ -265,23 +261,26 @@ function handleRegistration($postData = null) {
  * Handle user logout
  */
 function handleLogout() {
-    // Clear session
-    $_SESSION = [];
-    
-    // If there's a session cookie, destroy it
-    if (ini_get("session.use_cookies")) {
-        $params = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000,
-            $params["path"], $params["domain"],
-            $params["secure"], $params["httponly"]
-        );
+    // Check if user is logged in
+    if (!isset($_SESSION['user'])) {
+        header('Location: ../index.php?error=You are not logged in');
+        exit;
     }
     
-    // Destroy the session
+    // Clear user session data
+    unset($_SESSION['user']);
+    unset($_SESSION['token']);
+    unset($_SESSION['donor_details']);
+    
+    // Destroy session
     session_destroy();
     
+    // Restart session to set success message
+    session_start();
+    $_SESSION['success'] = "You have been successfully logged out.";
+    
     // Redirect to login page
-    header('Location: ../index.php?success=You have been logged out');
+    header('Location: ../index.php?success=You have been successfully logged out');
     exit;
 }
 
