@@ -113,21 +113,22 @@ if (!$donor_details && $user) {
             padding: 15px;
             margin-bottom: 20px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center; /* Center the welcome message */
         }
         
         .user-info h2 {
             color: #FF0000;
-            margin-top: 0;
-            font-size: 18px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
+            margin: 0; /* Remove margin for cleaner look */
+            font-size: 20px; /* Increase font size for emphasis */
+            border-bottom: none; /* Remove bottom border since it's the only content */
+            padding-bottom: 0; /* Remove padding since there's no border */
+            margin-bottom: 0; /* Remove bottom margin since there's no content below */
         }
         
         .user-detail {
             margin-bottom: 12px;
             display: flex;
-            flex-wrap: wrap; /* Allow wrapping on very small screens */
+            flex-wrap: wrap;
         }
         
         .detail-label {
@@ -299,33 +300,23 @@ if (!$donor_details && $user) {
     </div>
     
     <div class="dashboard-container">
+        <!-- 
+         * Modified user info section - only showing welcome message
+         * Detailed user information has been removed for simplicity
+         * while maintaining the personalized greeting
+         -->
         <div class="user-info">
-            <h2>Welcome, <?php echo htmlspecialchars($donor_details['first_name'] ?? $user['email'] ?? 'User'); ?>!</h2>
-            
-            <?php if ($donor_details): ?>
-            <div class="user-detail">
-                <div class="detail-label">Name:</div>
-                <div class="detail-value">
-                    <?php 
-                        echo htmlspecialchars($donor_details['first_name'] ?? '');
-                        echo ' ';
-                        echo htmlspecialchars($donor_details['middle_name'] ?? '');
-                        echo ' ';
-                        echo htmlspecialchars($donor_details['surname'] ?? '');
-                    ?>
-                </div>
-            </div>
-            
-            <div class="user-detail">
-                <div class="detail-label">Email:</div>
-                <div class="detail-value"><?php echo htmlspecialchars($donor_details['email'] ?? $user['email'] ?? ''); ?></div>
-            </div>
-            
-            <div class="user-detail">
-                <div class="detail-label">Mobile:</div>
-                <div class="detail-value"><?php echo htmlspecialchars($donor_details['mobile'] ?? ''); ?></div>
-            </div>
-            <?php endif; ?>
+            <h2>Welcome, <?php 
+                if (!empty($donor_details['first_name'])) {
+                    echo htmlspecialchars($donor_details['first_name']);
+                } elseif (!empty($user['email'])) {
+                    // Get username part of email (before @)
+                    $email_parts = explode('@', $user['email']);
+                    echo htmlspecialchars($email_parts[0]);
+                } else {
+                    echo 'User';
+                }
+            ?>!</h2>
         </div>
         
         <div class="card">
