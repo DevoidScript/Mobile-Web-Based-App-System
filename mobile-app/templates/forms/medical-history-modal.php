@@ -587,7 +587,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_medical_histor
     <div class="modal">
         <div class="modal-header">
             <h2 class="modal-title">Medical History</h2>
-            <a href="<?php echo $referrer; ?>" class="close-button" onclick="return confirm('Are you sure you want to close this form? All data will be lost.')">&times;</a>
+            <a href="<?php echo $referrer; ?>" class="close-button" onclick="return confirm('Are you sure you want to cancel this donation? All data will be discarded.')">&times;</a>
         </div>
         
         <!-- Error message display if any -->

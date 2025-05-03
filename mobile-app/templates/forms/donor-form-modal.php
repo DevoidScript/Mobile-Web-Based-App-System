@@ -32,9 +32,11 @@ if (!$referrer) {
 // Store the referrer in a session variable to maintain it across form submissions
 if (!isset($_SESSION['donor_form_referrer'])) {
     $_SESSION['donor_form_referrer'] = $referrer;
+    error_log("Setting new donor_form_referrer in session: " . $referrer);
 } else {
     // Use the stored referrer if available
     $referrer = $_SESSION['donor_form_referrer'];
+    error_log("Using existing donor_form_referrer from session: " . $referrer);
 }
 
 // Include required files for form autofill functionality
@@ -563,6 +565,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
                 </div>
                 <?php endif; ?>
                 
+                <!-- Debug information - hidden in production -->
+                <?php if (isset($_GET['debug'])): ?>
+                <div class="alert alert-info small">
+                    <strong>Debug Info:</strong> Return URL: <?php echo htmlspecialchars($referrer); ?>
+                </div>
+                <?php endif; ?>
+                
                 <!-- Progress Steps -->
                 <div class="steps-container">
                     <div class="step-item">
@@ -1012,13 +1021,39 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
             });
             
             if (hasData) {
-                const confirmLeave = confirm('You have unsaved data. Are you sure you want to leave this page?');
+                const confirmLeave = confirm('Are you sure you want to cancel this donation? All data will be discarded.');
                 if (!confirmLeave) {
                     return false;
                 }
+                
+                // User confirmed cancellation - call the cancel_registration.php API
+                fetch('cancel_registration.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ action: 'cancel_from_donor_form' })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Cancellation successful:', data);
+                    redirectToDashboard();
+                })
+                .catch(error => {
+                    console.error('Error canceling donation:', error);
+                    redirectToDashboard(); // Redirect anyway even if the API call fails
+                });
+                
+                return; // Exit function to prevent immediate redirect
             }
         }
         
+        // If no data entered or skipConfirmation is true, just redirect
+        redirectToDashboard();
+    }
+    
+    // Function to handle the actual redirect logic
+    function redirectToDashboard() {
         // Determine the dashboard URL based on user role
         const userRole = "<?php echo isset($_SESSION['user_staff_roles']) ? strtolower($_SESSION['user_staff_roles']) : ''; ?>";
         console.log("User role for redirect:", userRole);
@@ -1045,7 +1080,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
                     dashboardUrl = localStorage.getItem("donorFormReferrer");
                 } else {
                     // Default fallback if no specific role or referrer
-                    dashboardUrl = "../../public/Dashboards/dashboard-staff-donor-submission.php";
+                    dashboardUrl = "<?php echo $referrer; ?>";
                 }
                 break;
         }
@@ -1145,29 +1180,77 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
             });
         }
         
-        // Ensure close button works - but don't add multiple event listeners
+        // Ensure close button works but doesn't have duplicate event listeners
         const closeButton = document.getElementById('closeButton');
         if (closeButton) {
-            // Remove inline onclick attribute to prevent double execution
-            closeButton.removeAttribute('onclick');
+            // Remove existing listeners (to prevent duplicates)
+            const newCloseBtn = closeButton.cloneNode(true);
+            closeButton.parentNode.replaceChild(newCloseBtn, closeButton);
             
-            // Add a single event listener
-            closeButton.addEventListener('click', function(e) {
+            // Add a single event listener for the cancellation logic
+            newCloseBtn.addEventListener('click', function(e) {
                 e.preventDefault();
-                goBackToDashboard();
+                
+                // Show confirmation dialog
+                if (confirm('Are you sure you want to cancel this donation? All data will be discarded.')) {
+                    console.log("User confirmed cancellation, redirecting to:", "<?php echo $referrer; ?>");
+                    
+                    // Call the cancellation API to clean up session data
+                    fetch('cancel_registration.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ action: 'cancel_from_donor_form' })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Cancellation successful:', data);
+                        // Direct redirect to the referrer URL
+                        window.location.href = "<?php echo $referrer; ?>";
+                    })
+                    .catch(error => {
+                        console.error('Error canceling donation:', error);
+                        // Redirect anyway even if the API call fails
+                        window.location.href = "<?php echo $referrer; ?>";
+                    });
+                }
                 return false;
             });
         }
         
         // Clear any existing click handlers for other modal-close buttons
         document.querySelectorAll('.modal-close:not(#closeButton)').forEach(button => {
-            // Remove inline onclick attributes
-            button.removeAttribute('onclick');
+            // Clone and replace to remove existing listeners
+            const newBtn = button.cloneNode(true);
+            button.parentNode.replaceChild(newBtn, button);
             
             // Add a single event listener
-            button.addEventListener('click', function(e) {
+            newBtn.addEventListener('click', function(e) {
                 e.preventDefault();
-                goBackToDashboard();
+                if (confirm('Are you sure you want to cancel this donation? All data will be discarded.')) {
+                    console.log("Close button clicked, redirecting to:", "<?php echo $referrer; ?>");
+                    
+                    // Call the cancellation API to clean up session data
+                    fetch('cancel_registration.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ action: 'cancel_from_donor_form' })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Cancellation successful:', data);
+                        // Direct redirect to the referrer URL
+                        window.location.href = "<?php echo $referrer; ?>";
+                    })
+                    .catch(error => {
+                        console.error('Error canceling donation:', error);
+                        // Redirect anyway even if the API call fails
+                        window.location.href = "<?php echo $referrer; ?>";
+                    });
+                }
                 return false;
             });
         });
@@ -1175,9 +1258,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
         // Add ESC key listener to close the form
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                // Check if we're after a form submission
-                const formSubmitted = localStorage.getItem("donorFormSubmitted") === "true";
-                goBackToDashboard(!formSubmitted);
+                // Show confirmation dialog before canceling
+                if (confirm('Are you sure you want to cancel this donation? All data will be discarded.')) {
+                    console.log("ESC key pressed, redirecting to:", "<?php echo $referrer; ?>");
+                    
+                    // Call the cancellation API to clean up session data
+                    fetch('cancel_registration.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ action: 'cancel_from_donor_form' })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Cancellation successful:', data);
+                        // Direct redirect to the referrer URL
+                        window.location.href = "<?php echo $referrer; ?>";
+                    })
+                    .catch(error => {
+                        console.error('Error canceling donation:', error);
+                        // Redirect anyway even if the API call fails
+                        window.location.href = "<?php echo $referrer; ?>";
+                    });
+                }
             }
         });
         
