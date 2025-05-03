@@ -22,11 +22,21 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Check if user is logged in
+// Extra security - regenerate session ID to prevent session fixation
+session_regenerate_id(true);
+
+// Check if user is logged in and redirect if not
 if (!is_logged_in()) {
+    // Set a session flag to indicate they were redirected from dashboard
+    $_SESSION['redirected_from'] = 'dashboard';
+    
+    // Redirect to login page
     header('Location: ../index.php?error=Please login to access the dashboard');
     exit;
 }
+
+// Set a session variable to show we're on the dashboard page - useful for back button detection
+$_SESSION['on_dashboard'] = true;
 
 // Get user data
 $user = $_SESSION['user'] ?? null;
@@ -49,6 +59,10 @@ if (!$donor_details && $user) {
     <!-- Enhanced viewport settings for better mobile rendering -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#FF0000">
+    <!-- Cache control to prevent back button access -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Red Cross Dashboard</title>
     <link rel="stylesheet" href="../assets/css/styles.css">
     <link rel="manifest" href="../manifest.json">
@@ -392,6 +406,50 @@ if (!$donor_details && $user) {
                     });
             });
         }
+        
+        // Prevent back button navigation
+        (function preventBackNavigation() {
+            // Push the current state to history
+            window.history.pushState({page: 'dashboard'}, 'Dashboard', window.location.href);
+            
+            // When the user presses back, push another state to prevent navigation
+            window.addEventListener('popstate', function(e) {
+                // Push state again to prevent going back
+                window.history.pushState({page: 'dashboard'}, 'Dashboard', window.location.href);
+                
+                // Show a message if needed
+                // console.log('Back navigation prevented');
+            });
+            
+            // Additional approaches:
+            
+            // 1. Attempt to disable browser cache for this page using JavaScript
+            // This works on some browsers to prevent back-forward cache
+            window.onpageshow = function(event) {
+                if (event.persisted) {
+                    // Page was loaded from cache (back/forward navigation)
+                    window.location.reload();
+                }
+            };
+            
+            // 2. Handle beforeunload when appropriate to prevent unwanted navigation
+            // Uncomment this if you need to handle unsaved form data
+            /* 
+            window.addEventListener('beforeunload', function(e) {
+                // Only add this if there's unsaved form data
+                const unsavedChanges = false; // Set this based on your form state
+                
+                if (unsavedChanges) {
+                    const confirmationMessage = 'You have unsaved changes. Are you sure you want to leave?';
+                    e.returnValue = confirmationMessage;
+                    return confirmationMessage;
+                }
+            });
+            */
+            
+            // 3. Focus on the dashboard window to ensure it's active
+            window.focus();
+        })();
     </script>
 </body>
 </html> 

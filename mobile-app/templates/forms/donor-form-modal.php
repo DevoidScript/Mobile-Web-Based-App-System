@@ -961,6 +961,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
                 valid = false;
             } else {
                 field.classList.remove('is-invalid');
+                // Store filled status in sessionStorage
+                if (typeof(Storage) !== "undefined") {
+                    sessionStorage.setItem(`field_${field.id}_filled`, 'true');
+                }
             }
         });
         
@@ -968,6 +972,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
             alert('Please fill all required fields');
             return;
         }
+        
+        // Also store all non-required fields that have values
+        const allFields = section.querySelectorAll('input:not([required]), select:not([required])');
+        allFields.forEach(field => {
+            if (field.value && field.value.trim() !== '' && field.value !== 'null' && 
+                (field.type !== 'select-one' || field.selectedIndex > 0)) {
+                if (typeof(Storage) !== "undefined") {
+                    sessionStorage.setItem(`field_${field.id}_filled`, 'true');
+                }
+            }
+        });
         
         // Special validation for section 3 (permanent address)
         if (currentSection === 3) {
@@ -1007,6 +1022,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
         
         // Update Enter key behavior
         updateEnterKeyBehavior(currentSection + 1);
+        
+        // Restore auto-filled indicators in the next section
+        restoreAutoFilledIndicators();
     }
     
     function prevSection(currentSection) {
@@ -1033,6 +1051,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
         
         // Update Enter key behavior
         updateEnterKeyBehavior(currentSection - 1);
+        
+        // Restore auto-filled indicators in the previous section
+        restoreAutoFilledIndicators();
     }
     
     function updateModalTitle(sectionNumber) {
@@ -1219,33 +1240,126 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
         const sections = document.querySelectorAll('.form-section');
         
         sections.forEach(section => {
-            // Check if this section has any filled required fields
-            const requiredFields = section.querySelectorAll('[required]');
+            // Check if this section has any filled fields (required or not)
+            const allFields = section.querySelectorAll('input, select');
             let hasPrefilledData = false;
             
-            requiredFields.forEach(field => {
-                if (field.value && field.value.trim() !== '') {
+            allFields.forEach(field => {
+                // Check current value and also sessionStorage for previously filled fields
+                if ((field.value && field.value.trim() !== '' && field.value !== 'null' && 
+                    (field.type !== 'select-one' || field.selectedIndex > 0)) || 
+                    (typeof(Storage) !== "undefined" && sessionStorage.getItem(`field_${field.id}_filled`) === 'true')) {
+                    
                     hasPrefilledData = true;
+                    // Store filled status in sessionStorage
+                    if (typeof(Storage) !== "undefined") {
+                        sessionStorage.setItem(`field_${field.id}_filled`, 'true');
+                    }
                 }
             });
             
             if (hasPrefilledData) {
                 // Add a visual indicator that this section has pre-filled data
-                const sectionTitle = section.querySelector('.section-title');
-                if (sectionTitle) {
-                    const indicator = document.createElement('span');
-                    indicator.textContent = ' (Auto-filled)';
-                    indicator.style.fontSize = '14px';
-                    indicator.style.fontWeight = 'normal';
-                    indicator.style.color = '#28a745';
-                    sectionTitle.appendChild(indicator);
+                addAutoFilledIndicator(section);
+            }
+        });
+    }
+    
+    // Function to check for default values in the form and apply Auto-filled indicators
+    function checkForDefaultValues() {
+        // Specific fields that might have default values
+        const fieldsToCheck = [
+            'nationality', // Default: Filipino
+            'zip_code',    // Default: 5020
+            'education',   // May have a selected value
+            'religion',    // May have a value
+            'mobile',      // May have a value  
+            'email'        // May have a value
+        ];
+        
+        fieldsToCheck.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field && field.value && field.value.trim() !== '' && field.value !== 'null' && 
+                (field.type !== 'select-one' || field.selectedIndex > 0)) {
+                
+                // Store filled status in sessionStorage
+                if (typeof(Storage) !== "undefined") {
+                    sessionStorage.setItem(`field_${fieldId}_filled`, 'true');
                 }
+                
+                // Find the parent section and apply the indicator
+                const parentSection = findParentSection(field);
+                if (parentSection) {
+                    addAutoFilledIndicator(parentSection);
+                }
+            }
+        });
+    }
+    
+    // Helper function to add the auto-filled indicator to a section
+    function addAutoFilledIndicator(section) {
+        const sectionTitle = section.querySelector('.section-title');
+        if (sectionTitle) {
+            // Check if indicator already exists
+            const existingIndicator = sectionTitle.querySelector('.auto-filled-indicator');
+            if (existingIndicator) {
+                return; // Indicator already exists, no need to add another
+            }
+            const indicator = document.createElement('span');
+            indicator.textContent = ' (Auto-filled)';
+            indicator.className = 'auto-filled-indicator';
+            indicator.style.fontSize = '14px';
+            indicator.style.fontWeight = 'normal';
+            indicator.style.color = '#28a745';
+            indicator.style.marginLeft = '5px';
+            
+            // Add a subtle animation to make it more noticeable
+            indicator.style.animation = 'fadeIn 0.5s';
+            
+            // Add the indicator to the section title
+            sectionTitle.appendChild(indicator);
+        }
+    }
+    
+    // Function to restore auto-filled indicators based on sessionStorage
+    function restoreAutoFilledIndicators() {
+        if (typeof(Storage) === "undefined") {
+            return;
+        }
+        
+        const sections = document.querySelectorAll('.form-section');
+        
+        sections.forEach(section => {
+            const allFields = section.querySelectorAll('input, select');
+            let hasFilledField = false;
+            
+            allFields.forEach(field => {
+                // Check if field was previously filled
+                if (sessionStorage.getItem(`field_${field.id}_filled`) === 'true' || 
+                    (field.value && field.value.trim() !== '' && field.value !== 'null' && 
+                    (field.type !== 'select-one' || field.selectedIndex > 0))) {
+                    hasFilledField = true;
+                }
+            });
+            
+            if (hasFilledField) {
+                addAutoFilledIndicator(section);
             }
         });
     }
     
     // Auto-calculate age on page load if birthdate already exists
     document.addEventListener('DOMContentLoaded', function() {
+        // Add CSS for the animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+        
         const birthdateInput = document.getElementById('birthdate');
         if (birthdateInput.value) {
             calculateAge();
@@ -1253,6 +1367,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
         
         // Highlight the form sections that contain pre-filled information
         highlightPrefilledSections();
+        
+        // Check for default values in specific fields (with a short delay to ensure browser defaults are loaded)
+        setTimeout(function() {
+            checkForDefaultValues();
+            // Force restore auto-filled indicators for all sections
+            restoreAutoFilledIndicators();
+        }, 100);
+        
+        // Add event listeners to all fields to track changes
+        setupFieldChangeTracking();
         
         // Initialize step indicators
         document.getElementById('step1').classList.add('active');
@@ -1450,6 +1574,51 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
                     console.error('Service Worker registration failed:', error);
                 });
         });
+    }
+    
+    // Function to set up event listeners on all fields to track changes
+    function setupFieldChangeTracking() {
+        const allFields = document.querySelectorAll('input, select');
+        
+        allFields.forEach(field => {
+            field.addEventListener('change', function() {
+                // Store field status when it's filled
+                if (this.value && this.value.trim() !== '' && this.value !== 'null' && 
+                    (this.type !== 'select-one' || this.selectedIndex > 0)) {
+                    if (typeof(Storage) !== "undefined") {
+                        sessionStorage.setItem(`field_${this.id}_filled`, 'true');
+                    }
+                    
+                    // Find the parent section and update its indicator
+                    const parentSection = findParentSection(this);
+                    if (parentSection) {
+                        addAutoFilledIndicator(parentSection);
+                    }
+                }
+            });
+            
+            // For real-time tracking on input rather than just on change
+            field.addEventListener('input', function() {
+                if (this.value && this.value.trim() !== '' && this.value !== 'null' && 
+                    (this.type !== 'select-one' || this.selectedIndex > 0)) {
+                    if (typeof(Storage) !== "undefined") {
+                        sessionStorage.setItem(`field_${this.id}_filled`, 'true');
+                    }
+                }
+            });
+        });
+    }
+    
+    // Helper function to find the parent section of a form field
+    function findParentSection(element) {
+        let current = element;
+        while (current !== null) {
+            if (current.classList && current.classList.contains('form-section')) {
+                return current;
+            }
+            current = current.parentElement;
+        }
+        return null;
     }
 </script>
 

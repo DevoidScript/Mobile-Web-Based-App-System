@@ -366,7 +366,7 @@ if (!$donor_details && $user) {
             <div class="nav-icon">🏠</div>
             <div class="nav-label">Home</div>
         </a>
-        <a href="blood-session.php" class="nav-button">
+        <a href="blood_donation.php" class="nav-button">
             <div class="nav-icon">❤️</div>
             <div class="nav-label">Donate</div>
         </a>
