@@ -2,137 +2,251 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#FF0000">
-    <title>Red Cross Login</title>
-    <link rel="stylesheet" href="assets/css/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#db2323">
+    <title>Smart Blood Management</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icons/icon-192x192.png">
     <!-- PWA meta tags -->
-    <meta name="description" content="Red Cross Mobile Application">
+    <meta name="description" content="Smart Blood Management System">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
-        /* Additional styles specific to the login page */
+        :root {
+            --primary-color: #db2323;
+            --secondary-color: #6a6f63;
+            --background-color: #f9f4f4;
+            --card-bg-color: #ffffff;
+            --text-color: #333333;
+            --input-border: #e0e0e0;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        
         body {
             margin: 0;
             padding: 0;
-            background-color: #f5f5f5;
-            font-family: Arial, sans-serif;
+            background-color: var(--background-color);
+            background-image: linear-gradient(135deg, #fbe9e7 0%, #f9f4f4 100%);
+            background-attachment: fixed;
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: radial-gradient(circle at 10% 20%, rgba(255, 200, 200, 0.15) 10%, transparent 60%);
+            z-index: -1;
         }
         
         .login-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
+            width: 100%;
+            max-width: 420px;
             padding: 20px;
         }
         
-        /* Login card container to create visual separation from background */
         .login-card {
-            background-color: #ffffff;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            padding: 30px;
+            background-color: var(--card-bg-color);
+            border-radius: 16px;
+            box-shadow: 0 8px 24px var(--shadow-color);
+            padding: 30px 25px;
             width: 100%;
-            max-width: 400px;
+            position: relative;
+        }
+        
+        .brand-header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+        
+        .app-title {
+            color: var(--primary-color);
+            font-size: 32px;
+            font-weight: 700;
+            margin: 0 0 6px;
+            line-height: 1.2;
+        }
+        
+        .app-subtitle {
+            color: var(--secondary-color);
+            font-size: 20px;
+            font-weight: 500;
+            margin: 0;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: #555;
+        }
+        
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .input-wrapper, .password-input-wrapper {
+            position: relative;
+        }
+        
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            font-size: 16px;
             display: flex;
-            flex-direction: column;
             align-items: center;
-        }
-        
-        .login-title {
-            color: #FF0000;
-            font-size: 22px;
-            margin-top: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-            font-weight: bold;
-        }
-        
-        .logo-container {
-            margin-bottom: 40px;
-            text-align: center;
-        }
-        
-        .logo {
-            width: 150px;
-            height: 150px;
-            object-fit: contain;
-            border-radius: 50%;
-            background-color: white;
-        }
-        
-        .login-form {
-            width: 100%;
-            margin-top: 20px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
+            justify-content: center;
         }
         
         .form-control {
             width: 100%;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+            padding: 12px 14px 12px 45px;
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
             font-size: 16px;
-            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background-color: #fff;
+        }
+        
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(219, 35, 35, 0.1);
+            outline: none;
+        }
+        
+        .toggle-password {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #777;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 5px;
+        }
+        
+        .remember-me-wrapper {
+            display: flex;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        
+        .remember-me-checkbox {
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+            accent-color: var(--primary-color);
+        }
+        
+        .remember-me-label {
+            font-size: 14px;
+            color: #555;
         }
         
         .btn-login {
+            display: block;
             width: 100%;
-            padding: 15px;
-            background-color: #FF0000;
+            padding: 12px;
+            background-color: var(--primary-color);
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
-            font-weight: bold;
-            margin-bottom: 15px;
+            transition: background-color 0.2s;
+            margin-bottom: 16px;
+        }
+        
+        .btn-login:hover {
+            background-color: #c61d1d;
         }
         
         .btn-register {
+            display: block;
             width: 100%;
-            padding: 15px;
+            padding: 12px;
             background-color: #ffffff;
-            color: #FF0000;
-            border: 1px solid #FF0000;
-            border-radius: 5px;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            border-radius: 8px;
             font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
-            font-weight: bold;
+            transition: background-color 0.2s, color 0.2s;
+            margin-bottom: 16px;
+            text-align: center;
+            text-decoration: none;
         }
         
-        .navigation-bar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background-color: #000000;
-            display: flex;
-            justify-content: space-around;
-            padding: 10px 0;
+        .btn-register:hover {
+            background-color: #f9f0f0;
         }
         
-        .nav-button {
-            color: white;
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
+        .forgot-password {
+            display: block;
+            text-align: center;
+            color: #555;
+            font-size: 14px;
+            text-decoration: none;
+            margin-top: 16px;
+            transition: color 0.2s;
+        }
+        
+        .forgot-password:hover {
+            color: var(--primary-color);
+        }
+        
+        .footer-logo {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .footer-logo img {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            object-position: center;
+            border: 1px solid #eeeeee;
+        }
+        
+        .system-name {
+            text-align: center;
+            color: #777;
+            font-size: 12px;
+            margin-top: 8px;
         }
         
         .flash-message {
-            padding: 10px;
-            margin-bottom: 20px;
-            border-radius: 5px;
+            padding: 12px;
+            margin-bottom: 24px;
+            border-radius: 8px;
             width: 100%;
             text-align: center;
+            font-size: 14px;
         }
         
         .flash-error {
@@ -148,20 +262,34 @@
             transition: opacity 1s ease-in-out;
         }
         
-        /* Animation for fading out */
         .fade-out {
             opacity: 0;
+        }
+        
+        /* PWA enhancements for mobile */
+        @media (max-width: 768px) {
+            .login-container {
+                padding: 15px;
+            }
+            
+            .login-card {
+                padding: 25px 20px;
+            }
+            
+            body.pwa-standalone {
+                padding-top: env(safe-area-inset-top, 0);
+                padding-bottom: env(safe-area-inset-bottom, 0);
+            }
         }
     </style>
 </head>
 <body>
     <div class="login-container">
         <div class="login-card">
-            <div class="logo-container">
-                <img src="assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="logo">
+            <div class="brand-header">
+                <h1 class="app-title">Smart Blood Management</h1>
+                <h2 class="app-subtitle">Philippine Red Cross</h2>
             </div>
-            
-            <h2 class="login-title">Philippine Red Cross</h2>
             
             <?php if (isset($_GET['error'])): ?>
                 <div class="flash-message flash-error">
@@ -175,38 +303,56 @@
                 </div>
             <?php endif; ?>
             
-            <div class="login-form">
-                <form action="api/auth.php?login" method="POST">
-                    <div class="form-group">
-                        <input type="email" class="form-control" name="email" placeholder="Email" required>
+            <form action="api/auth.php?login" method="POST">
+                <div class="input-group">
+                    <label for="email" class="form-label">Email Address</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon">✉️</span>
+                        <input type="email" id="email" class="form-control" name="email" placeholder="Enter your email" required>
                     </div>
-                    <div class="form-group">
-                        <input type="password" class="form-control" name="password" placeholder="Password" required>
+                </div>
+                
+                <div class="input-group">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="password-input-wrapper">
+                        <span class="input-icon">🔒</span>
+                        <input type="password" id="password" class="form-control" name="password" placeholder="Enter your password" required>
+                        <button type="button" class="toggle-password" id="togglePassword">Show</button>
                     </div>
-                    <button type="submit" class="btn-login">Login</button>
-                </form>
-                <a href="templates/register.php"><button type="button" class="btn-register">Register</button></a>
+                </div>
+                
+                <div class="remember-me-wrapper">
+                    <input type="checkbox" id="remember-me" name="remember" class="remember-me-checkbox">
+                    <label for="remember-me" class="remember-me-label">Remember me</label>
+                </div>
+                
+                <button type="submit" class="btn-login">Login</button>
+            </form>
+            
+            <a href="templates/register.php" class="btn-register">Register</a>
+            
+            <a href="#" class="forgot-password">Forgot Password?</a>
+            
+            <div class="footer-logo">
+                <img src="assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo">
+                <div class="system-name">Blood Services Information System</div>
             </div>
         </div>
     </div>
 
-    <script src="assets/js/app.js"></script>
-    <!-- Register Service Worker for PWA -->
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('service-worker.js')
-                    .then(function(registration) {
-                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                    })
-                    .catch(function(error) {
-                        console.log('ServiceWorker registration failed: ', error);
-                    });
-            });
-        }
-        
-        // Auto-hide success message after 5 seconds
+        // Toggle password visibility
         document.addEventListener('DOMContentLoaded', function() {
+            const togglePassword = document.getElementById('togglePassword');
+            const passwordField = document.getElementById('password');
+            
+            togglePassword.addEventListener('click', function() {
+                const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordField.setAttribute('type', type);
+                this.textContent = type === 'password' ? 'Show' : 'Hide';
+            });
+            
+            // Auto-hide success message after 5 seconds
             const successMessage = document.getElementById('successMessage');
             
             if (successMessage) {
@@ -225,6 +371,29 @@
                 }
             }
         });
+        
+        // Check if this is a PWA
+        const isInStandaloneMode = () => 
+            (window.matchMedia('(display-mode: standalone)').matches) || 
+            (window.navigator.standalone) || 
+            document.referrer.includes('android-app://');
+            
+        if (isInStandaloneMode()) {
+            document.body.classList.add('pwa-standalone');
+        }
+        
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(function(registration) {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(function(error) {
+                        console.log('ServiceWorker registration failed: ', error);
+                    });
+            });
+        }
     </script>
 </body>
 </html> 

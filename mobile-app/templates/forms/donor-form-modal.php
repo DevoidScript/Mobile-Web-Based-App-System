@@ -300,10 +300,34 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#a00000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Blood Donor Form</title>
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="../../manifest.json">
+    <link rel="apple-touch-icon" href="../../images/icons/icon-192x192.png">
+    
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Add mobile-specific enhancements -->
+    <script>
+      // Check if this is standalone mode (PWA installed)
+      const isInStandaloneMode = () => 
+        (window.matchMedia('(display-mode: standalone)').matches) || 
+        (window.navigator.standalone) || 
+        document.referrer.includes('android-app://');
+      
+      // Add class to body based on standalone mode
+      document.addEventListener('DOMContentLoaded', () => {
+        if (isInStandaloneMode()) {
+          document.body.classList.add('pwa-standalone');
+        }
+      });
+    </script>
     <style>
         :root {
             --primary: #a00000;
@@ -541,6 +565,107 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
             border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
+        }
+        
+        /* Mobile-specific enhancements */
+        @media (max-width: 768px) {
+            body {
+                font-size: 16px; /* Increase base font size for better readability */
+            }
+            
+            .modal-dialog {
+                margin: 10px;
+                max-width: calc(100% - 20px);
+            }
+            
+            .form-label {
+                font-size: 1.05rem;
+            }
+            
+            /* Larger touch targets for mobile */
+            .form-control, .form-select {
+                min-height: 45px;
+                padding: 12px;
+                font-size: 16px; /* Prevent iOS zoom on focus */
+            }
+            
+            .btn-navigate {
+                padding: 12px 24px;
+                font-size: 16px;
+            }
+            
+            /* Fix for iOS input field zoom */
+            input, select, textarea {
+                font-size: 16px !important;
+            }
+            
+            /* Fixed navigation at bottom for mobile */
+            .navigation-buttons {
+                position: sticky;
+                bottom: 0;
+                background: white;
+                padding: 15px;
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+                z-index: 10;
+                margin-bottom: 0;
+            }
+            
+            /* Enhance for installed PWA experience */
+            body.pwa-standalone {
+                padding-top: env(safe-area-inset-top, 0);
+                padding-bottom: env(safe-area-inset-bottom, 15px);
+                padding-left: env(safe-area-inset-left, 0);
+                padding-right: env(safe-area-inset-right, 0);
+            }
+            
+            body.pwa-standalone .navigation-buttons {
+                padding-bottom: calc(15px + env(safe-area-inset-bottom, 0));
+            }
+            
+            /* Improve modal close button touch target */
+            .modal-close {
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 28px;
+                top: 5px;
+                right: 5px;
+            }
+        }
+        
+        /* Add offline indicator */
+        .offline-indicator {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            padding: 8px 16px;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1100;
+        }
+        
+        /* Pulse animation for loading states */
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+        
+        .pulse-animation {
+            animation: pulse 1.5s infinite ease-in-out;
         }
     </style>
 </head>
@@ -1294,6 +1419,43 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
             }
         }
     });
+    
+    // PWA Offline mode detection
+    function updateOnlineStatus() {
+        const offlineIndicator = document.getElementById('offlineIndicator');
+        if (!offlineIndicator) return;
+        
+        if (navigator.onLine) {
+            offlineIndicator.style.display = 'none';
+        } else {
+            offlineIndicator.style.display = 'block';
+        }
+    }
+    
+    // Add event listeners for online/offline events
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    
+    // Initial check
+    document.addEventListener('DOMContentLoaded', updateOnlineStatus);
+    
+    // Register service worker for PWA functionality
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('../../service-worker.js')
+                .then(registration => {
+                    console.log('Service Worker registered with scope:', registration.scope);
+                })
+                .catch(error => {
+                    console.error('Service Worker registration failed:', error);
+                });
+        });
+    }
 </script>
+
+<!-- Offline indicator -->
+<div id="offlineIndicator" class="offline-indicator">
+    You are currently offline. Some features may be unavailable.
+</div>
 </body>
 </html> 

@@ -294,8 +294,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_medical_histor
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#9c0000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Medical History</title>
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="../../manifest.json">
+    <link rel="apple-touch-icon" href="../../images/icons/icon-192x192.png">
+    
+    <!-- Add mobile-specific enhancements -->
+    <script>
+      // Check if this is standalone mode (PWA installed)
+      const isInStandaloneMode = () => 
+        (window.matchMedia('(display-mode: standalone)').matches) || 
+        (window.navigator.standalone) || 
+        document.referrer.includes('android-app://');
+      
+      // Add class to body based on standalone mode
+      document.addEventListener('DOMContentLoaded', () => {
+        if (isInStandaloneMode()) {
+          document.body.classList.add('pwa-standalone');
+        }
+      });
+    </script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -580,6 +603,132 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_medical_histor
         
         #femaleHealthSection {
             display: none; /* Hide by default, will be shown via JS if donor is female */
+        }
+        
+        /* Mobile-specific enhancements */
+        @media (max-width: 768px) {
+            body {
+                font-size: 16px; /* Increase base font size for better readability */
+                padding: 0;
+                background-color: #f8f8f8;
+            }
+            
+            .modal {
+                width: 100%;
+                max-width: 100%;
+                margin: 0;
+                border-radius: 0;
+                min-height: 100vh;
+            }
+            
+            .step-indicators {
+                max-width: 100%;
+                overflow-x: auto;
+                padding: 5px 0;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .step-connector {
+                width: 40px;
+            }
+            
+            .form-group {
+                grid-template-columns: 0.3fr 2.5fr 0.6fr 0.6fr 1.5fr;
+                font-size: 14px;
+            }
+            
+            .question-text {
+                font-size: 14px;
+                line-height: 1.3;
+            }
+            
+            .remarks-input {
+                width: 100%;
+                font-size: 14px;
+            }
+            
+            /* Improve touch targets */
+            .radio-container {
+                width: 24px;
+                height: 24px;
+            }
+            
+            .checkmark {
+                width: 22px;
+                height: 22px;
+            }
+            
+            .checkmark:after {
+                left: 7px;
+                top: 3px;
+                width: 6px;
+                height: 11px;
+            }
+            
+            .modal-footer {
+                position: sticky;
+                bottom: 0;
+                background: white;
+                box-shadow: 0 -3px 10px rgba(0,0,0,0.1);
+                z-index: 100;
+            }
+            
+            .prev-button, .next-button, .submit-button {
+                padding: 12px 20px;
+                font-size: 16px;
+                min-width: 100px;
+            }
+            
+            /* Fix for iOS input zoom */
+            input, select, textarea {
+                font-size: 16px !important;
+            }
+            
+            /* Enhance for installed PWA experience */
+            body.pwa-standalone {
+                padding-top: env(safe-area-inset-top, 0);
+                padding-bottom: env(safe-area-inset-bottom, 15px);
+                padding-left: env(safe-area-inset-left, 0);
+                padding-right: env(safe-area-inset-right, 0);
+            }
+            
+            body.pwa-standalone .modal-footer {
+                padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
+            }
+        }
+        
+        /* Add offline indicator */
+        .offline-indicator {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            padding: 8px 16px;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1100;
+        }
+        
+        /* Enable form progress saving indicator */
+        .auto-save-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.9);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #28a745;
+            z-index: 1000;
+            display: none;
+        }
+        
+        .auto-save-indicator.saving {
+            display: block;
         }
     </style>
 </head>
@@ -1793,7 +1942,120 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_medical_histor
                 observer.observe(femaleHealthSection, { attributes: true });
             }
             <?php endif; ?>
+            
+            // Auto-save form data to localStorage (PWA enhancement)
+            let autoSaveTimer;
+            const autoSaveIndicator = document.createElement('div');
+            autoSaveIndicator.className = 'auto-save-indicator';
+            autoSaveIndicator.textContent = 'Saving...';
+            document.body.appendChild(autoSaveIndicator);
+            
+            // Function to auto-save form data
+            function autoSaveForm() {
+                if (!form) return;
+                
+                const formData = new FormData(form);
+                const formObject = {};
+                
+                for (const [key, value] of formData.entries()) {
+                    formObject[key] = value;
+                }
+                
+                // Store the form data and current step in localStorage
+                try {
+                    localStorage.setItem('medical_history_form_data', JSON.stringify(formObject));
+                    localStorage.setItem('medical_history_current_step', currentStep.toString());
+                    
+                    // Show saving indicator
+                    autoSaveIndicator.classList.add('saving');
+                    setTimeout(() => {
+                        autoSaveIndicator.classList.remove('saving');
+                    }, 1000);
+                    
+                    console.log('Form data auto-saved');
+                } catch (error) {
+                    console.error('Error auto-saving form data:', error);
+                }
+            }
+            
+            // Set up auto-save on form changes
+            form.addEventListener('change', () => {
+                clearTimeout(autoSaveTimer);
+                autoSaveTimer = setTimeout(autoSaveForm, 1000);
+            });
+            
+            // Try to restore form data from localStorage
+            try {
+                const savedFormData = localStorage.getItem('medical_history_form_data');
+                const savedStep = localStorage.getItem('medical_history_current_step');
+                
+                if (savedFormData) {
+                    const formObject = JSON.parse(savedFormData);
+                    
+                    // Populate form fields
+                    Object.keys(formObject).forEach(key => {
+                        const field = form.elements[key];
+                        if (field) {
+                            if (field.type === 'radio') {
+                                // Find the radio button with the matching value
+                                const radio = form.querySelector(`input[name="${key}"][value="${formObject[key]}"]`);
+                                if (radio) radio.checked = true;
+                            } else {
+                                field.value = formObject[key];
+                            }
+                        }
+                    });
+                    
+                    console.log('Form data restored from local storage');
+                }
+                
+                // Restore current step if available
+                if (savedStep) {
+                    currentStep = parseInt(savedStep, 10);
+                    showStep(currentStep);
+                    updateButtonStates();
+                }
+            } catch (error) {
+                console.error('Error restoring form data:', error);
+            }
         });
+        
+        // PWA Offline detection
+        function updateOnlineStatus() {
+            const offlineIndicator = document.getElementById('offlineIndicator');
+            if (!offlineIndicator) return;
+            
+            if (navigator.onLine) {
+                offlineIndicator.style.display = 'none';
+            } else {
+                offlineIndicator.style.display = 'block';
+            }
+        }
+        
+        // Add event listeners for online/offline events
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        
+        // Initial check
+        document.addEventListener('DOMContentLoaded', updateOnlineStatus);
+        
+        // Register service worker for PWA functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('../../service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered with scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Service Worker registration failed:', error);
+                    });
+            });
+        }
     </script>
+    
+    <!-- Offline indicator -->
+    <div id="offlineIndicator" class="offline-indicator">
+        You are currently offline. Your data will be saved locally and submitted when online.
+    </div>
 </body>
 </html> 

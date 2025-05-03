@@ -631,7 +631,7 @@ if ($validated) {
                     <input type="text" id="middle_name" name="middle_name" class="input" value="<?php echo $_POST['middle_name'] ?? ''; ?>" placeholder="Enter your middle name (optional)">
                     
                     <div class="form-navigation">
-                        <a href="../login.php" class="nav-button cancel-button">Cancel</a>
+                        <a href="../index.php" class="nav-button cancel-button">Cancel</a>
                         <div class="placeholder-button"></div> <!-- Placeholder for spacing -->
                         <button type="button" class="nav-button next-button" data-next="2">Next</button>
                     </div>
