@@ -1,46 +1,7 @@
 <?php
-/**
- * DONOR REGISTRATION WORKFLOW
- * 
- * This file is the starting point for the donor registration process.
- * The complete workflow consists of 3 steps:
- * 
- * 1. donor-form-modal.php (THIS FILE) - Collects basic donor information
- * 2. medical-history-modal.php - Medical history questionnaire  
- * 3. declaration-form-modal.php - Final declaration and consent
- * 
- * The flow automatically progresses through these steps when each form is completed.
- * Users can cancel at any time using the cancel_registration.php endpoint.
- * After completing all steps, the session data is cleaned via clean_session.php
- */
-
-/**
- * FORM AUTOFILL ENHANCEMENT
- * 
- * Added functionality to autofill the donor form with the logged-in user's information.
- * This improves user experience by pre-populating fields with existing donor data,
- * reducing the need for manual entry of information that's already in the system.
- */
-
-/**
- * DEFAULT ADDRESS VALUES
- * 
- * This section ensures that address fields display the correct default values:
- * - Barangay should be "Botong"
- * - Town/Municipality should be "Oton"
- * - Province/City should be "Iloilo"
- * - ZIP Code should be "5020"
- * 
- * These defaults match what's in register.php for consistency.
- */
-
-/**
- * STREET FIELD CORRECTION
- *
- * This adjustment ensures the street field is empty by default to match how
- * it was during registration, while still maintaining the correct default values
- * for other address fields (Botong, Oton, Iloilo, 5020).
- */
+// Start the session to maintain state
+session_start();
+require_once '../../config/database.php';
 
 // Set default values for address fields
 $defaultBarangay = 'Botong';
@@ -48,7 +9,7 @@ $defaultTown = 'Oton';
 $defaultProvince = 'Iloilo';
 $defaultZipCode = '5020';
 
-// Store the referrer URL to use it for the close button
+// Store the referrer URL to use it for the return button
 $referrer = '';
 
 // Check HTTP_REFERER first
@@ -69,11 +30,6 @@ if (!$referrer) {
 }
 
 // Store the referrer in a session variable to maintain it across form submissions
-session_start();
-
-// Include required files for form autofill functionality
-require_once '../../includes/functions.php';
-
 if (!isset($_SESSION['donor_form_referrer'])) {
     $_SESSION['donor_form_referrer'] = $referrer;
 } else {
@@ -81,15 +37,15 @@ if (!isset($_SESSION['donor_form_referrer'])) {
     $referrer = $_SESSION['donor_form_referrer'];
 }
 
+// Include required files for form autofill functionality
+require_once '../../includes/functions.php';
+
 // Get donor information for autofill
 $user = $_SESSION['user'] ?? null;
 $donor_details = $_SESSION['donor_details'] ?? null;
 
 // If donor details are not in session but user is logged in, try to fetch them
 if (!$donor_details && $user) {
-    // Include database configuration for fetching donor details
-    require_once '../../config/database.php';
-    
     // Get donor details from donors_detail table to match logged-in user
     $donor_data = get_record('donors_detail', $user['id']);
     if ($donor_data['success'] && !empty($donor_data['data'])) {
@@ -110,29 +66,6 @@ if (isset($_SESSION['donor_form_data']) && isset($_SESSION['donor_form_timestamp
         unset($_SESSION['donor_form_data']);
         unset($_SESSION['donor_form_timestamp']);
     }
-}
-
-// Include database connection
-try {
-    /**
-     * DATABASE CONNECTION UPDATE:
-     * Modified to use the project's database.php for connection settings
-     * instead of external database connections. This ensures consistent database access
-     * across the entire application.
-     */
-    require_once '../../config/database.php';
-    
-    // Make constants from database.php available as variables
-    $SUPABASE_URL = SUPABASE_URL;
-    $SUPABASE_API_KEY = SUPABASE_KEY;
-    
-    // Check if Supabase connection variables are defined
-    if (empty($SUPABASE_URL) || empty($SUPABASE_API_KEY)) {
-        throw new Exception("Database connection parameters are not properly defined");
-    }
-} catch (Exception $e) {
-    $errorMessage = "Database connection error: " . $e->getMessage();
-    error_log("DB Connection Error: " . $e->getMessage());
 }
 
 // Extract address parts for form autofill - keep street empty by default
@@ -197,17 +130,14 @@ function generateNNBNetBarcode() {
     return "DOH-$year$randomNumber";
 }
 
+// Check if user is logged in
+if (!isset($_SESSION['user'])) {
+    header("Location: ../../templates/login.php");
+    exit();
+}
+
 // Check if form is submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) {
-    /**
-     * FORM SUBMISSION WITH DEFAULT VALUES
-     * 
-     * This ensures the form submission includes the default address values:
-     * - Barangay: Botong
-     * - Town/Municipality: Oton  
-     * - Province/City: Iloilo
-     * - ZIP Code: 5020
-     */
     // Process form data
     // Combine address fields into a single permanent_address field
     $permanent_address = "";
@@ -233,72 +163,137 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
         $permanent_address .= ($permanent_address ? ", " : "") . $province;
     }
     
-    // Prepare data for Supabase
+    // Log user session information for debugging
+    error_log("User session data: " . json_encode($_SESSION['user'] ?? 'Not set'));
+    
+    // Ensure user ID is correct type
+    $userId = 0;
+    if (isset($_SESSION['user']) && isset($_SESSION['user']['id'])) {
+        $userId = $_SESSION['user']['id'];
+        // Check if user ID is numeric and convert to integer if needed
+        if (is_numeric($userId)) {
+            $userId = intval($userId);
+        }
+        error_log("Using user ID: " . $userId);
+    } else {
+        error_log("No user ID found in session, using default");
+    }
+    
+    // Prepare minimal data for Supabase to reduce chance of errors
     $formData = [
         'surname' => $_POST['surname'] ?? '',
         'first_name' => $_POST['first_name'] ?? '',
-        'middle_name' => $_POST['middle_name'] ?? '',
-        'birthdate' => $_POST['birthdate'] ?? '',
-        'age' => intval($_POST['age'] ?? 0),
         'sex' => $_POST['sex'] ?? '',
-        'civil_status' => $_POST['civil_status'] ?? '',
         'permanent_address' => $permanent_address,
-        'address_no' => $_POST['address_no'] ?? '',
-        'zip_code' => $_POST['zip_code'] ?? $defaultZipCode, // Ensure ZIP code is preserved
-        'nationality' => $_POST['nationality'] ?? '',
-        'religion' => $_POST['religion'] ?? '',
-        'education' => $_POST['education'] ?? '',
-        'occupation' => $_POST['occupation'] ?? '',
-        'mobile' => $_POST['mobile'] ?? '',
-        'email' => $_POST['email'] ?? '',
-        // Generate unique donor number and barcode
         'prc_donor_number' => generateDonorNumber(),
         'doh_nnbnets_barcode' => generateNNBNetBarcode(),
-        // Add registration channel
-        'registration_channel' => 'PRC_SYSTEM' // Default to PRC system since this is the PRC system form
+        'registration_channel' => 'Mobile'
     ];
+    
+    // Add optional fields only if they have values
+    if (!empty($_POST['middle_name'])) {
+        $formData['middle_name'] = $_POST['middle_name'];
+    }
+    
+    if (!empty($_POST['birthdate'])) {
+        $formData['birthdate'] = $_POST['birthdate'];
+    }
+    
+    if (!empty($_POST['age'])) {
+        $formData['age'] = intval($_POST['age']);
+    }
+    
+    if (!empty($_POST['civil_status'])) {
+        $formData['civil_status'] = $_POST['civil_status'];
+    }
+    
+    // Remove any empty or null values to prevent database errors
+    foreach ($formData as $key => $value) {
+        if ($value === null || $value === '') {
+            unset($formData[$key]);
+        }
+    }
     
     // Log the data being processed
     error_log("Processing donor form data: " . json_encode($formData));
     
     try {
-        // Store formData in session instead of inserting into database
-        if (session_status() == PHP_SESSION_NONE) {
-            session_start();
+        // Insert donor data directly into the database
+        error_log("Attempting to insert donor data directly into database");
+        
+        $ch = curl_init(SUPABASE_URL . '/rest/v1/donor_form');
+        
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($formData));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'apikey: ' . SUPABASE_API_KEY,
+            'Authorization: Bearer ' . SUPABASE_API_KEY,
+            'Content-Type: application/json',
+            'Prefer: return=representation'
+        ]);
+        
+        $response = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_error = curl_error($ch);
+        
+        curl_close($ch);
+        
+        // Log full response for debugging
+        error_log("Donor insert response: HTTP " . $http_code);
+        error_log("Response data: " . $response);
+        
+        if ($curl_error) {
+            error_log("CURL Error: " . $curl_error);
+            throw new Exception("Error connecting to database: " . $curl_error);
         }
         
-        // Store the form data in session
-        $_SESSION['donor_form_data'] = $formData;
-        $_SESSION['donor_form_timestamp'] = time(); // Track when the form was submitted
-        
-        // Clear any previous donor_id to avoid confusion
-        if (isset($_SESSION['donor_id'])) {
-            error_log("Donor form - Clearing previous donor_id: " . $_SESSION['donor_id']);
-            unset($_SESSION['donor_id']);
+        if ($http_code >= 200 && $http_code < 300) {
+            $insertedData = json_decode($response, true);
+            
+            if (is_array($insertedData) && !empty($insertedData)) {
+                // Store the donor ID in session for the next step
+                $_SESSION['donor_id'] = $insertedData[0]['donor_id'];
+                
+                error_log("Donor inserted successfully with ID: " . $_SESSION['donor_id']);
+                
+                // Show loading modal before redirecting to medical history form
+                echo '<script>
+                    document.addEventListener("DOMContentLoaded", function() {
+                        showLoadingModal();
+                        setTimeout(function() {
+                            window.location.href = "medical-history-modal.php";
+                        }, 1500);
+                    });
+                </script>';
+            } else {
+                throw new Exception("Failed to parse inserted donor data");
+            }
+        } else {
+            // Extract error message from response if possible
+            $errorMessage = "Failed to insert donor data. HTTP Code: " . $http_code;
+            $responseData = json_decode($response, true);
+            
+            if ($responseData && isset($responseData['message'])) {
+                $errorMessage .= " - " . $responseData['message'];
+            } elseif ($responseData && isset($responseData['error'])) {
+                $errorMessage .= " - " . $responseData['error'];
+            }
+            
+            throw new Exception($errorMessage);
         }
-        
-        // Log donor information for tracking
-        error_log("Donor form - New donor being registered: " . $formData['first_name'] . " " . $formData['surname']);
-        error_log("Donor form data stored in session. Redirecting to medical history form.");
-        
-        // Show loading modal before redirecting to medical history form
-        echo '<script>
-            document.addEventListener("DOMContentLoaded", function() {
-                showLoadingModal();
-                setTimeout(function() {
-                    window.location.href = "medical-history-modal.php";
-                }, 1500);
-            });
-        </script>';
     } catch (Exception $e) {
         error_log("Exception handling donor form: " . $e->getMessage());
         // Add user-facing error message
         echo '<div class="alert alert-danger mt-3" role="alert">
-            An error occurred: ' . htmlspecialchars($e->getMessage()) . '
+            Error saving donor information: ' . htmlspecialchars($e->getMessage()) . '
         </div>';
+        
+        // Do not redirect or exit here to allow the form to be displayed again with the error message
     }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -475,22 +470,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
             margin-top: 30px;
             border-top: 1px solid var(--border-color);
         }
-        
-        /* Invalid field highlighting */
-        .form-control.is-invalid,
-        .form-select.is-invalid {
-            border-color: #dc3545;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right calc(0.375em + 0.1875rem) center;
-            background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
-        }
-        
-        .form-select.is-invalid {
-            padding-right: 4.125rem;
-            background-position: right 0.75rem center, center right 2.25rem;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e"), url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
-        }
 
         .btn-navigate {
             border: none;
@@ -574,6 +553,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
             </div>
             
             <div class="modal-body">
+                <!-- Error message display if any -->
+                <?php if (isset($_SESSION['error_message'])): ?>
+                <div class="alert alert-danger">
+                    <?php 
+                    echo $_SESSION['error_message']; 
+                    unset($_SESSION['error_message']);
+                    ?>
+                </div>
+                <?php endif; ?>
+                
                 <!-- Progress Steps -->
                 <div class="steps-container">
                     <div class="step-item">
@@ -647,10 +636,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
                             <label for="civil_status" class="form-label">Civil Status</label>
                             <select class="form-select" id="civil_status" name="civil_status" required>
                                 <option value="" disabled selected>Select Civil Status</option>
-                                <option value="Single" <?php echo $donor_details['civil_status'] === 'Single' ? 'selected' : ''; ?>>Single</option>
-                                <option value="Married" <?php echo $donor_details['civil_status'] === 'Married' ? 'selected' : ''; ?>>Married</option>
-                                <option value="Divorced" <?php echo $donor_details['civil_status'] === 'Divorced' ? 'selected' : ''; ?>>Divorced</option>
-                                <option value="Widowed" <?php echo $donor_details['civil_status'] === 'Widowed' ? 'selected' : ''; ?>>Widowed</option>
+                                <option value="Single" <?php echo $donor_details['civil_status'] == 'Single' ? 'selected' : ''; ?>>Single</option>
+                                <option value="Married" <?php echo $donor_details['civil_status'] == 'Married' ? 'selected' : ''; ?>>Married</option>
+                                <option value="Divorced" <?php echo $donor_details['civil_status'] == 'Divorced' ? 'selected' : ''; ?>>Divorced</option>
+                                <option value="Widowed" <?php echo $donor_details['civil_status'] == 'Widowed' ? 'selected' : ''; ?>>Widowed</option>
                             </select>
                         </div>
                         
@@ -658,9 +647,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
                             <label for="sex" class="form-label">Sex</label>
                             <select class="form-select" id="sex" name="sex" required>
                                 <option value="" disabled selected>Select Sex</option>
-                                <option value="Male" <?php echo $donor_details['sex'] === 'Male' ? 'selected' : ''; ?>>Male</option>
-                                <option value="Female" <?php echo $donor_details['sex'] === 'Female' ? 'selected' : ''; ?>>Female</option>
-                                <option value="Others" <?php echo $donor_details['sex'] === 'Others' ? 'selected' : ''; ?>>Others</option>
+                                <option value="Male" <?php echo $donor_details['sex'] == 'Male' ? 'selected' : ''; ?>>Male</option>
+                                <option value="Female" <?php echo $donor_details['sex'] == 'Female' ? 'selected' : ''; ?>>Female</option>
+                                <option value="Others" <?php echo $donor_details['sex'] == 'Others' ? 'selected' : ''; ?>>Others</option>
                             </select>
                         </div>
                         
@@ -683,7 +672,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="zip_code" class="form-label">ZIP Code</label>
-                                <input type="text" class="form-control" id="zip_code" name="zip_code" value="<?php echo $donor_details['zip_code'] ?? ''; ?>">
+                                <input type="text" class="form-control" id="zip_code" name="zip_code" value="<?php echo $donor_details['zip_code'] ?? $defaultZipCode; ?>">
                             </div>
                         </div>
                         
@@ -721,28 +710,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
                         
                         <div class="mb-3">
                             <label for="nationality" class="form-label">Nationality</label>
-                            <input type="text" class="form-control" id="nationality" name="nationality" value="Filipino" required>
+                            <input type="text" class="form-control" id="nationality" name="nationality" value="<?php echo $donor_details['nationality'] ?? 'Filipino'; ?>">
                         </div>
                         
                         <div class="mb-3">
                             <label for="religion" class="form-label">Religion</label>
-                            <input type="text" class="form-control" id="religion" name="religion" required value="<?php echo $donor_details['religion'] ?? ''; ?>">
+                            <input type="text" class="form-control" id="religion" name="religion" value="<?php echo $donor_details['religion'] ?? ''; ?>">
                         </div>
                         
                         <div class="mb-3">
                             <label for="education" class="form-label">Education</label>
-                            <select class="form-select" id="education" name="education" required>
+                            <select class="form-select" id="education" name="education">
                                 <option value="" selected disabled>Select Education Level</option>
-                                <option value="Elementary" <?php echo $donor_details['education'] === 'Elementary' ? 'selected' : ''; ?>>Elementary</option>
-                                <option value="High School" <?php echo $donor_details['education'] === 'High School' ? 'selected' : ''; ?>>High School</option>
-                                <option value="College" <?php echo $donor_details['education'] === 'College' ? 'selected' : ''; ?>>College</option>
-                                <option value="Post Graduate" <?php echo $donor_details['education'] === 'Post Graduate' ? 'selected' : ''; ?>>Post Graduate</option>
+                                <option value="Elementary" <?php echo $donor_details['education'] == 'Elementary' ? 'selected' : ''; ?>>Elementary</option>
+                                <option value="High School" <?php echo $donor_details['education'] == 'High School' ? 'selected' : ''; ?>>High School</option>
+                                <option value="College" <?php echo $donor_details['education'] == 'College' ? 'selected' : ''; ?>>College</option>
+                                <option value="Post Graduate" <?php echo $donor_details['education'] == 'Post Graduate' ? 'selected' : ''; ?>>Post Graduate</option>
                             </select>
                         </div>
                         
                         <div class="mb-3">
                             <label for="occupation" class="form-label">Occupation</label>
-                            <input type="text" class="form-control" id="occupation" name="occupation" required value="<?php echo $donor_details['occupation'] ?? ''; ?>">
+                            <input type="text" class="form-control" id="occupation" name="occupation" value="<?php echo $donor_details['occupation'] ?? ''; ?>">
                         </div>
                         
                         <div class="navigation-buttons">
@@ -759,7 +748,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
                         
                         <div class="mb-3">
                             <label for="mobile" class="form-label">Mobile Number</label>
-                            <input type="tel" class="form-control" id="mobile" name="mobile" required value="<?php echo $donor_details['mobile'] ?? ''; ?>">
+                            <input type="tel" class="form-control" id="mobile" name="mobile" value="<?php echo $donor_details['mobile'] ?? ''; ?>">
                         </div>
                         
                         <div class="mb-3">
@@ -1065,6 +1054,36 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
         window.location.href = dashboardUrl;
     }
     
+    // Function to highlight sections with pre-filled data
+    function highlightPrefilledSections() {
+        const sections = document.querySelectorAll('.form-section');
+        
+        sections.forEach(section => {
+            // Check if this section has any filled required fields
+            const requiredFields = section.querySelectorAll('[required]');
+            let hasPrefilledData = false;
+            
+            requiredFields.forEach(field => {
+                if (field.value && field.value.trim() !== '') {
+                    hasPrefilledData = true;
+                }
+            });
+            
+            if (hasPrefilledData) {
+                // Add a visual indicator that this section has pre-filled data
+                const sectionTitle = section.querySelector('.section-title');
+                if (sectionTitle) {
+                    const indicator = document.createElement('span');
+                    indicator.textContent = ' (Auto-filled)';
+                    indicator.style.fontSize = '14px';
+                    indicator.style.fontWeight = 'normal';
+                    indicator.style.color = '#28a745';
+                    sectionTitle.appendChild(indicator);
+                }
+            }
+        });
+    }
+    
     // Auto-calculate age on page load if birthdate already exists
     document.addEventListener('DOMContentLoaded', function() {
         const birthdateInput = document.getElementById('birthdate');
@@ -1171,36 +1190,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_donor_form'])) 
             }
         }
     });
-    
-    // Function to highlight sections with pre-filled data
-    function highlightPrefilledSections() {
-        const sections = document.querySelectorAll('.form-section');
-        
-        sections.forEach(section => {
-            // Check if this section has any filled required fields
-            const requiredFields = section.querySelectorAll('[required]');
-            let hasPrefilledData = false;
-            
-            requiredFields.forEach(field => {
-                if (field.value && field.value.trim() !== '') {
-                    hasPrefilledData = true;
-                }
-            });
-            
-            if (hasPrefilledData) {
-                // Add a visual indicator that this section has pre-filled data
-                const sectionTitle = section.querySelector('.section-title');
-                if (sectionTitle) {
-                    const indicator = document.createElement('span');
-                    indicator.textContent = ' (Auto-filled)';
-                    indicator.style.fontSize = '14px';
-                    indicator.style.fontWeight = 'normal';
-                    indicator.style.color = '#28a745';
-                    sectionTitle.appendChild(indicator);
-                }
-            }
-        });
-    }
 </script>
 </body>
 </html> 

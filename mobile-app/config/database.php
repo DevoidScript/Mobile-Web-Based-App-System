@@ -14,11 +14,14 @@
 
 // Supabase credentials
 define('SUPABASE_URL', 'https://nwakbxwglhxcpunrzstf.supabase.co');
-define('SUPABASE_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53YWtieHdnbGh4Y3B1bnJ6c3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyODA1NzIsImV4cCI6MjA1Nzg1NjU3Mn0.y4CIbDT2UQf2ieJTQukuJRRzspSZPehSgNKivBwpvc4');
+define('SUPABASE_API_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53YWtieHdnbGh4Y3B1bnJ6c3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyODA1NzIsImV4cCI6MjA1Nzg1NjU3Mn0.y4CIbDT2UQf2ieJTQukuJRRzspSZPehSgNKivBwpvc4');
 define('SUPABASE_JWT_SECRET', '02QhuqPddDa6fpjMrdkHsgIIl8c9/ZhJvsEO/S7pvzSJP6oeMIbREBXvtigd2BS/VuIrghVX5OnQUTR2ErDi7A==');
 
+// For backward compatibility, also define SUPABASE_KEY
+define('SUPABASE_KEY', SUPABASE_API_KEY);
+
 // Also define service role key for admin operations that bypass RLS
-define('SUPABASE_SERVICE_KEY', SUPABASE_KEY); // Replace with actual service key if available
+define('SUPABASE_SERVICE_KEY', SUPABASE_API_KEY); // Replace with actual service key if available
 
 /**
  * Helper function to make Supabase API requests
@@ -34,7 +37,7 @@ function supabase_request($endpoint, $method = 'GET', $data = null, $headers = [
     $url = SUPABASE_URL . '/' . $endpoint;
     
     // Determine which key to use based on the operation
-    $api_key = $use_service_role ? SUPABASE_SERVICE_KEY : SUPABASE_KEY;
+    $api_key = $use_service_role ? SUPABASE_SERVICE_KEY : SUPABASE_API_KEY;
     
     $default_headers = [
         'Content-Type: application/json',
