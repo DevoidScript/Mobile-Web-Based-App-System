@@ -31,6 +31,20 @@ if (!is_logged_in()) {
 
 // Get user data
 $user = $_SESSION['user'] ?? null;
+
+// Fetch donation history from eligibility table
+$donation_history = [];
+if ($user && isset($user['id'])) {
+    // Adjust 'donor_id' to your actual eligibility table's user reference field if needed
+    $params = [
+        'donor_id' => 'eq.' . $user['id'],
+        'order' => 'collection_start_time.desc'
+    ];
+    $result = get_records('eligibility', $params);
+    if ($result['success'] && !empty($result['data'])) {
+        $donation_history = $result['data'];
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -172,14 +186,37 @@ $user = $_SESSION['user'] ?? null;
     
     <div class="history-container">
         <div class="message-box">
-            <h2>Coming Soon</h2>
-            <p>The donation history feature is currently under development.</p>
-            <p>Soon you'll be able to view your past donations and upcoming appointments here.</p>
-            
-            <!-- Placeholder image -->
-            <img src="../assets/icons/redcrosslogo.jpg" alt="Coming Soon" class="placeholder-image">
-            
-            <p>Thank you for your patience as we work to improve your experience with the Red Cross mobile app.</p>
+            <h2>Donation History</h2>
+            <?php if (empty($donation_history)): ?>
+                <p>No donation records found.</p>
+            <?php else: ?>
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr>
+                            <th style="border-bottom:1px solid #ccc; padding:8px;">Date</th>
+                            <th style="border-bottom:1px solid #ccc; padding:8px;">Status</th>
+                            <th style="border-bottom:1px solid #ccc; padding:8px;">Amount Collected</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($donation_history as $donation): ?>
+                            <tr>
+                                <td style="padding:8px;">
+                                    <?php echo htmlspecialchars(
+                                        isset($donation['collection_start_time']) ? date('Y-m-d H:i', strtotime($donation['collection_start_time'])) : ''
+                                    ); ?>
+                                </td>
+                                <td style="padding:8px;">
+                                    <?php echo ucfirst(htmlspecialchars($donation['status'] ?? '')); ?>
+                                </td>
+                                <td style="padding:8px;">
+                                    <?php echo htmlspecialchars($donation['amount_collected'] ?? ''); ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
         </div>
     </div>
     
@@ -189,7 +226,7 @@ $user = $_SESSION['user'] ?? null;
             <div class="nav-icon">🏠</div>
             <div class="nav-label">Home</div>
         </a>
-        <a href="blood-session.php" class="nav-button">
+        <a href="blood_donation.php" class="nav-button">
             <div class="nav-icon">❤️</div>
             <div class="nav-label">Donate</div>
         </a>
