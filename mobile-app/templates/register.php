@@ -768,7 +768,7 @@ if ($validated) {
                     <input type="password" id="confirm_password" name="confirm_password" class="input" placeholder="Confirm your password" required>
                     
                     <div class="form-navigation">
-                        <a href="login.php" class="nav-button cancel-button">Cancel</a>
+                        <a href="../index.php" class="nav-button cancel-button">Cancel</a>
                         <button type="button" class="nav-button prev-button" data-prev="4">Previous</button>
                         <button type="submit" class="nav-button next-button submit-button">Register</button>
                     </div>
