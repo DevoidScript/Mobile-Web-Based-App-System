@@ -768,7 +768,7 @@ if ($validated) {
                     <input type="password" id="confirm_password" name="confirm_password" class="input" placeholder="Confirm your password" required>
                     
                     <div class="form-navigation">
-                        <a href="../index.php" class="nav-button cancel-button">Cancel</a>
+                        <a href="index.php" class="nav-button cancel-button">Cancel</a>
                         <button type="button" class="nav-button prev-button" data-prev="4">Previous</button>
                         <button type="submit" class="nav-button next-button submit-button">Register</button>
                     </div>
@@ -1198,19 +1198,7 @@ if ($validated) {
                         setTimeout(() => {
                             // Use the redirect path from server if available,
                             // otherwise fall back to relative path
-                            if (data.data && data.data.redirect) {
-                                // Check if redirect is absolute or relative
-                                if (data.data.redirect.startsWith('/')) {
-                                    // For absolute paths, ensure they work in the current environment
-                                    const basePath = window.location.pathname.split('/mobile-app/')[0];
-                                    window.location.href = basePath + data.data.redirect.substring(1);
-                                } else {
-                                    window.location.href = data.data.redirect;
-                                }
-                            } else {
-                                // Default redirect path updated to use relative path from templates directory
-                                window.location.href = '../index.php';
-                            }
+                            window.location.href = data.data.redirect;
                         }, 1500);
                     } else {
                         // Show error message
