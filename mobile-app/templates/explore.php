@@ -105,52 +105,107 @@ $donor_details = $_SESSION['donor_details'] ?? null;
         
         .explore-container {
             padding: 15px;
-            margin-bottom: 70px;
+            margin-bottom: 80px; /* More space for nav bar */
             max-width: 600px;
             margin-left: auto;
             margin-right: auto;
+            text-align: left;
         }
         
-        .card {
-            background-color: white;
+        .location-bar {
+            margin-bottom: 20px;
+            font-size: 16px;
+            color: #555;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #D50000;
+            margin-bottom: 15px;
+        }
+
+        .blood-center-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+
+        .center-image {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+        }
+
+        .center-info {
+            padding: 15px;
+        }
+
+        .center-info h3 {
+            margin: 0 0 5px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .center-info p {
+            margin: 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .pagination-dots {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .dot {
+            height: 8px;
+            width: 8px;
+            background-color: #bbb;
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 4px;
+        }
+
+        .dot.active {
+            background-color: #D50000;
+        }
+
+        .info-cards-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .info-card {
+            background: white;
+            border: 1px solid #ddd;
             border-radius: 10px;
             padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            width: 48%;
+            box-sizing: border-box;
             text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            text-decoration: none;
+            color: inherit;
         }
-        
-        .card h3 {
-            color: #FF0000;
-            margin-top: 0;
-            margin-bottom: 15px;
-            font-size: 18px;
+
+        .info-card-icon {
+            font-size: 36px;
+            margin-bottom: 10px;
         }
-        
-        .card-content {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 60px;
-        }
-        
-        .card-icon {
-            background-color: #ffebee;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 15px;
-            font-size: 24px;
-            color: #FF0000;
-            flex-shrink: 0;
-        }
-        
-        .card-text {
-            flex: 1;
-            text-align: left;
+
+        .info-card h4 {
+            color: #D50000;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 0;
+            line-height: 1.3;
         }
         
         .navigation-bar {
@@ -206,29 +261,37 @@ $donor_details = $_SESSION['donor_details'] ?? null;
 <body>
     <div class="header">
         <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="logo-small">
-        <h1>Philippine Red Cross</h1>
+        <h1>Explore</h1>
     </div>
     
     <div class="explore-container">
-        <div class="card">
-            <h3>Explore Red Cross</h3>
-            <div class="card-content">
-                <div class="card-icon">🔍</div>
-                <div class="card-text">
-                    <p>Welcome to the explore section! This area will contain various features and information about the Red Cross.</p>
-                    <p>Content coming soon...</p>
-                </div>
+        <div class="location-bar">
+            <span>📍</span> Villa Arevalo, Iloilo City
+        </div>
+
+        <h2 class="section-title">Find Blood Centers</h2>
+
+        <div class="blood-center-card">
+            <img src="../assets/images/donate.png" alt="Blood Donation Drive" class="center-image">
+            <div class="center-info">
+                <h3>Philippine Red Cross Iloilo Chapter</h3>
+                <p>Bonifacio Dr, Iloilo City Proper, Iloilo City, Iloilo</p>
             </div>
         </div>
-        
-        <div class="card">
-            <h3>Coming Soon</h3>
-            <div class="card-content">
-                <div class="card-icon">🚀</div>
-                <div class="card-text">
-                    <p>New features and content will be added here to enhance your Red Cross experience.</p>
-                </div>
-            </div>
+        <div class="pagination-dots">
+            <span class="dot active"></span>
+            <span class="dot"></span>
+        </div>
+
+        <div class="info-cards-container">
+            <a href="tips-guide.php" class="info-card">
+                <div class="info-card-icon">💡</div>
+                <h4>Donation Tips &amp; Eligibility Guide</h4>
+            </a>
+            <a href="faq.php" class="info-card">
+                <div class="info-card-icon">❓</div>
+                <h4>Frequently Asked Questions</h4>
+            </a>
         </div>
     </div>
     
