@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  blood-donation-app:
+    build: .
+    container_name: blood-donation-app
+    ports:
+      - "8080:80"
+    volumes:
+      # Mount the application code for development
+      - .:/var/www/html
+      # Exclude node_modules and other unnecessary files
+      - /var/www/html/.git
+      - /var/www/html/node_modules
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html/mobile-app
+    restart: unless-stopped
+    networks:
+      - blood-donation-network
+
+  # Optional: Add a database service if you want to use a local database instead of Supabase
+  # mysql:
+  #   image: mysql:8.0
+  #   container_name: blood-donation-mysql
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: rootpassword
+  #     MYSQL_DATABASE: blood_donation
+  #     MYSQL_USER: blooduser
+  #     MYSQL_PASSWORD: bloodpass
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql
+  #   networks:
+  #     - blood-donation-network
+  #   restart: unless-stopped
+
+networks:
+  blood-donation-network:
+    driver: bridge
+
+# volumes:
+#   mysql_data: 

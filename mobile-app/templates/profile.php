@@ -205,7 +205,7 @@ if (!$donor_details && $user) {
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            width: 25%;
+            width: 33.33%;
             padding: 5px 0;
             touch-action: manipulation;
             text-decoration: none;
@@ -366,13 +366,9 @@ if (!$donor_details && $user) {
             <div class="nav-icon">🏠</div>
             <div class="nav-label">Home</div>
         </a>
-        <a href="blood_donation.php" class="nav-button">
-            <div class="nav-icon">❤️</div>
-            <div class="nav-label">Donate</div>
-        </a>
-        <a href="donation_history.php" class="nav-button">
-            <div class="nav-icon">📋</div>
-            <div class="nav-label">History</div>
+        <a href="explore.php" class="nav-button">
+            <div class="nav-icon">🔍</div>
+            <div class="nav-label">Explore</div>
         </a>
         <a href="profile.php" class="nav-button active">
             <div class="nav-icon">👤</div>
