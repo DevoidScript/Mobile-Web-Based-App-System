@@ -82,39 +82,54 @@ if (!$donor_details && $user) {
         body {
             margin: 0;
             padding: 0;
-            background-color: #f5f5f5;
+            background-color: #f8f9fa; /* Lighter gray to match design */
             font-family: Arial, sans-serif;
             font-size: 16px; /* Base font size for better readability on mobile */
             -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
         }
         
+        /* New header styles from explore.php */
         .header {
             background-color: #FF0000;
             color: white;
             padding: 15px;
-            text-align: center;
-            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             width: 100%;
             box-sizing: border-box;
             z-index: 100;
         }
-        
-        .logo-small {
+
+        .user-info-header {
+            display: flex;
+            align-items: center;
+        }
+
+        .user-avatar {
             width: 40px;
             height: 40px;
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            object-fit: contain;
             border-radius: 50%;
+            margin-right: 10px;
             background-color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #FF0000;
+            font-weight: bold;
         }
-        
-        .header h1 {
-            margin: 0;
-            font-size: 20px;
-            padding: 0 40px; /* Make space for the logo */
+
+        .user-name {
+            font-weight: bold;
+            font-size: 18px;
+            color: white;
+        }
+
+        .notification-icon a {
+            font-size: 24px;
+            text-decoration: none;
+            color: white;
         }
         
         .dashboard-container {
@@ -125,102 +140,174 @@ if (!$donor_details && $user) {
             margin-right: auto;
         }
         
-        .user-info {
-            background-color: white;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            text-align: center; /* Center the welcome message */
+        /* Countdown Section */
+        .countdown-section {
+            text-align: center;
+            padding: 20px 0;
         }
-        
-        .user-info h2 {
+
+        .red-cross-logo-large {
+            max-width: 80px; /* Set a maximum size */
+            width: 25%;      /* Use a percentage for responsive scaling */
+            height: auto;    /* Maintain aspect ratio */
+            object-fit: contain; /* Ensure the image scales nicely */
+            margin-bottom: 15px;
+        }
+
+        .countdown-section h3 {
             color: #FF0000;
-            margin: 0; /* Remove margin for cleaner look */
-            font-size: 20px; /* Increase font size for emphasis */
-            border-bottom: none; /* Remove bottom border since it's the only content */
-            padding-bottom: 0; /* Remove padding since there's no border */
-            margin-bottom: 0; /* Remove bottom margin since there's no content below */
-        }
-        
-        .user-detail {
-            margin-bottom: 12px;
-            display: flex;
-            flex-wrap: wrap;
-        }
-        
-        .detail-label {
+            margin-bottom: 20px;
             font-weight: bold;
-            min-width: 100px;
-            padding-right: 10px;
         }
-        
-        .detail-value {
-            flex: 1;
-            word-break: break-word; /* Prevent overflow for long values */
+
+        .countdown-timer {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .timer-box {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .timer-box .time {
+            font-size: 36px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .timer-box .label {
+            font-size: 14px;
+            color: #6c757d;
         }
         
         .card {
             background-color: white;
             border-radius: 10px;
-            padding: 15px;
             margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        
-        .card h3 {
-            color: #FF0000;
-            margin-top: 0;
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
-        
-        .card-content {
-            display: flex;
-            align-items: center;
-            min-height: 60px; /* Ensure minimum height for better touch targets */
-        }
-        
-        .card-icon {
-            background-color: #ffebee;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 15px;
-            font-size: 24px;
-            color: #FF0000;
-            flex-shrink: 0; /* Prevent icon from shrinking */
+            border: 1px solid #eee;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
         
         .card-link {
             text-decoration: none;
             color: inherit;
-            display: block;
-            padding: 5px; /* Additional padding for touch area */
-            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
             transition: background-color 0.2s ease;
         }
-        
+
         .card-link:hover {
-            text-decoration: none;
+            background-color: #f9f9f9;
+        }
+
+        .card-link::after {
+            content: '>';
+            font-family: 'monospace';
+            font-weight: bold;
+            color: #ccc;
+            font-size: 24px;
         }
         
-        .card-link:active {
-            background-color: #f5f5f5; /* Visual feedback on touch */
+        .card-content-wrapper {
+            display: flex;
+            align-items: center;
         }
         
-        .card-link:hover .card-icon,
-        .card-link:active .card-icon {
-            background-color: #ffcdd2;
-            transform: scale(1.05);
-            transition: all 0.2s ease;
+        .card-icon {
+            background-color: #ffebee;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 20px;
+            color: #FF0000;
+            flex-shrink: 0;
         }
-        
-        .card-text {
-            flex: 1;
+
+        .card-text-container h3 {
+            color: #FF0000;
+            margin: 0 0 5px;
+            font-size: 16px;
+        }
+
+        .card-text-container p {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* Blood Tracker Styles */
+        .blood-tracker-card .card-text-container {
+             flex-grow: 1;
+        }
+        .tracker-timeline {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding: 0 10px;
+            position: relative;
+        }
+        .tracker-line {
+            position: absolute;
+            height: 2px;
+            background-color: #e0e0e0;
+            width: calc(100% - 60px);
+            top: 19px; /* Vertically center with icon */
+            left: 30px;
+            z-index: 1;
+        }
+        .tracker-progress-line {
+            position: absolute;
+            height: 2px;
+            background-color: #4CAF50; /* Green progress */
+            width: 66.66%; /* 2/3 of the way for "Allocated" */
+            top: 19px;
+            left: 30px;
+            z-index: 2;
+            transition: width 0.3s ease;
+        }
+        .tracker-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 3;
+            position: relative;
+        }
+        .tracker-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: white;
+            background-color: #ccc; /* Default inactive */
+            border: 2px solid white;
+        }
+        .tracker-icon.completed, .tracker-icon.active {
+            background-color: #4CAF50; /* Green */
+        }
+        .tracker-icon.last {
+            background-color: #FF0000; /* Red for 'Used' */
+        }
+        .tracker-label {
+            font-size: 12px;
+            margin-top: 5px;
+            color: #666;
+        }
+        .tracker-status-text {
+            font-size: 14px;
+            color: #333;
+            margin-top: 10px;
         }
         
         .logout-btn {
@@ -277,6 +364,10 @@ if (!$donor_details && $user) {
         .nav-button:active {
             opacity: 0.7; /* Visual feedback on touch */
         }
+
+        .nav-button.active {
+            color: #FF0000;
+        }
         
         .nav-icon {
             font-size: 24px;
@@ -291,81 +382,109 @@ if (!$donor_details && $user) {
         /* Add responsive adjustments */
         @media (max-width: 360px) {
             /* For very small screens */
-            .card-content {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            
-            .card-icon {
-                margin-bottom: 10px;
-                margin-right: 0;
-            }
-            
-            .user-detail {
-                flex-direction: column;
-            }
-            
-            .detail-label {
-                margin-bottom: 5px;
+            .tracker-label {
+                font-size: 10px;
             }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="logo-small">
-        <h1>Philippine Red Cross</h1>
+        <div class="user-info-header">
+            <div class="user-avatar">
+                <?php
+                    if (!empty($donor_details['first_name'])) {
+                        echo htmlspecialchars(strtoupper(substr($donor_details['first_name'], 0, 1)));
+                    } else {
+                        echo '👤';
+                    }
+                ?>
+            </div>
+            <span class="user-name">
+                <?php 
+                    if (!empty($donor_details['first_name'])) {
+                        echo htmlspecialchars($donor_details['first_name']);
+                    } elseif (!empty($user['email'])) {
+                        $email_parts = explode('@', $user['email']);
+                        echo htmlspecialchars($email_parts[0]);
+                    } else {
+                        echo 'User';
+                    }
+                ?>
+            </span>
+        </div>
+        <div class="notification-icon">
+            <a href="#">🔔</a>
+        </div>
     </div>
     
     <div class="dashboard-container">
-        <!-- 
-         * Modified user info section - only showing welcome message
-         * Detailed user information has been removed for simplicity
-         * while maintaining the personalized greeting
-         -->
-        <div class="user-info">
-            <h2>Welcome, <?php 
-                if (!empty($donor_details['first_name'])) {
-                    echo htmlspecialchars($donor_details['first_name']);
-                } elseif (!empty($user['email'])) {
-                    // Get username part of email (before @)
-                    $email_parts = explode('@', $user['email']);
-                    echo htmlspecialchars($email_parts[0]);
-                } else {
-                    echo 'User';
-                }
-            ?>!</h2>
+        <div class="countdown-section">
+            <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="red-cross-logo-large">
+            <h3>You can donate again in</h3>
+            <div class="countdown-timer">
+                <div class="timer-box">
+                    <span class="time">02</span>
+                    <span class="label">months</span>
+                </div>
+                <div class="timer-box">
+                    <span class="time">28</span>
+                    <span class="label">days</span>
+                </div>
+            </div>
         </div>
         
         <div class="card">
-            <h3>Donate Blood</h3>
-            <!-- Make the entire card clickable for blood donation -->
             <a href="blood_donation.php" class="card-link">
-                <div class="card-content">
+                <div class="card-content-wrapper">
                     <div class="card-icon">❤️</div>
-                    <div class="card-text">Schedule your next blood donation appointment</div>
+                    <div class="card-text-container">
+                        <h3>Donate Blood</h3>
+                        <p>Schedule your next blood donation appointment</p>
+                    </div>
                 </div>
             </a>
         </div>
         
         <div class="card">
-            <h3>Donation History</h3>
-            <!-- Card to view donation history -->
             <a href="donation_history.php" class="card-link">
-                <div class="card-content">
+                <div class="card-content-wrapper">
                     <div class="card-icon">📋</div>
-                    <div class="card-text">View your past donations and upcoming appointments</div>
+                    <div class="card-text-container">
+                        <h3>Donation History</h3>
+                        <p>Keep track of your previous donations and their outcomes</p>
+                    </div>
                 </div>
             </a>
         </div>
         
-        <div class="card">
-            <h3>Find Blood Centers</h3>
-            <!-- Card to find nearest blood centers -->
-            <a href="blood_centers.php" class="card-link">
-                <div class="card-content">
-                    <div class="card-icon">🏥</div>
-                    <div class="card-text">Locate the nearest Red Cross blood center</div>
+        <div class="card blood-tracker-card">
+            <a href="#" class="card-link">
+                <div class="card-text-container">
+                    <h3>Blood Tracker</h3>
+                    <div class="tracker-timeline">
+                        <div class="tracker-line"></div>
+                        <div class="tracker-progress-line"></div>
+                        <div class="tracker-step">
+                            <div class="tracker-icon completed">✓</div>
+                            <div class="tracker-label">Processed</div>
+                        </div>
+                        <div class="tracker-step">
+                            <div class="tracker-icon completed">✓</div>
+                            <div class="tracker-label">Stored</div>
+                        </div>
+                        <div class="tracker-step">
+                            <div class="tracker-icon active">✓</div>
+                            <div class="tracker-label">Allocated</div>
+                        </div>
+                        <div class="tracker-step">
+                            <div class="tracker-icon last">➕</div>
+                            <div class="tracker-label">Used</div>
+                        </div>
+                    </div>
+                    <div class="tracker-status-text">
+                        Your blood is allocated for a hospital request.
+                    </div>
                 </div>
             </a>
         </div>
