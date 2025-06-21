@@ -41,6 +41,37 @@ if (!$donor_details && $user) {
         $donor_details = $_SESSION['donor_details'];
     }
 }
+
+// Fetch donation history from eligibility table to calculate stats
+$donation_history = [];
+$total_donations = 0;
+$last_donation_date = 'N/A';
+
+if ($user && isset($user['id'])) {
+    $params = [
+        'donor_id' => 'eq.' . $user['id'],
+        'order' => 'collection_start_time.desc'
+    ];
+    $result = get_records('eligibility', $params);
+    if ($result['success'] && !empty($result['data'])) {
+        $donation_history = $result['data'];
+        $total_donations = count($donation_history);
+        if ($total_donations > 0 && isset($donation_history[0]['collection_start_time'])) {
+            $last_donation_date = date('F j, Y', strtotime($donation_history[0]['collection_start_time']));
+        }
+    }
+}
+
+// Calculate age from birthdate
+$age = 'N/A';
+if (!empty($donor_details['birthdate'])) {
+    $birthDate = new DateTime($donor_details['birthdate']);
+    $today = new DateTime('today');
+    $age = $birthDate->diff($today)->y;
+}
+
+// Get blood type
+$blood_type = htmlspecialchars($donor_details['blood_type'] ?? 'N/A');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -66,7 +97,7 @@ if (!$donor_details && $user) {
         body {
             margin: 0;
             padding: 0;
-            background-color: #f5f5f5;
+            background-color: #f8f9fa; /* Lighter background */
             font-family: Arial, sans-serif;
             font-size: 16px;
             -webkit-tap-highlight-color: transparent;
@@ -83,101 +114,166 @@ if (!$donor_details && $user) {
             z-index: 100;
         }
         
-        .logo-small {
-            width: 40px;
-            height: 40px;
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            object-fit: contain;
-            border-radius: 50%;
-            background-color: white;
-        }
-        
         .header h1 {
             margin: 0;
             font-size: 20px;
-            padding: 0 40px; /* Make space for the logo */
         }
         
         .profile-container {
-            padding: 15px;
-            margin-bottom: 70px; /* Space for bottom navigation */
+            padding: 20px 15px 80px; /* Add more bottom padding */
             max-width: 600px;
             margin-left: auto;
             margin-right: auto;
+            text-align: center;
         }
         
-        .profile-section {
+        .profile-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            margin: 0 auto 10px;
+            background-color: #007bff; /* Example color */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            color: white;
+            background-image: url('../assets/icons/user-avatar-placeholder.png'); /* Placeholder image */
+            background-size: cover;
+        }
+
+        .profile-name {
+            font-size: 22px;
+            font-weight: bold;
+            color: #FF0000;
+            margin-bottom: 5px;
+        }
+
+        .last-donation {
+            color: #6c757d;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .stats-container {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+        }
+
+        .stat-box {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            width: 30%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .stat-box .label {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .stat-box .value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .settings-group {
             background-color: white;
             border-radius: 10px;
-            padding: 20px;
             margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: left;
+            border: 1px solid #ddd;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        
-        .profile-section h2 {
-            color: #FF0000;
-            margin-top: 0;
+
+        .settings-group h3 {
+            padding: 15px 15px 10px;
+            margin: 0;
             font-size: 18px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
+            font-weight: bold;
         }
         
-        .profile-detail {
-            margin-bottom: 12px;
+        .setting-item {
             display: flex;
-            flex-wrap: wrap;
-        }
-        
-        .detail-label {
-            font-weight: bold;
-            min-width: 140px;
-            padding-right: 10px;
-        }
-        
-        .detail-value {
-            flex: 1;
-            word-break: break-word;
-        }
-        
-        .edit-btn {
-            width: 100%;
+            justify-content: space-between;
+            align-items: center;
             padding: 15px;
-            background-color:rgb(48, 138, 85);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            font-weight: bold;
-            margin-top: 10px;
+            border-top: 1px solid #f0f0f0;
         }
-        
-        /* 
-         * Logout button style moved from dashboard
-         * Maintains consistent styling with the edit button
-         */
-        .logout-btn {
-            width: 100%;
-            padding: 15px;
-            background-color: #FF0000;
-            color: #FFFFFF; /* Ensuring high contrast white color for better visibility */
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            font-weight: bold;
-            -webkit-appearance: none; /* Remove default styling on iOS */
-            min-height: 50px; /* Ensure good touch target size */
-            text-shadow: 0 1px 1px rgba(0,0,0,0.2); /* Adding text shadow for better readability on red background */
+
+        .setting-item a {
+            text-decoration: none;
+            color: #333;
+            flex-grow: 1;
         }
-        
-        .logout-btn:active {
-            background-color: #D50000; /* Darker red on touch */
-            transform: translateY(1px); /* Slight visual feedback */
+
+        .setting-item .arrow {
+            color: #ccc;
+            font-weight: bold;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 28px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #4CAF50; /* Green */
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(22px);
+        }
+
+        .logout-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #FF0000;
+            text-decoration: none;
+            font-weight: bold;
+            cursor: pointer;
         }
         
         .navigation-bar {
@@ -239,125 +335,159 @@ if (!$donor_details && $user) {
                 margin-bottom: 5px;
             }
         }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 300px;
+            width: 90%;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #aaa;
+        }
+
+        .modal-text {
+            margin-bottom: 25px;
+            color: #555;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .modal-btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 48%;
+        }
+
+        .cancel-btn {
+            background: white;
+            border: 1px solid #ddd;
+            color: #333;
+        }
+
+        .logout-confirm-btn {
+            background: #D50000;
+            color: white;
+        }
     </style>
 </head>
 <body>
     <div class="header">
-        <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="logo-small">
-        <h1>User Profile</h1>
+        <h1>Profile</h1>
     </div>
     
     <div class="profile-container">
-        <?php if ($donor_details): ?>
-            <div class="profile-section">
-                <h2>Personal Information</h2>
-                
-                <div class="profile-detail">
-                    <div class="detail-label">Name:</div>
-                    <div class="detail-value">
-                        <?php 
-                            echo htmlspecialchars($donor_details['first_name'] ?? '');
-                            echo ' ';
-                            echo htmlspecialchars($donor_details['middle_name'] ?? '');
-                            echo ' ';
-                            echo htmlspecialchars($donor_details['surname'] ?? '');
-                        ?>
-                    </div>
-                </div>
-                
-                <div class="profile-detail">
-                    <div class="detail-label">Email:</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($donor_details['email'] ?? $user['email'] ?? ''); ?></div>
-                </div>
-                
-                <div class="profile-detail">
-                    <div class="detail-label">Mobile:</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($donor_details['mobile'] ?? ''); ?></div>
-                </div>
-                
-                <div class="profile-detail">
-                    <div class="detail-label">Birthdate:</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($donor_details['birthdate'] ?? ''); ?></div>
-                </div>
-                
-                <div class="profile-detail">
-                    <div class="detail-label">Sex:</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($donor_details['sex'] ?? ''); ?></div>
-                </div>
-                
-                <div class="profile-detail">
-                    <div class="detail-label">Civil Status:</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($donor_details['civil_status'] ?? ''); ?></div>
-                </div>
+        <div class="profile-avatar"></div>
+        <div class="profile-name">
+            <?php 
+                $firstName = htmlspecialchars($donor_details['first_name'] ?? '');
+                $lastName = htmlspecialchars($donor_details['surname'] ?? '');
+                echo trim("$firstName $lastName");
+            ?>
+        </div>
+        <div class="last-donation">Last Donation: <?php echo $last_donation_date; ?></div>
+
+        <div class="stats-container">
+            <div class="stat-box">
+                <div class="label">Age</div>
+                <div class="value"><?php echo $age; ?></div>
             </div>
-            
-            <div class="profile-section">
-                <h2>Additional Information</h2>
-                
-                <div class="profile-detail">
-                    <div class="detail-label">Address:</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($donor_details['permanent_address'] ?? ''); ?></div>
-                </div>
-                
-                <div class="profile-detail">
-                    <div class="detail-label">Nationality:</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($donor_details['nationality'] ?? ''); ?></div>
-                </div>
-                
-                <div class="profile-detail">
-                    <div class="detail-label">Occupation:</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($donor_details['occupation'] ?? ''); ?></div>
-                </div>
-                
-                <?php if (!empty($donor_details['religion'])): ?>
-                <div class="profile-detail">
-                    <div class="detail-label">Religion:</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($donor_details['religion']); ?></div>
-                </div>
-                <?php endif; ?>
-                
-                <?php if (!empty($donor_details['education'])): ?>
-                <div class="profile-detail">
-                    <div class="detail-label">Education:</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($donor_details['education']); ?></div>
-                </div>
-                <?php endif; ?>
+            <div class="stat-box">
+                <div class="label">Blood Type</div>
+                <div class="value"><?php echo $blood_type; ?></div>
             </div>
-            
-            <!-- Edit button for future functionality -->
-            <button type="button" class="edit-btn" onclick="alert('Profile editing will be available in a future update.')">Edit Profile</button>
-            
-            <!-- 
-             * Logout button moved from dashboard to profile page
-             * Placing it here makes the dashboard cleaner while keeping the logout functionality easily accessible
-             -->
-            <form action="../api/auth.php?logout" method="POST" style="margin-top: 20px;">
-                <button type="submit" class="logout-btn" style="color: #FFFFFF !important; background-color: #FF0000 !important;">Logout</button>
-            </form>
-            
-        <?php else: ?>
-            <div class="profile-section">
-                <h2>Profile Information</h2>
-                <p>Your profile information is not complete. Please update your details.</p>
-                
-                <?php if ($user): ?>
-                <div class="profile-detail">
-                    <div class="detail-label">Email:</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($user['email'] ?? ''); ?></div>
-                </div>
-                <?php endif; ?>
-                
-                <button type="button" class="edit-btn" onclick="alert('Profile editing will be available in a future update.')">Complete Profile</button>
-                
-                <!-- 
-                 * Logout button moved from dashboard to profile page
-                 * Placing it here makes the dashboard cleaner while keeping the logout functionality easily accessible
-                 -->
-                <form action="../api/auth.php?logout" method="POST" style="margin-top: 20px;">
-                    <button type="submit" class="logout-btn" style="color: #FFFFFF !important; background-color: #FF0000 !important;">Logout</button>
+            <div class="stat-box">
+                <div class="label">Donations</div>
+                <div class="value"><?php echo str_pad($total_donations, 2, '0', STR_PAD_LEFT); ?></div>
+            </div>
+        </div>
+
+        <div class="settings-group">
+            <h3>Account Settings</h3>
+            <div class="setting-item">
+                <a href="edit-profile.php">Edit profile</a>
+                <span class="arrow">></span>
+            </div>
+            <div class="setting-item">
+                <a href="change-password.php">Change password</a>
+                <span class="arrow">></span>
+            </div>
+            <div class="setting-item">
+                <span>Push notifications</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-group">
+            <h3>Support</h3>
+            <div class="setting-item">
+                <a href="about-us.php">About us</a>
+                <span class="arrow">></span>
+            </div>
+            <div class="setting-item">
+                <a href="privacy-policy.php">Privacy policy</a>
+                <span class="arrow">></span>
+            </div>
+        </div>
+
+        <a class="logout-link" id="logout-link">Logout</a>
+    </div>
+    
+    <!-- Logout Confirmation Modal -->
+    <div id="logout-modal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-modal" id="close-modal">&times;</span>
+            <h3 class="modal-title">Logout</h3>
+            <p class="modal-text">Are you sure you want to logout?</p>
+            <div class="modal-buttons">
+                <button id="cancel-logout" class="modal-btn cancel-btn">Cancel</button>
+                <form id="logout-form" action="../api/auth.php?logout" method="POST" style="width: 48%;">
+                    <button type="submit" class="modal-btn logout-confirm-btn" style="width: 100%;">Logout</button>
                 </form>
             </div>
-        <?php endif; ?>
+        </div>
     </div>
     
     <!-- Mobile-optimized bottom navigation bar -->
@@ -378,6 +508,34 @@ if (!$donor_details && $user) {
     
     <!-- Scripts -->
     <script src="../assets/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const logoutLink = document.getElementById('logout-link');
+            const logoutModal = document.getElementById('logout-modal');
+            const closeModal = document.getElementById('close-modal');
+            const cancelLogout = document.getElementById('cancel-logout');
+            const logoutForm = document.getElementById('logout-form');
+
+            logoutLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                logoutModal.style.display = 'flex';
+            });
+
+            const hideModal = () => {
+                logoutModal.style.display = 'none';
+            };
+
+            closeModal.addEventListener('click', hideModal);
+            cancelLogout.addEventListener('click', hideModal);
+
+            // Optional: Close modal if clicking on the overlay
+            logoutModal.addEventListener('click', function(e) {
+                if (e.target === logoutModal) {
+                    hideModal();
+                }
+            });
+        });
+    </script>
     <!-- Register Service Worker for PWA -->
     <script>
         if ('serviceWorker' in navigator) {
