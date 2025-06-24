@@ -51,6 +51,13 @@ if (!$donor_details && $user) {
         $donor_details = $_SESSION['donor_details'];
     }
 }
+
+// Check if user has donated
+$has_donated = false;
+$latest_donation = null;
+if ($user && isset($user['id'])) {
+    list($has_donated, $latest_donation) = has_successful_donation($user['id']);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -389,6 +396,89 @@ if (!$donor_details && $user) {
     </style>
 </head>
 <body>
+<?php if (!$has_donated): ?>
+    <div class="header">
+        <div class="user-info-header">
+            <div class="user-avatar">
+                <?php
+                    if (!empty($donor_details['first_name'])) {
+                        echo htmlspecialchars(strtoupper(substr($donor_details['first_name'], 0, 1)));
+                    } else {
+                        echo '👤';
+                    }
+                ?>
+            </div>
+            <span class="user-name">
+                <?php 
+                    if (!empty($donor_details['first_name'])) {
+                        echo htmlspecialchars($donor_details['first_name']);
+                    } elseif (!empty($user['email'])) {
+                        $email_parts = explode('@', $user['email']);
+                        echo htmlspecialchars($email_parts[0]);
+                    } else {
+                        echo 'User';
+                    }
+                ?>
+            </span>
+        </div>
+        <div class="notification-icon">
+            <a href="#">🔔</a>
+        </div>
+    </div>
+    <div class="dashboard-container">
+        <div style="text-align:center; margin-bottom: 20px;">
+            <img src="../assets/images/donate.png" alt="Donate Blood Illustration" style="max-width:160px;width:70%;height:auto;">
+            <h2 style="color:#b80000;font-size:2rem;font-weight:800;margin:16px 0 0 0;line-height:1.1;">DONATE BLOOD<br>SAVE LIVES</h2>
+        </div>
+        <div class="card">
+            <a href="blood_donation.php" class="card-link">
+                <div class="card-content-wrapper">
+                    <div class="card-icon">❤️</div>
+                    <div class="card-text-container">
+                        <h3>Donate Blood</h3>
+                        <p>Schedule your next blood donation appointment</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="card">
+            <a href="donation_history.php" class="card-link">
+                <div class="card-content-wrapper">
+                    <div class="card-icon">📋</div>
+                    <div class="card-text-container">
+                        <h3>Donation History</h3>
+                        <p>Keep track of your previous donations and their outcomes.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="card blood-tracker-card">
+            <a href="#" class="card-link">
+                <div class="card-content-wrapper">
+                    <div class="card-icon">📝</div>
+                    <div class="card-text-container">
+                        <h3>Blood Tracker</h3>
+                        <p>Monitor the journey and status of donated blood.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+    <div class="navigation-bar">
+        <a href="dashboard.php" class="nav-button active">
+            <div class="nav-icon">🏠</div>
+            <div class="nav-label">Home</div>
+        </a>
+        <a href="explore.php" class="nav-button">
+            <div class="nav-icon">🔍</div>
+            <div class="nav-label">Explore</div>
+        </a>
+        <a href="profile.php" class="nav-button">
+            <div class="nav-icon">👤</div>
+            <div class="nav-label">Profile</div>
+        </a>
+    </div>
+<?php else: ?>
     <div class="header">
         <div class="user-info-header">
             <div class="user-avatar">
@@ -505,6 +595,7 @@ if (!$donor_details && $user) {
             <div class="nav-label">Profile</div>
         </a>
     </div>
+<?php endif; ?>
     
     <!-- Scripts -->
     <script src="../assets/js/app.js"></script>

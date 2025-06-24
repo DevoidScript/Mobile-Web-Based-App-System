@@ -303,7 +303,7 @@
                 </div>
             <?php endif; ?>
             
-            <form action="api/auth.php?login" method="POST">
+            <form action="../api/auth.php?login" method="POST">
                 <div class="input-group">
                     <label for="email" class="form-label">Email Address</label>
                     <div class="input-wrapper">

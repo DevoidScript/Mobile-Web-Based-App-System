@@ -34,8 +34,12 @@ $user = $_SESSION['user'] ?? null;
 
 // Fetch donation history from eligibility table
 $donation_history = [];
+$has_donated = false;
+$latest_donation = null;
 if ($user && isset($user['id'])) {
-    // Adjust 'donor_id' to your actual eligibility table's user reference field if needed
+    // Use the new reusable function
+    list($has_donated, $latest_donation) = has_successful_donation($user['id']);
+    // Get all donation history for display
     $params = [
         'donor_id' => 'eq.' . $user['id'],
         'order' => 'collection_start_time.desc'
@@ -187,6 +191,9 @@ if ($user && isset($user['id'])) {
     <div class="history-container">
         <div class="message-box">
             <h2>Donation History</h2>
+            <?php if ($has_donated && $latest_donation): ?>
+                <p style="color:green;font-weight:bold;">You have already donated. Your blood is stored in the blood bank.</p>
+            <?php endif; ?>
             <?php if (empty($donation_history)): ?>
                 <p>No donation records found.</p>
             <?php else: ?>

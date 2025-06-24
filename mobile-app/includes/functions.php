@@ -124,4 +124,24 @@ function get_flash_messages() {
     $_SESSION['flash_messages'] = [];
     
     return $messages;
+}
+
+/**
+ * Check if a donor has a successful donation in the eligibility table
+ * Returns an array: [bool has_donated, array|null latest_donation]
+ *
+ * @param int $donor_id
+ * @return array [bool, array|null]
+ */
+function has_successful_donation($donor_id) {
+    $params = [
+        'donor_id' => 'eq.' . $donor_id,
+        'collection_successful' => 'eq.true',
+        'order' => 'collection_start_time.desc'
+    ];
+    $result = get_records('eligibility', $params);
+    if ($result['success'] && !empty($result['data'])) {
+        return [true, $result['data'][0]];
+    }
+    return [false, null];
 } 
