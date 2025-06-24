@@ -329,12 +329,12 @@
                 <button type="submit" class="btn-login">Login</button>
             </form>
             
-            <a href="templates/register.php" class="btn-register">Register</a>
+            <a href="../index.php" class="btn-register">Back</a>
             
             <a href="#" class="forgot-password">Forgot Password?</a>
             
             <div class="footer-logo">
-                <img src="assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo">
+                <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo">
                 <div class="system-name">Blood Services Information System</div>
             </div>
         </div>
