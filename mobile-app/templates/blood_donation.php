@@ -192,27 +192,11 @@ $donor_id = $_SESSION['donor_id'] ?? null;
     </div>
     
     <div class="donation-container">
-        <div class="message-box">
-            <h2>Blood Donation Registration</h2>
-            <p>You can now start your blood donation process by clicking the button below.</p>
-            <p>The process involves three main steps:</p>
-            <ol style="text-align: left; padding-left: 30px;">
-                <li>Filling out the donor information form</li>
-                <li>Completing the medical history questionnaire</li>
-                <li>Signing the donor declaration</li>
-            </ol>
-            
-            <!-- Red Cross Logo -->
-            <img src="../assets/icons/redcrosslogo.jpg" alt="Red Cross Logo" class="coming-soon-img">
-            
-            <p>Thank you for your interest in donating blood and saving lives!</p>
-            
-            <!-- 
-             * Button to start the donation process flow
-             * The flow sequence: donor-form-modal.php → medical-history-modal.php → declaration-form-modal.php
-             * Clicking this button starts the donor registration workflow
-             -->
-            <a href="forms/medical-history-modal.php<?php echo $donor_id ? '?donor_id=' . $donor_id : ''; ?>" class="btn btn-primary">Start Donation Process</a>
+        <div class="message-box" style="border:1.5px solid #ccc; max-width:400px; margin:30px auto 0 auto; padding:32px 16px 20px 16px; border-radius:12px; background:#fff;">
+            <img src="../assets/icons/redcrosslogo.jpg" alt="Red Cross Logo" class="coming-soon-img" style="display:block;margin:0 auto 18px auto;max-width:120px;">
+            <div style="font-size:1.2rem; font-weight:500; color:#444; text-align:center; margin-bottom:18px;">To donate blood, start by answering the medical history questionnaire.</div>
+            <div style="font-size:1rem; color:#666; text-align:center; font-style:italic; margin-bottom:18px;">Click the button below to fill out your Medical History Form.</div>
+            <a href="forms/medical-history-modal.php" class="btn btn-primary" style="display:inline-block;margin-top:10px;padding:14px 32px;font-size:18px;font-weight:bold;background:#d50000;color:#fff;border:none;border-radius:8px;box-shadow:0 2px 8px rgba(213,0,0,0.08);transition:background 0.2s;cursor:pointer;text-decoration:none;">Start Donation Process</a>
         </div>
     </div>
     

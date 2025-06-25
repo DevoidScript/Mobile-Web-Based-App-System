@@ -31,19 +31,24 @@ if (!is_logged_in()) {
 // Fetch donor data for profile
 $user = $_SESSION['user'] ?? null;
 $donorForm = null;
-if ($user && isset($user['donor_id'])) {
-    $params = [
-        'id' => 'eq.' . $user['donor_id'],
-        'limit' => 1
-    ];
-    $result = get_records('donor_form', $params);
-    if ($result['success'] && !empty($result['data'])) {
-        $donorForm = $result['data'][0];
-    } else {
-        error_log("No donor_form found for user donor_id: " . $user['donor_id']);
+if ($user) {
+    $params = [];
+    if (!empty($user['donor_id'])) {
+        $params = [ 'id' => 'eq.' . $user['donor_id'], 'limit' => 1 ];
+    } elseif (!empty($user['email'])) {
+        $params = [ 'email' => 'eq.' . strtolower(trim($user['email'])), 'limit' => 1 ];
     }
-} else {
-    error_log("User not logged in or missing donor_id in session");
+    if (!empty($params)) {
+        $result = get_records('donor_form', $params);
+        if ($result['success'] && !empty($result['data'])) {
+            $donorForm = $result['data'][0];
+        } else {
+            error_log("No donor_form found for user (params: " . json_encode($params) . ")");
+        }
+    }
+}
+if (!$donorForm) {
+    error_log("User not logged in or missing donor_id/email in session");
     header('Location: ../index.php?error=Please login to access your profile');
     exit;
 }

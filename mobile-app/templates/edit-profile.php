@@ -29,15 +29,42 @@ if (!is_logged_in()) {
 
 // Get user data
 $user = $_SESSION['user'] ?? null;
-$donor_details = $_SESSION['donor_details'] ?? null;
+$donorForm = null;
+if ($user) {
+    $params = [];
+    if (!empty($user['donor_id'])) {
+        $params = [ 'id' => 'eq.' . $user['donor_id'], 'limit' => 1 ];
+    } elseif (!empty($user['email'])) {
+        $params = [ 'email' => 'eq.' . strtolower(trim($user['email'])), 'limit' => 1 ];
+    }
+    if (!empty($params)) {
+        $result = get_records('donor_form', $params);
+        if ($result['success'] && !empty($result['data'])) {
+            $donorForm = $result['data'][0];
+        }
+    }
+}
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // NOTE: This is a placeholder for the update logic.
-    // In a real application, you would sanitize and validate the input,
-    // then update the database via an API call.
-    
-    // For now, we'll just redirect back to the profile page.
+    // Sanitize and validate input
+    $first_name = trim($_POST['first_name'] ?? '');
+    $middle_name = trim($_POST['middle_name'] ?? '');
+    $surname = trim($_POST['surname'] ?? '');
+    $mobile = trim($_POST['mobile'] ?? '');
+    $updateData = [
+        'first_name' => $first_name,
+        'middle_name' => $middle_name,
+        'surname' => $surname,
+        'mobile' => $mobile
+    ];
+    // Remove empty fields
+    foreach ($updateData as $k => $v) {
+        if ($v === '') unset($updateData[$k]);
+    }
+    if ($donorForm && !empty($updateData)) {
+        update_record('donor_form', $donorForm['id'], $updateData);
+    }
     header('Location: profile.php');
     exit;
 }
@@ -201,21 +228,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form action="edit-profile.php" method="POST">
             <div class="form-group">
-                <label for="name">Name</label>
-                <input disabled type="text" id="name" name="name" value="<?php echo htmlspecialchars(($donor_details['first_name'] ?? '') . ' ' . ($donor_details['surname'] ?? '')); ?>">
+                <label for="first_name">First Name</label>
+                <input type="text" id="first_name" name="first_name" value="<?php echo htmlspecialchars($donorForm['first_name'] ?? ''); ?>" required disabled>
+            </div>
+            <div class="form-group">
+                <label for="middle_name">Middle Name</label>
+                <input type="text" id="middle_name" name="middle_name" value="<?php echo htmlspecialchars($donorForm['middle_name'] ?? ''); ?>" disabled>
+            </div>
+            <div class="form-group">
+                <label for="surname">Surname</label>
+                <input type="text" id="surname" name="surname" value="<?php echo htmlspecialchars($donorForm['surname'] ?? ''); ?>" required disabled>
+            </div>
+            <div class="form-group">
+                <label for="mobile">Mobile Number</label>
+                <input type="text" id="mobile" name="mobile" value="<?php echo htmlspecialchars($donorForm['mobile'] ?? ''); ?>">
             </div>
             <div class="form-group">
                 <label for="email">Email Address</label>
                 <div class="email-input-wrapper">
-                    <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($donor_details['email'] ?? $user['email'] ?? ''); ?>">
+                    <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($donorForm['email'] ?? $user['email'] ?? ''); ?>" disabled>
                     <span class="email-icon">✉️</span>
                 </div>
             </div>
-            <div class="form-group">
-                <label for="phone">Phone Number</label>
-                <input type="text" id="phone" name="phone" value="<?php echo htmlspecialchars($donor_details['mobile'] ?? ''); ?>">
-            </div>
-
             <button type="submit" class="save-btn">Save Changes</button>
         </form>
     </div>
