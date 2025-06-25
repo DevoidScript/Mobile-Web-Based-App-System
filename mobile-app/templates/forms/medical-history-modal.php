@@ -28,56 +28,34 @@ if (!isset($_SESSION['user'])) {
     exit();
 }
 
-// Check if we have donor_id in GET or POST parameters and set it in SESSION
-if (isset($_GET['donor_id'])) {
-    $_SESSION['donor_id'] = $_GET['donor_id'];
-} elseif (isset($_POST['donor_id'])) {
-    $_SESSION['donor_id'] = $_POST['donor_id'];
+// Get email from session or GET, normalize it
+$email = null;
+if (isset($_GET['email'])) {
+    $email = trim(strtolower($_GET['email']));
+} elseif (isset($_SESSION['user']['email'])) {
+    $email = trim(strtolower($_SESSION['user']['email']));
 }
 
-// Now check if we have donor_id in session
-if (!isset($_SESSION['donor_id'])) {
-    error_log("Missing donor_id in session for medical history form");
-    header('Location: ' . $referrer . '?error=' . urlencode('Missing donor ID'));
+if (!$email) {
+    error_log("No email found in GET or session");
+    echo '<div style="padding:2em;text-align:center;color:red;"><h2>Error</h2><p>Unable to find your donor record. Please try again or contact support.</p></div>';
     exit();
 }
+
+// Fetch donor_form record by email
+require_once '../../includes/functions.php';
+$donorFormResp = get_records('donor_form', ['email' => 'eq.' . $email]);
+if (!$donorFormResp['success'] || empty($donorFormResp['data'])) {
+    error_log("Missing donor_form record for email: $email");
+    $_SESSION['error_message'] = "Error retrieving donor form. Please restart the donation process.";
+    header('Location: ../../templates/blood_donation.php?error=Missing donor form record');
+    exit();
+}
+$donorForm = $donorFormResp['data'][0];
+$donor_id = $donorForm['donor_id']; // Use this for medical history linkage
 
 // Fetch donor information to determine gender for showing female-specific questions
-$donor_id = $_SESSION['donor_id'];
-$donorData = null;
-
-try {
-    // Log the donor ID we're fetching
-    error_log("Medical history form - Fetching donor data for ID: " . $donor_id);
-    
-    $ch = curl_init(SUPABASE_URL . '/rest/v1/donor_form?donor_id=eq.' . $donor_id);
-    
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'apikey: ' . SUPABASE_API_KEY,
-        'Authorization: Bearer ' . SUPABASE_API_KEY
-    ]);
-    
-    $response = curl_exec($ch);
-    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    
-    curl_close($ch);
-    
-    if ($http_code === 200) {
-        $donorData = json_decode($response, true);
-        if (!is_array($donorData) || empty($donorData)) {
-            throw new Exception("Donor not found with ID: " . $donor_id);
-        }
-        $donorData = $donorData[0]; // Get the first (and should be only) result
-    } else {
-        throw new Exception("Failed to fetch donor data. HTTP Code: " . $http_code);
-    }
-} catch (Exception $e) {
-    error_log("Error fetching donor data: " . $e->getMessage());
-    $_SESSION['error_message'] = "Error retrieving donor information. Please try again.";
-    header('Location: ' . $referrer);
-    exit();
-}
+$donorData = $donorForm;
 
 // Determine if donor is female for showing female-specific questions
 $isFemale = (isset($donorData['sex']) && strtolower($donorData['sex']) === 'female');
@@ -258,8 +236,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_medical_histor
             if (is_array($insertedData) && !empty($insertedData)) {
                 // Set the medical_history_id in session for next steps
                 $_SESSION['medical_history_id'] = $insertedData[0]['medical_history_id'];
-                // Redirect to declaration form
-                header("Location: declaration-form-modal.php");
+                // Redirect to confirmation page
+                header('Location: ../../templates/donation-success.php');
                 exit();
             } else {
                 throw new Exception("Failed to parse inserted medical history data.");

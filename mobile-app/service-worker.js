@@ -9,14 +9,14 @@ const CACHE_NAME = `app-cache-${CACHE_VERSION}`;
 
 // Resources to cache initially
 const INITIAL_CACHED_RESOURCES = [
-    '/',
-    '/index.php',
-    '/assets/css/styles.css',
-    '/assets/js/app.js',
-    '/assets/icons/icon-192x192.png',
-    '/assets/icons/icon-512x512.png',
-    '/manifest.json',
-    '/templates/404.php'
+    '/mobile-app/',
+    '/mobile-app/index.php',
+    '/mobile-app/assets/css/styles.css',
+    '/mobile-app/assets/js/app.js',
+    '/mobile-app/assets/icons/icon-192x192.png',
+    '/mobile-app/assets/icons/icon-512x512.png',
+    '/mobile-app/manifest.json',
+    '/mobile-app/templates/404.php'
 ];
 
 // Install event - cache initial resources

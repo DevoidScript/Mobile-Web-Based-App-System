@@ -41,6 +41,19 @@ if (!is_logged_in()) {
 
 // Get user data
 $user = $_SESSION['user'] ?? null;
+
+// Handle start of donation process
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['start_donation'])) {
+    // No need to create donor_form, just redirect to medical-history-modal.php
+    header('Location: forms/medical-history-modal.php');
+    exit;
+}
+
+// Get donor_id from session
+$donor_id = $_SESSION['donor_id'] ?? null;
+
+session_start();
+echo '<pre>'; print_r($_SESSION); echo '</pre>';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -201,9 +214,7 @@ $user = $_SESSION['user'] ?? null;
              * The flow sequence: donor-form-modal.php → medical-history-modal.php → declaration-form-modal.php
              * Clicking this button starts the donor registration workflow
              -->
-            <a href="forms/donor-form-modal.php" class="btn primary full-width" style="background-color: #FF0000; color: white; padding: 15px; border-radius: 5px; text-decoration: none; display: block; text-align: center; margin-top: 20px; font-weight: bold;">
-                Start Donation Process
-            </a>
+            <a href="forms/medical-history-modal.php<?php echo $donor_id ? '?donor_id=' . $donor_id : ''; ?>" class="btn btn-primary">Start Donation Process</a>
         </div>
     </div>
     

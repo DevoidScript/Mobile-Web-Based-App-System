@@ -144,4 +144,18 @@ function has_successful_donation($donor_id) {
         return [true, $result['data'][0]];
     }
     return [false, null];
+}
+
+/**
+ * Get the latest donor_form record for a donor by donor_id
+ * @param string $donor_id Donor UUID
+ * @return array Supabase response
+ */
+function get_donor_form_by_donor_id($donor_id) {
+    $params = [
+        'donor_id' => 'eq.' . $donor_id,
+        'order' => 'id.desc',
+        'limit' => 1
+    ];
+    return get_records('donor_form', $params);
 } 

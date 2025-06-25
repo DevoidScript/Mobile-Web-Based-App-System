@@ -93,20 +93,36 @@ try {
     // Get user ID
     $user_id = $user_data['id'];
     
-    // Format birthdate
+    // Calculate age from birthdate
     $birthdate = $post_data['birthdate'] ?? null;
+    $age = null;
     if ($birthdate) {
-        $birthdate = date('Y-m-d', strtotime($birthdate));
+        $birthdate_dt = new DateTime($birthdate);
+        $today = new DateTime('today');
+        $age = $birthdate_dt->diff($today)->y;
     }
     
-    // Prepare donor details
-    $donor_data = [
-        'id' => $user_id,  // This is the primary key matching auth.users.id
+    // Helper functions for PRC donor number and DOH NNBNETS barcode
+    define('PRC_DONOR_PREFIX', 'PRC');
+    define('DOH_BARCODE_PREFIX', 'DOH');
+    function generateDonorNumber() {
+        $year = date('Y');
+        $randomNumber = mt_rand(10000, 99999); // 5-digit random number
+        return PRC_DONOR_PREFIX . "-$year-$randomNumber";
+    }
+    function generateNNBNetBarcode() {
+        $year = date('Y');
+        $randomNumber = mt_rand(1000, 9999); // 4-digit random number
+        return DOH_BARCODE_PREFIX . "-$year$randomNumber";
+    }
+    
+    // Prepare donor_form data (instead of donors_detail)
+    $donor_form_data = [
         'surname' => sanitize_input($post_data['surname'] ?? ''),
         'first_name' => sanitize_input($post_data['first_name'] ?? ''),
         'middle_name' => sanitize_input($post_data['middle_name'] ?? null),
         'birthdate' => $birthdate,
-        'age' => intval($post_data['age'] ?? 0),
+        'age' => $age,
         'sex' => sanitize_input($post_data['sex'] ?? ''),
         'civil_status' => sanitize_input($post_data['civil_status'] ?? ''),
         'permanent_address' => sanitize_input($post_data['permanent_address'] ?? ''),
@@ -115,69 +131,32 @@ try {
         'education' => sanitize_input($post_data['education'] ?? null),
         'occupation' => sanitize_input($post_data['occupation'] ?? ''),
         'mobile' => sanitize_input($post_data['mobile'] ?? ''),
-        'email' => sanitize_input($post_data['email'])
+        'email' => sanitize_input($post_data['email']),
+        'prc_donor_number' => generateDonorNumber(),
+        'doh_nnbnets_barcode' => generateNNBNetBarcode(),
+        'registration_channel' => 'Mobile',
+        // Add more fields as needed for donor_form schema
     ];
-    
     // Remove null values
-    foreach ($donor_data as $key => $value) {
+    foreach ($donor_form_data as $key => $value) {
         if ($value === null) {
-            unset($donor_data[$key]);
+            unset($donor_form_data[$key]);
         }
     }
-    
-    /**
-     * Redirect Configuration Update
-     * - Updated to use absolute path for consistent redirection regardless of request origin
-     * - Points to the Mobile-Web-Based-App-System/mobile-app/index.php file
-     * - Ensures users always return to the main application entry point
-     */
-    
-    // Method 1: Try using standard supabase_request with service role
+    // Insert into donor_form table
     $headers = [
         'Prefer: return=representation',
         'Content-Profile: public'
     ];
-    
-    $standard_result = supabase_request('rest/v1/donors_detail', 'POST', $donor_data, $headers, true);
-    
-    if ($standard_result['success']) {
+    $insert_result = supabase_request('rest/v1/donor_form', 'POST', $donor_form_data, $headers, true);
+    if ($insert_result['success']) {
+        $donor_form_id = $insert_result['data'][0]['id'];
+        $_SESSION['donor_form_id'] = $donor_form_id;
         $_SESSION['success'] = "Registration successful! Please login with your new account.";
         send_response(true, "Registration successful", ['redirect' => '/Mobile-Web-Based-App-System/mobile-app/index.php'], 201);
         exit;
     }
-    
-    // Method 2: Try UPSERT approach with on_conflict parameter
-    $upsert_headers = [
-        'Content-Type: application/json',
-        'apikey: ' . SUPABASE_SERVICE_KEY,
-        'Authorization: Bearer ' . SUPABASE_SERVICE_KEY,
-        'Prefer: return=representation',
-        'Content-Profile: public'
-    ];
-    
-    // The Supabase REST API endpoint for upsert
-    $upsert_url = SUPABASE_URL . '/rest/v1/donors_detail?on_conflict=id';
-    
-    $ch = curl_init($upsert_url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($donor_data));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $upsert_headers);
-    
-    $response = curl_exec($ch);
-    $status_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $error = curl_error($ch);
-    
-    curl_close($ch);
-    
-    if (!$error && $status_code >= 200 && $status_code < 300) {
-        $_SESSION['success'] = "Registration successful! Please login with your new account.";
-        send_response(true, "Registration successful", ['redirect' => '/Mobile-Web-Based-App-System/mobile-app/index.php'], 201);
-        exit;
-    }
-    
-    // Let the user know something went wrong in a friendly way
-    send_response(false, "Registration was successful, but we couldn't save your donor details. Please log in and update your profile information.", ['redirect' => '/Mobile-Web-Based-App-System/mobile-app/index.php?update_profile=true'], 201);
+    send_response(false, "Registration failed: " . json_encode($insert_result['data'] ?? []), null, 500);
     
 } catch (Exception $e) {
     send_response(false, 'An unexpected error occurred: ' . $e->getMessage(), null, 500);

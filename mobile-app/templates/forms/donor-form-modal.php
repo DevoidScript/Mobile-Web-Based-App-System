@@ -1,4 +1,11 @@
 <?php
+// DEPRECATED: This step is now handled automatically in the background when starting the donation process.
+// Users are redirected directly to the medical history form. This file is kept for legacy reference only.
+// If accessed directly, show a message and exit.
+
+echo '<div style="padding:2em;text-align:center;"><h2>Donor Information Step Removed</h2><p>This step is now handled automatically. Please start your donation from the Blood Donation page.</p></div>';
+exit;
+
 // Start the session to maintain state
 session_start();
 require_once '../../config/database.php';

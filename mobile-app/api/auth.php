@@ -90,6 +90,21 @@ function handleLogin() {
             $_SESSION['donor_details'] = $donor_data['data'][0];
         }
         
+        // After successful login, set donor_id in session from donor_form table
+        $user = $_SESSION['user'] ?? null;
+        if ($user && isset($user['id'])) {
+            $params = [
+                'user_id' => 'eq.' . $user['id'],
+                'limit' => 1
+            ];
+            $result = get_records('donor_form', $params);
+            if ($result['success'] && !empty($result['data'])) {
+                $donorForm = $result['data'][0];
+                $_SESSION['donor_id'] = $donorForm['id'];
+                $_SESSION['donor_form_id'] = $donorForm['id'];
+            }
+        }
+        
         // Redirect to dashboard or home page
         header('Location: ../templates/dashboard.php');
         exit;

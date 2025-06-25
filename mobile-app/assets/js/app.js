@@ -159,6 +159,7 @@ function initializeOfflineDetection() {
     
     // Check if online and update UI
     function updateOnlineStatus() {
+        if (!appShell) return; // Prevent error if #app-shell is missing
         if (!navigator.onLine) {
             appShell.querySelector('.offline-message').style.display = 'block';
             document.body.classList.add('offline');

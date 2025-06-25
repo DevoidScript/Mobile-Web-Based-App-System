@@ -28,28 +28,45 @@ if (!is_logged_in()) {
     exit;
 }
 
-// Get user data
+// Fetch donor data for profile
 $user = $_SESSION['user'] ?? null;
-$donor_details = $_SESSION['donor_details'] ?? null;
-
-// If donor details are not in session but user is logged in, try to fetch them
-if (!$donor_details && $user) {
-    // Get donor details from donors_detail table to match the React Native implementation
-    $donor_data = get_record('donors_detail', $user['id']);
-    if ($donor_data['success'] && !empty($donor_data['data'])) {
-        $_SESSION['donor_details'] = $donor_data['data'][0];
-        $donor_details = $_SESSION['donor_details'];
+$donorForm = null;
+if ($user && isset($user['donor_id'])) {
+    $params = [
+        'id' => 'eq.' . $user['donor_id'],
+        'limit' => 1
+    ];
+    $result = get_records('donor_form', $params);
+    if ($result['success'] && !empty($result['data'])) {
+        $donorForm = $result['data'][0];
+    } else {
+        error_log("No donor_form found for user donor_id: " . $user['donor_id']);
     }
+} else {
+    error_log("User not logged in or missing donor_id in session");
+    header('Location: ../index.php?error=Please login to access your profile');
+    exit;
 }
 
-// Fetch donation history from eligibility table to calculate stats
-$donation_history = [];
-$total_donations = 0;
-$last_donation_date = 'N/A';
+// Calculate age from birthdate
+$age = 'N/A';
+if (!empty($donorForm['birthdate'])) {
+    $birthDate = new DateTime($donorForm['birthdate']);
+    $today = new DateTime('today');
+    $age = $birthDate->diff($today)->y;
+}
 
-if ($user && isset($user['id'])) {
+// Get blood type (if available)
+$blood_type = htmlspecialchars($donorForm['blood_type'] ?? 'N/A');
+
+// Initialize donation stats
+$last_donation_date = 'N/A';
+$total_donations = 0;
+
+// Fetch donation history from eligibility table using donor_form id (if available)
+if (!empty($donorForm['id'])) {
     $params = [
-        'donor_id' => 'eq.' . $user['id'],
+        'donor_id' => 'eq.' . $donorForm['id'],
         'order' => 'collection_start_time.desc'
     ];
     $result = get_records('eligibility', $params);
@@ -61,17 +78,6 @@ if ($user && isset($user['id'])) {
         }
     }
 }
-
-// Calculate age from birthdate
-$age = 'N/A';
-if (!empty($donor_details['birthdate'])) {
-    $birthDate = new DateTime($donor_details['birthdate']);
-    $today = new DateTime('today');
-    $age = $birthDate->diff($today)->y;
-}
-
-// Get blood type
-$blood_type = htmlspecialchars($donor_details['blood_type'] ?? 'N/A');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -419,8 +425,8 @@ $blood_type = htmlspecialchars($donor_details['blood_type'] ?? 'N/A');
         <div class="profile-avatar"></div>
         <div class="profile-name">
             <?php 
-                $firstName = htmlspecialchars($donor_details['first_name'] ?? '');
-                $lastName = htmlspecialchars($donor_details['surname'] ?? '');
+                $firstName = htmlspecialchars($donorForm['first_name'] ?? '');
+                $lastName = htmlspecialchars($donorForm['surname'] ?? '');
                 echo trim("$firstName $lastName");
             ?>
         </div>
@@ -429,7 +435,7 @@ $blood_type = htmlspecialchars($donor_details['blood_type'] ?? 'N/A');
         <div class="stats-container">
             <div class="stat-box">
                 <div class="label">Age</div>
-                <div class="value"><?php echo $age; ?></div>
+                <div class="value"><?php echo isset($donorForm['age']) ? htmlspecialchars($donorForm['age']) : 'N/A'; ?></div>
             </div>
             <div class="stat-box">
                 <div class="label">Blood Type</div>
@@ -437,7 +443,7 @@ $blood_type = htmlspecialchars($donor_details['blood_type'] ?? 'N/A');
             </div>
             <div class="stat-box">
                 <div class="label">Donations</div>
-                <div class="value"><?php echo str_pad($total_donations, 2, '0', STR_PAD_LEFT); ?></div>
+                <div class="value"><?php echo str_pad((int)$total_donations, 2, '0', STR_PAD_LEFT); ?></div>
             </div>
         </div>
 

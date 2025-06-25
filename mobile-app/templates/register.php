@@ -741,8 +741,14 @@ if ($validated) {
                     <label class="label" for="religion">Religion:</label>
                     <input type="text" id="religion" name="religion" class="input" value="<?php echo $_POST['religion'] ?? ''; ?>" placeholder="e.g. Catholic (optional)">
                     
-                    <label class="label" for="education">Education:</label>
-                    <input type="text" id="education" name="education" class="input" value="<?php echo $_POST['education'] ?? ''; ?>" placeholder="Highest educational attainment (optional)">
+                    <label class="label" for="education">Education</label>
+                    <select class="input" name="education" id="education" required>
+                        <option value="">Select Education</option>
+                        <option value="Elementary">Elementary</option>
+                        <option value="High School">High School</option>
+                        <option value="College">College</option>
+                        <option value="Post Graduate">Post Graduate</option>
+                    </select>
                     
                     <label class="label required" for="occupation">Occupation:</label>
                     <input type="text" id="occupation" name="occupation" class="input" value="<?php echo $_POST['occupation'] ?? ''; ?>" placeholder="e.g. Student, Engineer, Teacher" required>
