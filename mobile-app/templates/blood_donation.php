@@ -52,8 +52,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['start_donation'])) {
 // Get donor_id from session
 $donor_id = $_SESSION['donor_id'] ?? null;
 
-session_start();
-echo '<pre>'; print_r($_SESSION); echo '</pre>';
 ?>
 <!DOCTYPE html>
 <html lang="en">

@@ -1744,6 +1744,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_medical_histor
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Clear localStorage for medical history form on every load
+            localStorage.removeItem('medical_history_form_data');
+            localStorage.removeItem('medical_history_current_step');
+
             const form = document.getElementById('medicalHistoryForm');
             const steps = document.querySelectorAll('.form-step');
             const stepIndicators = document.querySelectorAll('.step');
