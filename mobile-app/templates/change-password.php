@@ -51,11 +51,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             display: flex;
             align-items: center;
             padding: 15px;
+            background-color: #FF0000;
+            color: white;
         }
 
         .back-arrow a {
             font-size: 24px;
-            color: #333;
+            color: white;
             text-decoration: none;
         }
 
@@ -65,6 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-size: 20px;
             font-weight: bold;
             margin-right: 30px; /* Offset for back arrow */
+            color: white;
         }
 
         .container {

@@ -281,10 +281,34 @@ if (!empty($donorForm['id'])) {
         .logout-link {
             display: inline-block;
             margin-top: 20px;
-            color: #FF0000;
+            background: #d50000;
+            color: #fff;
             text-decoration: none;
             font-weight: bold;
             cursor: pointer;
+            padding: 14px 32px;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(213,0,0,0.08);
+            transition: background 0.2s;
+        }
+        .logout-link:active {
+            background: #b71c1c;
+        }
+        .logout-confirm-btn {
+            background: #d50000;
+            color: #fff;
+            font-weight: bold;
+            padding: 14px 0;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            box-shadow: 0 2px 8px rgba(213,0,0,0.08);
+            transition: background 0.2s;
+        }
+        .logout-confirm-btn:active {
+            background: #b71c1c;
         }
         
         .navigation-bar {
@@ -413,11 +437,6 @@ if (!empty($donorForm['id'])) {
             background: white;
             border: 1px solid #ddd;
             color: #333;
-        }
-
-        .logout-confirm-btn {
-            background: #D50000;
-            color: white;
         }
     </style>
 </head>
