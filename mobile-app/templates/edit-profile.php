@@ -162,25 +162,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .change-picture-link {
-            display: none;
-            position: absolute;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.6);
-            color: #fff;
-            text-align: center;
-            font-size: 14px;
-            padding: 8px 0;
-            cursor: pointer;
-            width: 100%;
-            border-bottom-left-radius: 50%;
-            border-bottom-right-radius: 50%;
-        }
-
-        .profile-avatar:hover .change-picture-link,
-        .profile-avatar:focus .change-picture-link {
             display: block;
+            margin: 0 auto 30px auto;
+            color: #007bff;
+            text-decoration: none;
+            font-size: 14px;
+            width: fit-content;
+            padding: 4px 12px;
+            border-radius: 5px;
+            transition: color 0.2s, background 0.2s;
+        }
+        .change-picture-link:hover, .change-picture-link:focus {
+            color: #fff;
+            background: #007bff;
+            text-decoration: none;
         }
 
         .form-group {
@@ -302,9 +297,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <div class="container">
         <form action="edit-profile.php" method="POST" id="editProfileForm" enctype="multipart/form-data">
-            <div class="profile-avatar" id="profileAvatar" style="background-image: url('<?php echo !empty($donorForm['profile_picture']) ? htmlspecialchars($donorForm['profile_picture']) : '../assets/icons/red-cross-logo.png'; ?>');">
-                <span class="change-picture-link" id="changePictureLink">Change Picture</span>
-            </div>
+            <div class="profile-avatar" id="profileAvatar" style="background-image: url('<?php echo !empty($donorForm['profile_picture']) ? htmlspecialchars($donorForm['profile_picture']) : '../assets/icons/red-cross-logo.png'; ?>');"></div>
+            <a class="change-picture-link" id="changePictureLink" href="#">Change Picture</a>
             <input type="file" id="profile_picture" name="profile_picture" accept="image/*" style="display:none;">
 
             <?php if (!empty($success_message)): ?>
