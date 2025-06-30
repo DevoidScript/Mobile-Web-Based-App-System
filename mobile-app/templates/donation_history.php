@@ -233,10 +233,6 @@ if ($user && isset($user['id'])) {
             <div class="nav-icon">🏠</div>
             <div class="nav-label">Home</div>
         </a>
-        <a href="blood_donation.php" class="nav-button">
-            <div class="nav-icon">❤️</div>
-            <div class="nav-label">Donate</div>
-        </a>
         <a href="donation_history.php" class="nav-button active">
             <div class="nav-icon">📋</div>
             <div class="nav-label">History</div>

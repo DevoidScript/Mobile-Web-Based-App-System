@@ -446,7 +446,7 @@ if (!empty($donorForm['id'])) {
     </div>
     
     <div class="profile-container">
-        <div class="profile-avatar"></div>
+        <div class="profile-avatar" style="background-image: url('<?php echo !empty($donorForm['profile_picture']) ? htmlspecialchars($donorForm['profile_picture']) : '../assets/icons/user-avatar-placeholder.png'; ?>');"></div>
         <div class="profile-name">
             <?php 
                 $firstName = htmlspecialchars($donorForm['first_name'] ?? '');

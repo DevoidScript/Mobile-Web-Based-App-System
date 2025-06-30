@@ -40,15 +40,19 @@ $_SESSION['on_dashboard'] = true;
 
 // Get user data
 $user = $_SESSION['user'] ?? null;
-$donor_details = $_SESSION['donor_details'] ?? null;
-
-// If donor details are not in session but user is logged in, try to fetch them
-if (!$donor_details && $user) {
-    // Get donor details from donors_detail table to match the React Native implementation
-    $donor_data = get_record('donors_detail', $user['id']);
-    if ($donor_data['success'] && !empty($donor_data['data'])) {
-        $_SESSION['donor_details'] = $donor_data['data'][0];
-        $donor_details = $_SESSION['donor_details'];
+$donorForm = null;
+if ($user) {
+    $params = [];
+    if (!empty($user['donor_id'])) {
+        $params = [ 'id' => 'eq.' . $user['donor_id'], 'limit' => 1 ];
+    } elseif (!empty($user['email'])) {
+        $params = [ 'email' => 'eq.' . strtolower(trim($user['email'])), 'limit' => 1 ];
+    }
+    if (!empty($params)) {
+        $result = get_records('donor_form', $params);
+        if ($result['success'] && !empty($result['data'])) {
+            $donorForm = $result['data'][0];
+        }
     }
 }
 
@@ -399,19 +403,21 @@ if ($user && isset($user['id'])) {
 <?php if (!$has_donated): ?>
     <div class="header">
         <div class="user-info-header">
-            <div class="user-avatar">
+            <div class="user-avatar" style="background-image: url('<?php echo !empty($donorForm['profile_picture']) ? htmlspecialchars($donorForm['profile_picture']) : '../assets/icons/user-avatar-placeholder.png'; ?>'); background-size: cover; background-position: center;">
                 <?php
-                    if (!empty($donor_details['first_name'])) {
-                        echo htmlspecialchars(strtoupper(substr($donor_details['first_name'], 0, 1)));
-                    } else {
-                        echo '👤';
+                    if (empty($donorForm['profile_picture'])) {
+                        if (!empty($donorForm['first_name'])) {
+                            echo htmlspecialchars(strtoupper(substr($donorForm['first_name'], 0, 1)));
+                        } else {
+                            echo '👤';
+                        }
                     }
                 ?>
             </div>
             <span class="user-name">
                 <?php 
-                    if (!empty($donor_details['first_name'])) {
-                        echo htmlspecialchars($donor_details['first_name']);
+                    if (!empty($donorForm['first_name'])) {
+                        echo htmlspecialchars($donorForm['first_name']);
                     } elseif (!empty($user['email'])) {
                         $email_parts = explode('@', $user['email']);
                         echo htmlspecialchars($email_parts[0]);
@@ -481,19 +487,21 @@ if ($user && isset($user['id'])) {
 <?php else: ?>
     <div class="header">
         <div class="user-info-header">
-            <div class="user-avatar">
+            <div class="user-avatar" style="background-image: url('<?php echo !empty($donorForm['profile_picture']) ? htmlspecialchars($donorForm['profile_picture']) : '../assets/icons/user-avatar-placeholder.png'; ?>'); background-size: cover; background-position: center;">
                 <?php
-                    if (!empty($donor_details['first_name'])) {
-                        echo htmlspecialchars(strtoupper(substr($donor_details['first_name'], 0, 1)));
-                    } else {
-                        echo '👤';
+                    if (empty($donorForm['profile_picture'])) {
+                        if (!empty($donorForm['first_name'])) {
+                            echo htmlspecialchars(strtoupper(substr($donorForm['first_name'], 0, 1)));
+                        } else {
+                            echo '👤';
+                        }
                     }
                 ?>
             </div>
             <span class="user-name">
                 <?php 
-                    if (!empty($donor_details['first_name'])) {
-                        echo htmlspecialchars($donor_details['first_name']);
+                    if (!empty($donorForm['first_name'])) {
+                        echo htmlspecialchars($donorForm['first_name']);
                     } elseif (!empty($user['email'])) {
                         $email_parts = explode('@', $user['email']);
                         echo htmlspecialchars($email_parts[0]);
