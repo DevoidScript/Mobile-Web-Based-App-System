@@ -27,10 +27,69 @@ if (!is_logged_in()) {
     exit;
 }
 
-// Handle form submission (placeholder)
+// Handle form submission (functional with Supabase Auth)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Placeholder for password update logic
-    $message = "Password updated successfully! (Simulation)";
+    $current_password = $_POST['current-password'] ?? '';
+    $new_password = $_POST['new-password'] ?? '';
+    $confirm_password = $_POST['confirm-password'] ?? '';
+    $email = $_POST['email'] ?? '';
+    $error_message = '';
+    $success_message = '';
+
+    if (empty($current_password) || empty($new_password) || empty($confirm_password) || empty($email)) {
+        $error_message = 'All fields are required.';
+    } elseif (strlen($new_password) < 8) {
+        $error_message = 'New password must be at least 8 characters.';
+    } elseif ($new_password !== $confirm_password) {
+        $error_message = 'New password and confirmation do not match.';
+    } else {
+        // Step 1: Sign in to verify current password and get access token
+        $supabase_url = SUPABASE_URL;
+        $supabase_key = SUPABASE_API_KEY;
+        $sign_in_url = rtrim($supabase_url, '/') . '/auth/v1/token?grant_type=password';
+        $sign_in_data = json_encode([
+            'email' => $email,
+            'password' => $current_password
+        ]);
+        $ch = curl_init($sign_in_url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $sign_in_data);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'apikey: ' . $supabase_key
+        ]);
+        $sign_in_response = curl_exec($ch);
+        $sign_in_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $sign_in_result = json_decode($sign_in_response, true);
+
+        if ($sign_in_status !== 200 || empty($sign_in_result['access_token'])) {
+            $error_message = 'Current password is incorrect.';
+        } else {
+            // Step 2: Update password using the access token
+            $access_token = $sign_in_result['access_token'];
+            $update_url = rtrim($supabase_url, '/') . '/auth/v1/user';
+            $update_data = json_encode(['password' => $new_password]);
+            $ch = curl_init($update_url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $update_data);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json',
+                'apikey: ' . $supabase_key,
+                'Authorization: Bearer ' . $access_token
+            ]);
+            $update_response = curl_exec($ch);
+            $update_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($update_status === 200) {
+                $success_message = 'Password updated successfully!';
+            } else {
+                $error_message = 'Failed to update password. Please try again.';
+            }
+        }
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -142,11 +201,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <div class="container">
-        <?php if (isset($message)): ?>
-            <div class="message"><?php echo $message; ?></div>
+        <?php if (!empty($success_message)): ?>
+            <div class="message" style="color:green;"><?php echo htmlspecialchars($success_message); ?></div>
+        <?php elseif (!empty($error_message)): ?>
+            <div class="message" style="color:red;"><?php echo htmlspecialchars($error_message); ?></div>
         <?php endif; ?>
 
         <form action="change-password.php" method="POST">
+            <?php $user = $_SESSION['user'] ?? null; $user_email = $user['email'] ?? ''; ?>
+            <input type="hidden" name="email" value="<?php echo htmlspecialchars($user_email); ?>">
             <div class="form-group">
                 <label for="current-password">Current Password</label>
                 <div class="password-wrapper">
