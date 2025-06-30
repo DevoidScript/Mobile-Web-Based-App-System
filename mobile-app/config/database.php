@@ -139,11 +139,12 @@ function create_record($table, $data) {
  * @param string $table The table name
  * @param int $id The record ID
  * @param array $data The data to update
+ * @param string $primaryKey The primary key column name (default to 'id')
  * @return array The response from Supabase
  */
-function update_record($table, $id, $data) {
+function update_record($table, $id, $data, $primaryKey = 'id') {
     $headers = ['Prefer: return=representation'];
-    return supabase_request("rest/v1/$table?id=eq.$id", 'PATCH', $data, $headers);
+    return supabase_request("rest/v1/$table?$primaryKey=eq.$id", 'PATCH', $data, $headers);
 }
 
 /**
