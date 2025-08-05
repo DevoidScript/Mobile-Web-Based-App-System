@@ -150,10 +150,19 @@ try {
     ];
     $insert_result = supabase_request('rest/v1/donor_form', 'POST', $donor_form_data, $headers, true);
     if ($insert_result['success']) {
-        $donor_form_id = $insert_result['data'][0]['id'];
-        $_SESSION['donor_form_id'] = $donor_form_id;
+        // Check if data exists and has the expected structure
+        if (isset($insert_result['data']) && is_array($insert_result['data']) && !empty($insert_result['data']) && isset($insert_result['data'][0]['id'])) {
+            $donor_form_id = $insert_result['data'][0]['id'];
+            $_SESSION['donor_form_id'] = $donor_form_id;
+        } else {
+            // Data structure is not as expected, but registration was successful
+            // We'll continue without the donor_form_id
+            $donor_form_id = null;
+        }
+        
+        // Set success message and redirect to login
         $_SESSION['success'] = "Registration successful! Please login with your new account.";
-        send_response(true, "Registration successful", ['redirect' => '/Mobile-Web-Based-App-System/mobile-app/index.php'], 201);
+        send_response(true, "Registration successful", ['redirect' => '/Mobile-Web-Based-App-System/mobile-app/templates/login.php'], 201);
         exit;
     }
     send_response(false, "Registration failed: " . json_encode($insert_result['data'] ?? []), null, 500);
