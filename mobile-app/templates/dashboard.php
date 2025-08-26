@@ -458,13 +458,16 @@ if ($user && isset($user['id'])) {
                 </div>
             </a>
         </div>
+
+        
         <div class="card blood-tracker-card">
-            <a href="#" class="card-link">
+            <a href="blood_tracker.php" class="card-link">
                 <div class="card-content-wrapper">
-                    <div class="card-icon">📝</div>
+                    <div class="card-icon">📊</div>
                     <div class="card-text-container">
                         <h3>Blood Tracker</h3>
-                        <p>Monitor the journey and status of donated blood.</p>
+                        <p>Track your blood donation progress and status</p>
+                        <p style="color: #007bff; font-size: 12px;">Tap to view tracker</p>
                     </div>
                 </div>
             </a>
@@ -556,32 +559,16 @@ if ($user && isset($user['id'])) {
             </a>
         </div>
         
+
+        
         <div class="card blood-tracker-card">
-            <a href="#" class="card-link">
-                <div class="card-text-container">
-                    <h3>Blood Tracker</h3>
-                    <div class="tracker-timeline">
-                        <div class="tracker-line"></div>
-                        <div class="tracker-progress-line"></div>
-                        <div class="tracker-step">
-                            <div class="tracker-icon completed">✓</div>
-                            <div class="tracker-label">Processed</div>
-                        </div>
-                        <div class="tracker-step">
-                            <div class="tracker-icon completed">✓</div>
-                            <div class="tracker-label">Stored</div>
-                        </div>
-                        <div class="tracker-step">
-                            <div class="tracker-icon active">✓</div>
-                            <div class="tracker-label">Allocated</div>
-                        </div>
-                        <div class="tracker-step">
-                            <div class="tracker-icon last">➕</div>
-                            <div class="tracker-label">Used</div>
-                        </div>
-                    </div>
-                    <div class="tracker-status-text">
-                        Your blood is allocated for a hospital request.
+            <a href="blood_tracker.php" class="card-link">
+                <div class="card-content-wrapper">
+                    <div class="card-icon">📊</div>
+                    <div class="card-text-container">
+                        <h3>Blood Tracker</h3>
+                        <p>Track your blood donation progress and status</p>
+                        <p style="color: #007bff; font-size: 12px;">Tap to view tracker</p>
                     </div>
                 </div>
             </a>
@@ -635,9 +622,6 @@ if ($user && isset($user['id'])) {
                 // console.log('Back navigation prevented');
             });
             
-            // Additional approaches:
-            
-            // 1. Attempt to disable browser cache for this page using JavaScript
             // This works on some browsers to prevent back-forward cache
             window.onpageshow = function(event) {
                 if (event.persisted) {
@@ -645,23 +629,9 @@ if ($user && isset($user['id'])) {
                     window.location.reload();
                 }
             };
+
             
-            // 2. Handle beforeunload when appropriate to prevent unwanted navigation
-            // Uncomment this if you need to handle unsaved form data
-            /* 
-            window.addEventListener('beforeunload', function(e) {
-                // Only add this if there's unsaved form data
-                const unsavedChanges = false; // Set this based on your form state
-                
-                if (unsavedChanges) {
-                    const confirmationMessage = 'You have unsaved changes. Are you sure you want to leave?';
-                    e.returnValue = confirmationMessage;
-                    return confirmationMessage;
-                }
-            });
-            */
-            
-            // 3. Focus on the dashboard window to ensure it's active
+    
             window.focus();
         })();
     </script>

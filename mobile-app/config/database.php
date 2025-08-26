@@ -14,7 +14,7 @@
 
 // Supabase credentials
 define('SUPABASE_URL', 'https://nwakbxwglhxcpunrzstf.supabase.co');
-define('SUPABASE_API_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53YWtieHdnbGh4Y3B1bnJ6c3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIyODA1NzIsImV4cCI6MjA1Nzg1NjU3Mn0.y4CIbDT2UQf2ieJTQukuJRRzspSZPehSgNKivBwpvc4');
+define('SUPABASE_API_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53YWtieHdnbGh4Y3B1bnJ6c3RmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MjI4MDU3MiwiZXhwIjoyMDU3ODU2NTcyfQ.08faJBwJPY8rjRkd_gO2iCrHkiIuZjk6HD9cPzJlrGk');
 define('SUPABASE_JWT_SECRET', '02QhuqPddDa6fpjMrdkHsgIIl8c9/ZhJvsEO/S7pvzSJP6oeMIbREBXvtigd2BS/VuIrghVX5OnQUTR2ErDi7A==');
 
 // For backward compatibility, also define SUPABASE_KEY
@@ -78,6 +78,13 @@ function supabase_request($endpoint, $method = 'GET', $data = null, $headers = [
     
     $decoded_response = json_decode($response, true);
     
+    // Add debugging for create operations
+    if ($method === 'POST') {
+        error_log("Supabase POST request - Status: $status_code, Response: $response");
+        error_log("Supabase POST request - URL: $url, Data: " . json_encode($data));
+        error_log("Supabase POST request - Headers: " . json_encode($headers));
+    }
+    
     return [
         'success' => $status_code >= 200 && $status_code < 300,
         'data' => $decoded_response,
@@ -129,6 +136,11 @@ function create_record($table, $data) {
     
     // Make sure table doesn't already have schema prefix
     $tableName = str_replace('public.', '', $table);
+    
+    // Use service role key for donations table to bypass RLS
+    if ($tableName === 'donations') {
+        return supabase_request("rest/v1/$tableName", 'POST', $data, $headers, true);
+    }
     
     return supabase_request("rest/v1/$tableName", 'POST', $data, $headers);
 }

@@ -61,26 +61,52 @@ if (!empty($donorForm['birthdate'])) {
     $age = $birthDate->diff($today)->y;
 }
 
-// Get blood type (if available)
-$blood_type = htmlspecialchars($donorForm['blood_type'] ?? 'N/A');
-
-// Initialize donation stats
+// Get blood type and donation stats from donations table using the same email-based lookup pattern
+$blood_type = 'N/A';
 $last_donation_date = 'N/A';
 $total_donations = 0;
 
-// Fetch donation history from eligibility table using donor_form id (if available)
-if (!empty($donorForm['id'])) {
-    $params = [
-        'donor_id' => 'eq.' . $donorForm['id'],
-        'order' => 'collection_start_time.desc'
-    ];
-    $result = get_records('eligibility', $params);
-    if ($result['success'] && !empty($result['data'])) {
-        $donation_history = $result['data'];
-        $total_donations = count($donation_history);
-        if ($total_donations > 0 && isset($donation_history[0]['collection_start_time'])) {
-            $last_donation_date = date('F j, Y', strtotime($donation_history[0]['collection_start_time']));
+// Get donor ID the same way blood_tracker.php and medical-history-modal.php do
+if ($user && isset($user['email'])) {
+    $email = trim(strtolower($user['email']));
+    
+    // Fetch donor_form record by email
+    $donorFormResp = get_records('donor_form', ['email' => 'eq.' . $email]);
+    if ($donorFormResp['success'] && !empty($donorFormResp['data'])) {
+        $donorForm = $donorFormResp['data'][0];
+        $donor_id = $donorForm['donor_id'];
+        
+        // Debug logging
+        error_log("Profile - Found donor record for email: $email, donor_id: $donor_id");
+        
+        // Get blood type and donation count from donations table
+        $donation_params = [
+            'donor_id' => 'eq.' . $donor_id,
+            'order' => 'created_at.desc'
+        ];
+        
+        $donation_result = get_records('donations', $donation_params);
+        if ($donation_result['success'] && !empty($donation_result['data'])) {
+            $donations = $donation_result['data'];
+            $total_donations = count($donations);
+            
+            // Get blood type from the most recent donation
+            if ($total_donations > 0) {
+                $latest_donation = $donations[0];
+                $blood_type = htmlspecialchars($latest_donation['blood_type'] ?? 'N/A');
+                
+                // Get last donation date if available
+                if (isset($latest_donation['created_at'])) {
+                    $last_donation_date = date('F j, Y', strtotime($latest_donation['created_at']));
+                }
+            }
+            
+            error_log("Profile - Found $total_donations donations, blood type: $blood_type");
+        } else {
+            error_log("Profile - No donations found for donor_id: $donor_id");
         }
+    } else {
+        error_log("Profile - No donor record found for email: $email");
     }
 }
 ?>
@@ -456,6 +482,27 @@ if (!empty($donorForm['id'])) {
         </div>
         <div class="last-donation">Last Donation: <?php echo $last_donation_date; ?></div>
 
+        <?php
+        // Get current donation status for profile
+        $current_donation_status = null;
+        $donor_id = $donorForm['id'] ?? $user['donor_id'] ?? $user['id'];
+        
+        if ($donor_id) {
+            $params = [
+                'donor_id' => 'eq.' . $donor_id,
+                'order' => 'created_at.desc',
+                'limit' => 1
+            ];
+            
+            $result = get_records('donations', $params);
+            if ($result['success'] && !empty($result['data'])) {
+                $donation = $result['data'][0];
+                $tracker_data = build_tracker_data($donation);
+                $current_donation_status = $tracker_data['current_status'];
+            }
+        }
+        ?>
+        
         <div class="stats-container">
             <div class="stat-box">
                 <div class="label">Age</div>
@@ -470,6 +517,19 @@ if (!empty($donorForm['id'])) {
                 <div class="value"><?php echo str_pad((int)$total_donations, 2, '0', STR_PAD_LEFT); ?></div>
             </div>
         </div>
+        
+        <?php if ($current_donation_status): ?>
+        <div class="stats-container" style="margin-top: 15px;">
+            <div class="stat-box" style="width: 100%; background: #e3f2fd; border-color: #2196F3;">
+                <div class="label">Current Donation Status</div>
+                <div class="value" style="color: #1976d2;">
+                    <a href="blood_tracker.php" style="color: #1976d2; text-decoration: none;">
+                        <?php echo ucfirst($current_donation_status); ?>
+                    </a>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <div class="settings-group">
             <h3>Account Settings</h3>

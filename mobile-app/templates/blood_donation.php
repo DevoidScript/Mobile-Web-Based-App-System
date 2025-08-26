@@ -51,6 +51,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['start_donation'])) {
 
 // Get donor_id from session
 $donor_id = $_SESSION['donor_id'] ?? null;
+$eligibility = null;
+if ($user && !$donor_id && isset($user['email'])) {
+    // Derive donor_id if not in session
+    $email = trim(strtolower($user['email']));
+    $donorFormResp = get_records('donor_form', ['email' => 'eq.' . $email]);
+    if ($donorFormResp['success'] && !empty($donorFormResp['data'])) {
+        $donor_id = $donorFormResp['data'][0]['donor_id'];
+    }
+}
+if ($donor_id) {
+    $eligibility = compute_donation_eligibility($donor_id);
+}
 
 ?>
 <!DOCTYPE html>
@@ -196,7 +208,29 @@ $donor_id = $_SESSION['donor_id'] ?? null;
             <img src="../assets/icons/redcrosslogo.jpg" alt="Red Cross Logo" class="coming-soon-img" style="display:block;margin:0 auto 18px auto;max-width:120px;">
             <div style="font-size:1.2rem; font-weight:500; color:#444; text-align:center; margin-bottom:18px;">To donate blood, start by answering the medical history questionnaire.</div>
             <div style="font-size:1rem; color:#666; text-align:center; font-style:italic; margin-bottom:18px;">Click the button below to fill out your Medical History Form.</div>
-            <a href="forms/medical-history-modal.php" class="btn btn-primary" style="display:inline-block;margin-top:10px;padding:14px 32px;font-size:18px;font-weight:bold;background:#d50000;color:#fff;border:none;border-radius:8px;box-shadow:0 2px 8px rgba(213,0,0,0.08);transition:background 0.2s;cursor:pointer;text-decoration:none;">Start Donation Process</a>
+            <?php 
+                $disabled = false; 
+                $tooltip = '';
+                if ($eligibility && $eligibility['latest_completed_donation']) {
+                    // Disable if still waiting until next eligible date
+                    $disabled = !$eligibility['can_donate_now'];
+                    if ($disabled && !empty($eligibility['next_donation_date'])) {
+                        $tooltip = 'Next eligible: ' . date('F j, Y', strtotime($eligibility['next_donation_date']));
+                    }
+                }
+            ?>
+            <a href="<?php echo $disabled ? '#' : 'forms/medical-history-modal.php'; ?>" 
+               class="btn btn-primary" 
+               <?php echo $disabled ? 'aria-disabled="true"' : ''; ?>
+               style="display:inline-block;margin-top:10px;padding:14px 32px;font-size:18px;font-weight:bold;"
+               onclick="<?php echo $disabled ? 'return false;' : 'return true;'; ?>">
+                <span style="background:#d50000;color:#fff;border:none;border-radius:8px;box-shadow:0 2px 8px rgba(213,0,0,0.08);transition:background 0.2s;cursor:pointer;text-decoration:none;padding:0 0;display:inline-block;">
+                    <?php echo $disabled ? 'Donation Not Yet Available' : 'Start Donation Process'; ?>
+                </span>
+            </a>
+            <?php if ($disabled && $tooltip): ?>
+                <div style="margin-top:8px;color:#666;font-size:0.9rem;"><?php echo htmlspecialchars($tooltip); ?></div>
+            <?php endif; ?>
         </div>
     </div>
     

@@ -2,8 +2,7 @@
 /**
  * Donation History Page for the Red Cross Mobile App
  * 
- * This is a placeholder page for the donation history functionality.
- * It will be implemented in future updates to display user's donation records.
+ * Updated to match wireframe design and use donations table
  * Created as part of the templates organization structure.
  *
  * Path: templates/donation_history.php
@@ -32,21 +31,56 @@ if (!is_logged_in()) {
 // Get user data
 $user = $_SESSION['user'] ?? null;
 
-// Fetch donation history from eligibility table
+// Initialize variables
 $donation_history = [];
-$has_donated = false;
-$latest_donation = null;
-if ($user && isset($user['id'])) {
-    // Use the new reusable function
-    list($has_donated, $latest_donation) = has_successful_donation($user['id']);
-    // Get all donation history for display
-    $params = [
-        'donor_id' => 'eq.' . $user['id'],
-        'order' => 'collection_start_time.desc'
-    ];
-    $result = get_records('eligibility', $params);
-    if ($result['success'] && !empty($result['data'])) {
-        $donation_history = $result['data'];
+$latest_completed_donation = null;
+$countdown_months = 0;
+$countdown_days = 0;
+$can_donate_now = false;
+$next_donation_date = null;
+$eligibility = null;
+
+// Get donor ID the same way blood_tracker.php, medical-history-modal.php, and profile.php do
+if ($user && isset($user['email'])) {
+    $email = trim(strtolower($user['email']));
+    
+    // Fetch donor_form record by email
+    $donorFormResp = get_records('donor_form', ['email' => 'eq.' . $email]);
+    if ($donorFormResp['success'] && !empty($donorFormResp['data'])) {
+        $donorForm = $donorFormResp['data'][0];
+        $donor_id = $donorForm['donor_id'];
+        
+        // Debug logging
+        error_log("Donation History - Found donor record for email: $email, donor_id: $donor_id");
+        
+        // Get donation history from donations table
+        $donation_params = [
+            'donor_id' => 'eq.' . $donor_id,
+            'order' => 'created_at.desc'
+        ];
+        
+        $donation_result = get_records('donations', $donation_params);
+        if ($donation_result['success'] && !empty($donation_result['data'])) {
+            $donation_history = $donation_result['data'];
+            
+            // Compute unified eligibility with 7-day grace
+            $eligibility = compute_donation_eligibility($donor_id);
+            if ($eligibility['success']) {
+                $latest_completed_donation = $eligibility['latest_completed_donation'];
+                $next_donation_date = $eligibility['next_donation_date'];
+                $can_donate_now = $eligibility['can_donate_now'];
+                $countdown_months = $eligibility['remaining_months'];
+                // Show days even when months>0, keep remainder approximation
+                if (isset($eligibility['remaining_days'])) {
+                    // If months were calculated, prefer remainder days
+                    $countdown_days = $eligibility['remaining_days'] % 30;
+                }
+            }
+        } else {
+            error_log("Donation History - No donations found for donor_id: $donor_id");
+        }
+    } else {
+        error_log("Donation History - No donor record found for email: $email");
     }
 }
 ?>
@@ -111,25 +145,243 @@ if ($user && isset($user['id'])) {
             margin-right: auto;
         }
         
-        .message-box {
+        /* No Donations Card */
+        .no-donations-card {
             background-color: white;
-            border-radius: 10px;
-            padding: 20px;
+            border-radius: 15px;
+            padding: 30px 20px;
             margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             text-align: center;
         }
         
-        .message-box h2 {
-            color: #FF0000;
-            margin-top: 0;
+        .no-donations-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
         }
         
-        .placeholder-image {
-            width: 100%;
-            max-width: 250px;
-            margin: 20px auto;
-            display: block;
+        .no-donations-card h2 {
+            color: #FF0000;
+            margin: 0 0 15px 0;
+            font-size: 24px;
+        }
+        
+        .no-donations-card p {
+            color: #666;
+            margin: 0 0 25px 0;
+            font-size: 16px;
+        }
+        
+        .start-donation-btn {
+            background-color: #FF0000;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-block;
+            transition: background-color 0.3s;
+        }
+        
+        .start-donation-btn:hover {
+            background-color: #cc0000;
+        }
+        
+        /* Last Donation Card */
+        .last-donation-card {
+            background-color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .last-donation-card h3 {
+            color: #FF0000;
+            margin: 0 0 20px 0;
+            font-size: 20px;
+            text-align: center;
+        }
+        
+        .donation-details {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-row .label {
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .detail-row .value {
+            color: #333;
+            font-weight: bold;
+        }
+        
+        .status-completed {
+            color: #28a745 !important;
+        }
+        
+        /* Countdown Card */
+        .countdown-card {
+            background-color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .countdown-card h3 {
+            color: #FF0000;
+            margin: 0 0 20px 0;
+            font-size: 20px;
+        }
+        
+        .can-donate-now {
+            padding: 20px 0;
+        }
+        
+        .checkmark {
+            font-size: 48px;
+            color: #28a745;
+            margin-bottom: 15px;
+        }
+        
+        .can-donate-now p {
+            color: #28a745;
+            font-weight: bold;
+            font-size: 18px;
+            margin: 0 0 20px 0;
+        }
+        
+        .donate-now-btn {
+            background-color: #28a745;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-block;
+            transition: background-color 0.3s;
+        }
+        
+        .donate-now-btn:hover {
+            background-color: #218838;
+        }
+        
+        .countdown-timer {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .timer-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 60px;
+        }
+        
+        .timer-box .time {
+            font-size: 36px;
+            font-weight: bold;
+            color: #333;
+            line-height: 1;
+        }
+        
+        .timer-box .label {
+            font-size: 14px;
+            color: #6c757d;
+            text-align: center;
+            margin-top: 5px;
+        }
+        
+        .next-donation-date {
+            color: #6c757d;
+            font-size: 14px;
+            margin: 15px 0 0 0;
+        }
+        
+        /* History List Card */
+        .history-list-card {
+            background-color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .history-list-card h3 {
+            color: #FF0000;
+            margin: 0 0 20px 0;
+            font-size: 20px;
+            text-align: center;
+        }
+        
+        .donation-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .donation-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #FF0000;
+        }
+        
+        .donation-date {
+            color: #333;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .donation-info {
+            text-align: right;
+        }
+        
+        .donation-status {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .donation-status.completed {
+            color: #28a745;
+        }
+        
+        .donation-status.pending {
+            color: #ffc107;
+        }
+        
+        .donation-site {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .no-history {
+            color: #666;
+            text-align: center;
+            font-style: italic;
+            margin: 20px 0;
         }
         
         .navigation-bar {
@@ -189,42 +441,92 @@ if ($user && isset($user['id'])) {
     </div>
     
     <div class="history-container">
-        <div class="message-box">
-            <h2>Donation History</h2>
-            <?php if ($has_donated && $latest_donation): ?>
-                <p style="color:green;font-weight:bold;">You have already donated. Your blood is stored in the blood bank.</p>
-            <?php endif; ?>
-            <?php if (empty($donation_history)): ?>
-                <p>No donation records found.</p>
-            <?php else: ?>
-                <table style="width:100%; border-collapse:collapse;">
-                    <thead>
-                        <tr>
-                            <th style="border-bottom:1px solid #ccc; padding:8px;">Date</th>
-                            <th style="border-bottom:1px solid #ccc; padding:8px;">Status</th>
-                            <th style="border-bottom:1px solid #ccc; padding:8px;">Amount Collected</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+        <?php if (empty($donation_history)): ?>
+            <!-- No donations yet -->
+            <div class="no-donations-card">
+                <div class="no-donations-icon">🩸</div>
+                <h2>No Donations Yet</h2>
+                <p>Start your blood donation journey today and save lives!</p>
+                <a href="blood_donation.php" class="start-donation-btn">Start Donating</a>
+            </div>
+        <?php else: ?>
+            <!-- Last Donation Card -->
+            <div class="last-donation-card">
+                <h3>Last Donation</h3>
+                <div class="donation-details">
+                    <div class="detail-row">
+                        <span class="label">Date:</span>
+                        <span class="value"><?php echo $latest_completed_donation ? date('M j, Y', strtotime($latest_completed_donation['created_at'])) : 'N/A'; ?></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Blood Type:</span>
+                        <span class="value"><?php echo htmlspecialchars($latest_completed_donation['blood_type'] ?? 'N/A'); ?></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Donation Site:</span>
+                        <span class="value">PRC Iloilo Chapter</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Status:</span>
+                        <span class="value status-completed"><?php echo $latest_completed_donation && $latest_completed_donation['current_status'] === 'Processed' ? 'Completed' : 'Pending'; ?></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Next Donation Countdown Card -->
+            <div class="countdown-card">
+                <h3>You can next donate</h3>
+                <?php if ($can_donate_now): ?>
+                    <div class="can-donate-now">
+                        <div class="checkmark">✓</div>
+                        <p>You can donate blood now!</p>
+                        <a href="blood_donation.php" class="donate-now-btn">Donate Now</a>
+                    </div>
+                <?php else: ?>
+                    <div class="countdown-timer">
+                        <?php if ($countdown_months > 0): ?>
+                            <div class="timer-box">
+                                <span class="time"><?php echo $countdown_months; ?></span>
+                                <span class="label"><?php echo $countdown_months == 1 ? 'month' : 'months'; ?></span>
+                            </div>
+                        <?php endif; ?>
+                        <?php if ($countdown_days > 0 || $countdown_months == 0): ?>
+                            <div class="timer-box">
+                                <span class="time"><?php echo $countdown_days; ?></span>
+                                <span class="label"><?php echo $countdown_days == 1 ? 'day' : 'days'; ?></span>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    <?php if ($next_donation_date): ?>
+                        <p class="next-donation-date">Next eligible: <?php echo date('F j, Y', strtotime($next_donation_date)); ?></p>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
+
+            <!-- Donation History List -->
+            <div class="history-list-card">
+                <h3>Donation History</h3>
+                <?php if (count($donation_history) > 0): ?>
+                    <div class="donation-list">
                         <?php foreach ($donation_history as $donation): ?>
-                            <tr>
-                                <td style="padding:8px;">
-                                    <?php echo htmlspecialchars(
-                                        isset($donation['collection_start_time']) ? date('Y-m-d H:i', strtotime($donation['collection_start_time'])) : ''
-                                    ); ?>
-                                </td>
-                                <td style="padding:8px;">
-                                    <?php echo ucfirst(htmlspecialchars($donation['status'] ?? '')); ?>
-                                </td>
-                                <td style="padding:8px;">
-                                    <?php echo htmlspecialchars($donation['amount_collected'] ?? ''); ?>
-                                </td>
-                            </tr>
+                            <div class="donation-item">
+                                <div class="donation-date">
+                                    <?php echo date('M j, Y', strtotime($donation['created_at'])); ?>
+                                </div>
+                                <div class="donation-info">
+                                    <div class="donation-status <?php echo $donation['current_status'] === 'Processed' ? 'completed' : 'pending'; ?>">
+                                        <?php echo $donation['current_status'] === 'Processed' ? 'Completed' : ucfirst($donation['current_status']); ?>
+                                    </div>
+                                    <div class="donation-site">PRC Iloilo Chapter</div>
+                                </div>
+                            </div>
                         <?php endforeach; ?>
-                    </tbody>
-                </table>
-            <?php endif; ?>
-        </div>
+                    </div>
+                <?php else: ?>
+                    <p class="no-history">No donation history available.</p>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
     </div>
     
     <!-- Mobile-optimized bottom navigation bar -->

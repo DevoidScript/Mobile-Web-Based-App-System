@@ -54,6 +54,11 @@ if (!$donorFormResp['success'] || empty($donorFormResp['data'])) {
 $donorForm = $donorFormResp['data'][0];
 $donor_id = $donorForm['donor_id']; // Use this for medical history linkage
 
+// Debug logging
+error_log("Donor form data: " . json_encode($donorForm));
+error_log("Donor ID extracted: " . $donor_id);
+error_log("Session data: " . json_encode($_SESSION));
+
 // Fetch donor information to determine gender for showing female-specific questions
 $donorData = $donorForm;
 
@@ -236,9 +241,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_medical_histor
             if (is_array($insertedData) && !empty($insertedData)) {
                 // Set the medical_history_id in session for next steps
                 $_SESSION['medical_history_id'] = $insertedData[0]['medical_history_id'];
-                // Redirect to confirmation page
-                header('Location: ../../templates/donation-success.php');
-                exit();
+                
+                // Validate donor_id before starting donation process
+                if (!$donor_id || $donor_id <= 0) {
+                    error_log("Invalid donor_id: " . $donor_id);
+                    $_SESSION['error_message'] = "Invalid donor ID. Please restart the donation process.";
+                    header('Location: ../../templates/blood_donation.php?error=Invalid donor ID');
+                    exit();
+                }
+                
+                // Start the donation process
+                error_log("Starting donation process for donor_id: " . $donor_id);
+                $donation_result = start_donation_process($donor_id);
+                error_log("Donation process result: " . json_encode($donation_result));
+                
+                if ($donation_result['success']) {
+                    // Store donation ID in session
+                    $_SESSION['donation_id'] = $donation_result['donation_id'];
+                    
+                    // Immediately update the donation status based on existing forms
+                    error_log("Automatically updating donation status for donor_id: " . $donor_id);
+                    $status_update_result = auto_update_donation_status_after_medical_history($donor_id);
+                    error_log("Status update result: " . json_encode($status_update_result));
+                    
+                    if ($status_update_result['success'] && $status_update_result['status'] === 'updated') {
+                        $_SESSION['success_message'] = "Medical history submitted successfully! Your donation process has started and status updated to: " . ($status_update_result['blood_type'] ? $status_update_result['blood_type'] . ' - ' : '') . $status_update_result['message'];
+                    } elseif ($status_update_result['success'] && $status_update_result['status'] === 'cancelled') {
+                        $_SESSION['warning_message'] = "Medical history submitted successfully, but donation was cancelled: " . $status_update_result['reason'];
+                    } else {
+                        $_SESSION['success_message'] = "Medical history submitted successfully! Your donation process has started.";
+                    }
+                    
+                    // Redirect to blood tracker page
+                    header('Location: ../../templates/blood_tracker.php');
+                    exit();
+                } else {
+                    // If donation process fails, still redirect to success but with warning
+                    $_SESSION['warning_message'] = "Medical history submitted successfully, but there was an issue starting the donation process. Please contact staff.";
+                    error_log("Donation process failed: " . ($donation_result['message'] ?? 'Unknown error'));
+                    header('Location: ../../templates/donation-success.php');
+                    exit();
+                }
             } else {
                 throw new Exception("Failed to parse inserted medical history data.");
             }
