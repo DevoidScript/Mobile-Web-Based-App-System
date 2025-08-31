@@ -52,8 +52,23 @@ if ($donor_id) {
         $eligibility = compute_donation_eligibility($donor_id);
         error_log("Blood Tracker - Found donation record: " . json_encode($donation));
         
-        // Get blood collection data for units (amount_taken)
-        // First try to find by donor_id directly
+        // Get blood bank units data for status tracking
+        $blood_bank_params = [
+            'donor_id' => 'eq.' . $donor_id,
+            'order' => 'created_at.desc',
+            'limit' => 1
+        ];
+        
+        $blood_bank_result = get_records('blood_bank_units', $blood_bank_params);
+        
+        if ($blood_bank_result['success'] && !empty($blood_bank_result['data'])) {
+            $blood_bank_data = $blood_bank_result['data'][0];
+            error_log("Blood Tracker - Found blood bank unit record: " . json_encode($blood_bank_data));
+            error_log("Blood Tracker - units value: " . ($blood_bank_data['units'] ?? 'NULL'));
+            error_log("Blood Tracker - status value: " . ($blood_bank_data['status'] ?? 'NULL'));
+        }
+        
+        // Always try to get blood collection data for units display
         $collection_params = [
             'donor_id' => 'eq.' . $donor_id,
             'order' => 'start_time.desc',
@@ -94,7 +109,6 @@ if ($donor_id) {
             error_log("Blood Tracker - amount_taken value: " . ($blood_collection_data['amount_taken'] ?? 'NULL'));
         } else {
             error_log("Blood Tracker - No blood collection record found for donor_id: $donor_id");
-            error_log("Blood Tracker - Collection result: " . json_encode($collection_result));
         }
         
         // Get medical history status from medical_history table
@@ -519,8 +533,10 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
                             <div>Units</div>
                             <div class="detail-value">
                                 <?php 
-                                if ($blood_collection_data && isset($blood_collection_data['amount_taken']) && $blood_collection_data['amount_taken'] > 0) {
+                                if (isset($blood_collection_data) && isset($blood_collection_data['amount_taken']) && $blood_collection_data['amount_taken'] > 0) {
                                     echo $blood_collection_data['amount_taken'];
+                                } elseif (isset($blood_bank_data) && isset($blood_bank_data['units']) && $blood_bank_data['units'] > 0) {
+                                    echo $blood_bank_data['units'];
                                 } else {
                                     echo 'Pending';
                                 }

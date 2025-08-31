@@ -565,57 +565,108 @@ function update_donation_status_after_blood_collection($donor_id) {
     $exam = $exam_result['data'][0];
     $physical_exam_id = $exam['physical_exam_id'];
     
-    // Get the latest blood collection for this donor using physical_exam_id
-    $collection_params = [
-        'physical_exam_id' => 'eq.' . $physical_exam_id,
-        'order' => 'created_at.desc',
-        'limit' => 1
-    ];
-    
-    $collection_result = get_records('blood_collection', $collection_params);
-    if (!$collection_result['success'] || empty($collection_result['data'])) {
-        return ['success' => false, 'error' => 'No blood collection record found for donor ID: ' . $donor_id];
-    }
-    
-    $collection = $collection_result['data'][0];
-    
-    // Get the active donation for this donor
-    $donation_params = [
+    // Get the latest blood bank unit for this donor
+    $blood_bank_params = [
         'donor_id' => 'eq.' . $donor_id,
-        'current_status' => 'not.eq.Ready for Use',
         'order' => 'created_at.desc',
         'limit' => 1
     ];
     
-    $donation_result = get_records('donations', $donation_params);
-    if (!$donation_result['success'] || empty($donation_result['data'])) {
-        return ['success' => false, 'error' => 'No active donation found for donor ID: ' . $donor_id];
-    }
-    
-    $donation = $donation_result['data'][0];
-    
-    // Check amount_taken to determine final status
-    $amount_taken = floatval($collection['amount_taken'] ?? 0);
-    
-    if ($amount_taken >= 1) {
-        // Blood was collected - status becomes Processed
-        $update_data = [
-            'current_status' => 'Processed',
-            'blood_collection_completed' => true,
-            'units_collected' => $amount_taken,
-            'notes' => 'Blood collection completed successfully - ' . $amount_taken . ' units collected'
+    $blood_bank_result = get_records('blood_bank_units', $blood_bank_params);
+    if ($blood_bank_result['success'] && !empty($blood_bank_result['data'])) {
+        $blood_bank_unit = $blood_bank_result['data'][0];
+        $unit_status = $blood_bank_unit['status'] ?? '';
+        $units = floatval($blood_bank_unit['units'] ?? 0);
+        
+        // Get the active donation for this donor
+        $donation_params = [
+            'donor_id' => 'eq.' . $donor_id,
+            'current_status' => 'not.eq.Ready for Use',
+            'order' => 'created_at.desc',
+            'limit' => 1
         ];
-    } elseif ($amount_taken == 0) {
-        // No blood collected - status becomes Ready for Use (cancelled)
-        $update_data = [
-            'current_status' => 'Ready for Use',
-            'blood_collection_completed' => true,
-            'units_collected' => 0,
-            'notes' => 'Blood collection cancelled - no units collected'
-        ];
+        
+        $donation_result = get_records('donations', $donation_params);
+        if (!$donation_result['success'] || empty($donation_result['data'])) {
+            return ['success' => false, 'error' => 'No active donation found for donor ID: ' . $donor_id];
+        }
+        
+        $donation = $donation_result['data'][0];
+        
+        // Check blood bank unit status to determine final status
+        if ($unit_status === 'Valid') {
+            // Blood unit is valid - status becomes Processed
+            $update_data = [
+                'current_status' => 'Processed',
+                'blood_collection_completed' => true,
+                'units_collected' => $units,
+                'notes' => 'Blood unit status is Valid - ' . $units . ' units processed'
+            ];
+        } elseif ($unit_status === 'Disposed' || $unit_status === 'Expired') {
+            // Blood unit is disposed or expired - status becomes Ready for Use
+            $update_data = [
+                'current_status' => 'Ready for Use',
+                'blood_collection_completed' => true,
+                'units_collected' => $units,
+                'notes' => 'Blood unit status is ' . $unit_status . ' - ' . $units . ' units'
+            ];
+        } else {
+            // Invalid status
+            return ['success' => false, 'error' => 'Invalid blood bank unit status: ' . $unit_status];
+        }
     } else {
-        // Invalid amount
-        return ['success' => false, 'error' => 'Invalid amount_taken value: ' . $amount_taken];
+        // Fallback to blood_collection table if blood_bank_units not found
+        $collection_params = [
+            'physical_exam_id' => 'eq.' . $physical_exam_id,
+            'order' => 'created_at.desc',
+            'limit' => 1
+        ];
+        
+        $collection_result = get_records('blood_collection', $collection_params);
+        if (!$collection_result['success'] || empty($collection_result['data'])) {
+            return ['success' => false, 'error' => 'No blood collection or blood bank unit record found for donor ID: ' . $donor_id];
+        }
+        
+        $collection = $collection_result['data'][0];
+        
+        // Get the active donation for this donor
+        $donation_params = [
+            'donor_id' => 'eq.' . $donor_id,
+            'current_status' => 'not.eq.Ready for Use',
+            'order' => 'created_at.desc',
+            'limit' => 1
+        ];
+        
+        $donation_result = get_records('donations', $donation_params);
+        if (!$donation_result['success'] || empty($donation_result['data'])) {
+            return ['success' => false, 'error' => 'No active donation found for donor ID: ' . $donor_id];
+        }
+        
+        $donation = $donation_result['data'][0];
+        
+        // Check amount_taken to determine final status (fallback)
+        $amount_taken = floatval($collection['amount_taken'] ?? 0);
+        
+        if ($amount_taken >= 1) {
+            // Blood was collected - status becomes Processed
+            $update_data = [
+                'current_status' => 'Processed',
+                'blood_collection_completed' => true,
+                'units_collected' => $amount_taken,
+                'notes' => 'Blood collection completed successfully - ' . $amount_taken . ' units collected'
+            ];
+        } elseif ($amount_taken == 0) {
+            // No blood collected - status becomes Ready for Use (cancelled)
+            $update_data = [
+                'current_status' => 'Ready for Use',
+                'blood_collection_completed' => true,
+                'units_collected' => 0,
+                'notes' => 'Blood collection cancelled - no units collected'
+            ];
+        } else {
+            // Invalid amount
+            return ['success' => false, 'error' => 'Invalid amount_taken value: ' . $amount_taken];
+        }
     }
     
     $update_result = update_record('donations', $donation['donation_id'], $update_data, 'donation_id');
@@ -980,59 +1031,104 @@ function auto_update_donation_status($donor_id) {
     }
     
     if ($current_status === 'Testing') {
-        // Check if blood collection is completed
-        $exam_params = [
+        // Check if blood bank units are available
+        $blood_bank_params = [
             'donor_id' => 'eq.' . $donor_id,
             'order' => 'created_at.desc',
             'limit' => 1
         ];
         
-        $exam_result = get_records('physical_examination', $exam_params);
-        if ($exam_result['success'] && !empty($exam_result['data'])) {
-            $exam = $exam_result['data'][0];
-            $physical_exam_id = $exam['physical_exam_id'];
+        $blood_bank_result = get_records('blood_bank_units', $blood_bank_params);
+        if ($blood_bank_result['success'] && !empty($blood_bank_result['data'])) {
+            $blood_bank_unit = $blood_bank_result['data'][0];
+            $unit_status = $blood_bank_unit['status'] ?? '';
+            $units = floatval($blood_bank_unit['units'] ?? 0);
             
-            $collection_params = [
-                'physical_exam_id' => 'eq.' . $physical_exam_id,
+            if ($unit_status === 'Valid') {
+                // Blood unit is valid - update to Processed
+                $update_data = [
+                    'current_status' => 'Processed',
+                    'blood_collection_completed' => true,
+                    'units_collected' => $units,
+                    'notes' => 'Blood unit status is Valid - ' . $units . ' units processed'
+                ];
+            } elseif ($unit_status === 'Disposed' || $unit_status === 'Expired') {
+                // Blood unit is disposed or expired - update to Ready for Use
+                $update_data = [
+                    'current_status' => 'Ready for Use',
+                    'blood_collection_completed' => true,
+                    'units_collected' => $units,
+                    'notes' => 'Blood unit status is ' . $unit_status . ' - ' . $units . ' units'
+                ];
+            } else {
+                return ['success' => false, 'error' => 'Invalid blood bank unit status: ' . $unit_status];
+            }
+            
+            $update_result = update_record('donations', $donation_id, $update_data, 'donation_id');
+            if ($update_result['success']) {
+                return [
+                    'success' => true,
+                    'status' => 'updated',
+                    'message' => 'Donation status updated to ' . $update_data['current_status'],
+                    'final_status' => $update_data['current_status'],
+                    'units_collected' => $update_data['units_collected']
+                ];
+            }
+        } else {
+            // Fallback to blood_collection table if blood_bank_units not found
+            $exam_params = [
+                'donor_id' => 'eq.' . $donor_id,
                 'order' => 'created_at.desc',
                 'limit' => 1
             ];
             
-            $collection_result = get_records('blood_collection', $collection_params);
-            if ($collection_result['success'] && !empty($collection_result['data'])) {
-                $collection = $collection_result['data'][0];
+            $exam_result = get_records('physical_examination', $exam_params);
+            if ($exam_result['success'] && !empty($exam_result['data'])) {
+                $exam = $exam_result['data'][0];
+                $physical_exam_id = $exam['physical_exam_id'];
                 
-                $amount_taken = floatval($collection['amount_taken'] ?? 0);
+                $collection_params = [
+                    'physical_exam_id' => 'eq.' . $physical_exam_id,
+                    'order' => 'created_at.desc',
+                    'limit' => 1
+                ];
                 
-                if ($amount_taken >= 1) {
-                    // Blood collected - update to Processed
-                    $update_data = [
-                        'current_status' => 'Processed',
-                        'blood_collection_completed' => true,
-                        'units_collected' => $amount_taken,
-                        'notes' => 'Blood collection completed successfully - ' . $amount_taken . ' units collected'
-                    ];
-                } elseif ($amount_taken == 0) {
-                    // No blood collected - update to Ready for Use
-                    $update_data = [
-                        'current_status' => 'Ready for Use',
-                        'blood_collection_completed' => true,
-                        'units_collected' => 0,
-                        'notes' => 'Blood collection cancelled - no units collected'
-                    ];
-                } else {
-                    return ['success' => false, 'error' => 'Invalid amount_taken value: ' . $amount_taken];
-                }
-                
-                $update_result = update_record('donations', $donation_id, $update_data, 'donation_id');
-                if ($update_result['success']) {
-                    return [
-                        'success' => true,
-                        'status' => 'updated',
-                        'message' => 'Donation status updated to ' . $update_data['current_status'],
-                        'final_status' => $update_data['current_status'],
-                        'units_collected' => $update_data['units_collected']
-                    ];
+                $collection_result = get_records('blood_collection', $collection_params);
+                if ($collection_result['success'] && !empty($collection_result['data'])) {
+                    $collection = $collection_result['data'][0];
+                    
+                    $amount_taken = floatval($collection['amount_taken'] ?? 0);
+                    
+                    if ($amount_taken >= 1) {
+                        // Blood collected - update to Processed
+                        $update_data = [
+                            'current_status' => 'Processed',
+                            'blood_collection_completed' => true,
+                            'units_collected' => $amount_taken,
+                            'notes' => 'Blood collection completed successfully - ' . $amount_taken . ' units collected'
+                        ];
+                    } elseif ($amount_taken == 0) {
+                        // No blood collected - update to Ready for Use
+                        $update_data = [
+                            'current_status' => 'Ready for Use',
+                            'blood_collection_completed' => true,
+                            'units_collected' => 0,
+                            'notes' => 'Blood collection cancelled - no units collected'
+                        ];
+                    } else {
+                        return ['success' => false, 'error' => 'Invalid amount_taken value: ' . $amount_taken];
+                    }
+                    
+                    $update_result = update_record('donations', $donation_id, $update_data, 'donation_id');
+                    if ($update_result['success']) {
+                        return [
+                            'success' => true,
+                            'status' => 'updated',
+                            'message' => 'Donation status updated to ' . $update_data['current_status'],
+                            'final_status' => $update_data['current_status'],
+                            'units_collected' => $update_data['units_collected']
+                        ];
+                    }
                 }
             }
         }
@@ -1179,50 +1275,86 @@ function check_and_update_donation_status_automatically($donor_id) {
         }
     }
     
-    // Check blood collection for updates
+    // Check blood bank units for updates
     if (!$status_changed) {
-        $exam_params = [
+        // Get the latest blood bank unit record for this donor
+        $blood_bank_params = [
             'donor_id' => 'eq.' . $donor_id,
             'order' => 'created_at.desc',
             'limit' => 1
         ];
         
-        $exam_result = get_records('physical_examination', $exam_params);
-        if ($exam_result['success'] && !empty($exam_result['data'])) {
-            $exam = $exam_result['data'][0];
-            $physical_exam_id = $exam['physical_exam_id'];
+        $blood_bank_result = get_records('blood_bank_units', $blood_bank_params);
+        if ($blood_bank_result['success'] && !empty($blood_bank_result['data'])) {
+            $blood_bank_unit = $blood_bank_result['data'][0];
+            $unit_status = $blood_bank_unit['status'] ?? '';
             
-            $collection_params = [
-                'physical_exam_id' => 'eq.' . $physical_exam_id,
+            if ($current_status === 'Testing' || $current_status === 'Processed') {
+                if ($unit_status === 'Valid') {
+                    // Blood unit is valid, keep current status as Processed
+                    $update_data = [
+                        'current_status' => 'Processed',
+                        'blood_collection_completed' => true,
+                        'units_collected' => $blood_bank_unit['units'] ?? 1,
+                        'notes' => 'Blood unit status is Valid - maintaining Processed status'
+                    ];
+                    $status_changed = true;
+                } elseif ($unit_status === 'Disposed' || $unit_status === 'Expired') {
+                    // Blood unit is disposed or expired, update to Ready for Use
+                    $update_data = [
+                        'current_status' => 'Ready for Use',
+                        'blood_collection_completed' => true,
+                        'units_collected' => $blood_bank_unit['units'] ?? 1,
+                        'notes' => 'Blood unit status is ' . $unit_status . ' - updating to Ready for Use'
+                    ];
+                    $status_changed = true;
+                }
+            }
+        } else {
+            // Fallback to blood_collection table if blood_bank_units not found
+            $exam_params = [
+                'donor_id' => 'eq.' . $donor_id,
                 'order' => 'created_at.desc',
                 'limit' => 1
             ];
             
-            $collection_result = get_records('blood_collection', $collection_params);
-            if ($collection_result['success'] && !empty($collection_result['data'])) {
-                $collection = $collection_result['data'][0];
+            $exam_result = get_records('physical_examination', $exam_params);
+            if ($exam_result['success'] && !empty($exam_result['data'])) {
+                $exam = $exam_result['data'][0];
+                $physical_exam_id = $exam['physical_exam_id'];
                 
-                if ($current_status === 'Testing') {
-                    $amount_taken = floatval($collection['amount_taken'] ?? 0);
+                $collection_params = [
+                    'physical_exam_id' => 'eq.' . $physical_exam_id,
+                    'order' => 'created_at.desc',
+                    'limit' => 1
+                ];
+                
+                $collection_result = get_records('blood_collection', $collection_params);
+                if ($collection_result['success'] && !empty($collection_result['data'])) {
+                    $collection = $collection_result['data'][0];
                     
-                    if ($amount_taken >= 1) {
-                        // Blood collected
-                        $update_data = [
-                            'current_status' => 'Processed',
-                            'blood_collection_completed' => true,
-                            'units_collected' => $amount_taken,
-                            'notes' => 'Blood collection completed automatically - ' . $amount_taken . ' units collected'
-                        ];
-                        $status_changed = true;
-                    } elseif ($amount_taken == 0) {
-                        // No blood collected
-                        $update_data = [
-                            'current_status' => 'Ready for Use',
-                            'blood_collection_completed' => true,
-                            'units_collected' => 0,
-                            'notes' => 'Blood collection cancelled automatically - no units collected'
-                        ];
-                        $status_changed = true;
+                    if ($current_status === 'Testing') {
+                        $amount_taken = floatval($collection['amount_taken'] ?? 0);
+                        
+                        if ($amount_taken >= 1) {
+                            // Blood collected
+                            $update_data = [
+                                'current_status' => 'Processed',
+                                'blood_collection_completed' => true,
+                                'units_collected' => $amount_taken,
+                                'notes' => 'Blood collection completed automatically - ' . $amount_taken . ' units collected'
+                            ];
+                            $status_changed = true;
+                        } elseif ($amount_taken == 0) {
+                            // No blood collected
+                            $update_data = [
+                                'current_status' => 'Ready for Use',
+                                'blood_collection_completed' => true,
+                                'units_collected' => 0,
+                                'notes' => 'Blood collection cancelled automatically - no units collected'
+                            ];
+                            $status_changed = true;
+                        }
                     }
                 }
             }

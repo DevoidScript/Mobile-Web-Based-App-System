@@ -63,6 +63,9 @@ if ($user && isset($user['email'])) {
         if ($donation_result['success'] && !empty($donation_result['data'])) {
             $donation_history = $donation_result['data'];
             
+            // Get the latest donation (first in the array since we ordered by desc)
+            $latest_donation = $donation_history[0];
+            
             // Compute unified eligibility with 7-day grace
             $eligibility = compute_donation_eligibility($donor_id);
             if ($eligibility['success']) {
@@ -76,6 +79,14 @@ if ($user && isset($user['email'])) {
                     $countdown_days = $eligibility['remaining_days'] % 30;
                 }
             }
+            
+            // If no completed donation found in eligibility, use the latest donation
+            if (!$latest_completed_donation && !empty($latest_donation)) {
+                $latest_completed_donation = $latest_donation;
+            }
+            
+            error_log("Donation History - Found " . count($donation_history) . " donations for donor_id: $donor_id");
+            error_log("Donation History - Latest donation: " . json_encode($latest_donation));
         } else {
             error_log("Donation History - No donations found for donor_id: $donor_id");
         }
@@ -463,12 +474,24 @@ if ($user && isset($user['email'])) {
                         <span class="value"><?php echo htmlspecialchars($latest_completed_donation['blood_type'] ?? 'N/A'); ?></span>
                     </div>
                     <div class="detail-row">
+                        <span class="label">Units Collected:</span>
+                        <span class="value"><?php echo htmlspecialchars($latest_completed_donation['units_collected'] ?? 'N/A'); ?></span>
+                    </div>
+                    <div class="detail-row">
                         <span class="label">Donation Site:</span>
                         <span class="value">PRC Iloilo Chapter</span>
                     </div>
                     <div class="detail-row">
                         <span class="label">Status:</span>
-                        <span class="value status-completed"><?php echo $latest_completed_donation && $latest_completed_donation['current_status'] === 'Processed' ? 'Completed' : 'Pending'; ?></span>
+                        <span class="value status-completed"><?php 
+                            if ($latest_completed_donation && $latest_completed_donation['current_status'] === 'Processed') {
+                                echo 'Ready for Use';
+                            } elseif ($latest_completed_donation && $latest_completed_donation['current_status'] === 'Ready for Use') {
+                                echo 'Used';
+                            } else {
+                                echo ucfirst($latest_completed_donation['current_status'] ?? 'Pending');
+                            }
+                        ?></span>
                     </div>
                 </div>
             </div>
@@ -515,9 +538,20 @@ if ($user && isset($user['email'])) {
                                 </div>
                                 <div class="donation-info">
                                     <div class="donation-status <?php echo $donation['current_status'] === 'Processed' ? 'completed' : 'pending'; ?>">
-                                        <?php echo $donation['current_status'] === 'Processed' ? 'Completed' : ucfirst($donation['current_status']); ?>
+                                        <?php 
+                                            if ($donation['current_status'] === 'Processed') {
+                                                echo 'Ready for Use';
+                                            } elseif ($donation['current_status'] === 'Ready for Use') {
+                                                echo 'Used';
+                                            } else {
+                                                echo ucfirst($donation['current_status']);
+                                            }
+                                        ?>
                                     </div>
-                                    <div class="donation-site">PRC Iloilo Chapter</div>
+                                    <div class="donation-site">
+                                        <?php echo htmlspecialchars($donation['blood_type'] ?? 'N/A'); ?> • 
+                                        <?php echo htmlspecialchars($donation['units_collected'] ?? 'N/A'); ?> units
+                                    </div>
                                 </div>
                             </div>
                         <?php endforeach; ?>
