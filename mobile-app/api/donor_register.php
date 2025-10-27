@@ -67,8 +67,9 @@ foreach ($required_fields as $field) {
 
 // Create user in Supabase Auth
 try {
+    $email = sanitize_input($post_data['email']);
     $auth_data = [
-        'email' => sanitize_input($post_data['email']),
+        'email' => $email,
         'password' => $post_data['password']
     ];
     
@@ -160,9 +161,34 @@ try {
             $donor_form_id = null;
         }
         
-        // Set success message and redirect to login
-        $_SESSION['success'] = "Registration successful! Please login with your new account.";
-        send_response(true, "Registration successful", ['redirect' => '/Mobile-Web-Based-App-System/mobile-app/templates/login.php'], 201);
+        // Generate verification code and send verification email
+        $verification_code = generate_verification_code();
+        $user_name = sanitize_input($post_data['first_name'] ?? '') . ' ' . sanitize_input($post_data['surname'] ?? '');
+        
+        // Create verification record
+        $verification_result = create_email_verification($email, $user_id, $verification_code);
+        
+        if (!$verification_result['success']) {
+            send_response(false, 'Registration successful but failed to create verification record: ' . $verification_result['message'], null, 500);
+        }
+        
+        // Send verification email
+        $email_result = send_verification_email($email, $verification_code, trim($user_name));
+        
+        if (!$email_result['success']) {
+            send_response(false, 'Registration successful but failed to send verification email: ' . $email_result['message'], null, 500);
+        }
+        
+        // Store user data in session for verification process
+        $_SESSION['pending_verification'] = [
+            'user_id' => $user_id,
+            'email' => $email,
+            'user_name' => trim($user_name),
+            'donor_form_id' => $donor_form_id
+        ];
+        
+        // Redirect to email verification page instead of login
+        send_response(true, "Registration successful! Please check your email for verification code.", ['redirect' => '/Mobile-Web-Based-App-System/mobile-app/templates/email-verification.php'], 201);
         exit;
     }
     send_response(false, "Registration failed: " . json_encode($insert_result['data'] ?? []), null, 500);

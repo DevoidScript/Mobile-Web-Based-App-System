@@ -78,92 +78,93 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_medical_histor
     // Collect all form data
     $formData = [
         'donor_id' => $donor_id,
+		'created_by' => $user_id,
         // Health & Risk Assessment (Step 1)
-        'feels_well' => ($_POST['q1'] === 'Yes'),
+		'feels_well' => (($_POST['q1'] ?? 'No') === 'Yes'),
         'feels_well_remarks' => $_POST['q1_remarks'] ?? null,
-        'previously_refused' => ($_POST['q2'] === 'Yes'),
+		'previously_refused' => (($_POST['q2'] ?? 'No') === 'Yes'),
         'previously_refused_remarks' => $_POST['q2_remarks'] ?? null,
-        'testing_purpose_only' => ($_POST['q3'] === 'Yes'),
+		'testing_purpose_only' => (($_POST['q3'] ?? 'No') === 'Yes'),
         'testing_purpose_only_remarks' => $_POST['q3_remarks'] ?? null,
-        'understands_transmission_risk' => ($_POST['q4'] === 'Yes'),
+		'understands_transmission_risk' => (($_POST['q4'] ?? 'No') === 'Yes'),
         'understands_transmission_risk_remarks' => $_POST['q4_remarks'] ?? null,
-        'recent_alcohol_consumption' => ($_POST['q5'] === 'Yes'),
+		'recent_alcohol_consumption' => (($_POST['q5'] ?? 'No') === 'Yes'),
         'recent_alcohol_consumption_remarks' => $_POST['q5_remarks'] ?? null,
-        'recent_aspirin' => ($_POST['q6'] === 'Yes'),
+		'recent_aspirin' => (($_POST['q6'] ?? 'No') === 'Yes'),
         'recent_aspirin_remarks' => $_POST['q6_remarks'] ?? null,
-        'recent_medication' => ($_POST['q7'] === 'Yes'),
+		'recent_medication' => (($_POST['q7'] ?? 'No') === 'Yes'),
         'recent_medication_remarks' => $_POST['q7_remarks'] ?? null,
-        'recent_donation' => ($_POST['q8'] === 'Yes'),
+		'recent_donation' => (($_POST['q8'] ?? 'No') === 'Yes'),
         'recent_donation_remarks' => $_POST['q8_remarks'] ?? null,
         
         // Past 6 Months (Step 2)
-        'zika_travel' => ($_POST['q9'] === 'Yes'),
+		'zika_travel' => (($_POST['q9'] ?? 'No') === 'Yes'),
         'zika_travel_remarks' => $_POST['q9_remarks'] ?? null,
-        'zika_contact' => ($_POST['q10'] === 'Yes'),
+		'zika_contact' => (($_POST['q10'] ?? 'No') === 'Yes'),
         'zika_contact_remarks' => $_POST['q10_remarks'] ?? null,
-        'zika_sexual_contact' => ($_POST['q11'] === 'Yes'),
+		'zika_sexual_contact' => (($_POST['q11'] ?? 'No') === 'Yes'),
         'zika_sexual_contact_remarks' => $_POST['q11_remarks'] ?? null,
         
         // Past 12 Months (Step 3)
-        'blood_transfusion' => ($_POST['q12'] === 'Yes'),
+		'blood_transfusion' => (($_POST['q12'] ?? 'No') === 'Yes'),
         'blood_transfusion_remarks' => $_POST['q12_remarks'] ?? null,
-        'surgery_dental' => ($_POST['q13'] === 'Yes'),
+		'surgery_dental' => (($_POST['q13'] ?? 'No') === 'Yes'),
         'surgery_dental_remarks' => $_POST['q13_remarks'] ?? null,
-        'tattoo_piercing' => ($_POST['q14'] === 'Yes'),
+		'tattoo_piercing' => (($_POST['q14'] ?? 'No') === 'Yes'),
         'tattoo_piercing_remarks' => $_POST['q14_remarks'] ?? null,
-        'risky_sexual_contact' => ($_POST['q15'] === 'Yes'),
+		'risky_sexual_contact' => (($_POST['q15'] ?? 'No') === 'Yes'),
         'risky_sexual_contact_remarks' => $_POST['q15_remarks'] ?? null,
-        'unsafe_sex' => ($_POST['q16'] === 'Yes'),
+		'unsafe_sex' => (($_POST['q16'] ?? 'No') === 'Yes'),
         'unsafe_sex_remarks' => $_POST['q16_remarks'] ?? null,
-        'hepatitis_contact' => ($_POST['q17'] === 'Yes'),
+		'hepatitis_contact' => (($_POST['q17'] ?? 'No') === 'Yes'),
         'hepatitis_contact_remarks' => $_POST['q17_remarks'] ?? null,
-        'imprisonment' => ($_POST['q18'] === 'Yes'),
+		'imprisonment' => (($_POST['q18'] ?? 'No') === 'Yes'),
         'imprisonment_remarks' => $_POST['q18_remarks'] ?? null,
-        'uk_europe_stay' => ($_POST['q19'] === 'Yes'),
+		'uk_europe_stay' => (($_POST['q19'] ?? 'No') === 'Yes'),
         'uk_europe_stay_remarks' => $_POST['q19_remarks'] ?? null,
         
         // Have you ever (Step 4)
-        'foreign_travel' => ($_POST['q20'] === 'Yes'),
+		'foreign_travel' => (($_POST['q20'] ?? 'No') === 'Yes'),
         'foreign_travel_remarks' => $_POST['q20_remarks'] ?? null,
-        'drug_use' => ($_POST['q21'] === 'Yes'),
+		'drug_use' => (($_POST['q21'] ?? 'No') === 'Yes'),
         'drug_use_remarks' => $_POST['q21_remarks'] ?? null,
-        'clotting_factor' => ($_POST['q22'] === 'Yes'),
+		'clotting_factor' => (($_POST['q22'] ?? 'No') === 'Yes'),
         'clotting_factor_remarks' => $_POST['q22_remarks'] ?? null,
-        'positive_disease_test' => ($_POST['q23'] === 'Yes'),
+		'positive_disease_test' => (($_POST['q23'] ?? 'No') === 'Yes'),
         'positive_disease_test_remarks' => $_POST['q23_remarks'] ?? null,
-        'malaria_history' => ($_POST['q24'] === 'Yes'),
+		'malaria_history' => (($_POST['q24'] ?? 'No') === 'Yes'),
         'malaria_history_remarks' => $_POST['q24_remarks'] ?? null,
-        'std_history' => ($_POST['q25'] === 'Yes'),
+		'std_history' => (($_POST['q25'] ?? 'No') === 'Yes'),
         'std_history_remarks' => $_POST['q25_remarks'] ?? null,
         
         // Had any conditions (Step 5)
-        'cancer_blood_disease' => ($_POST['q26'] === 'Yes'),
+		'cancer_blood_disease' => (($_POST['q26'] ?? 'No') === 'Yes'),
         'cancer_blood_disease_remarks' => $_POST['q26_remarks'] ?? null,
-        'heart_disease' => ($_POST['q27'] === 'Yes'),
+		'heart_disease' => (($_POST['q27'] ?? 'No') === 'Yes'),
         'heart_disease_remarks' => $_POST['q27_remarks'] ?? null,
-        'lung_disease' => ($_POST['q28'] === 'Yes'),
+		'lung_disease' => (($_POST['q28'] ?? 'No') === 'Yes'),
         'lung_disease_remarks' => $_POST['q28_remarks'] ?? null,
-        'kidney_disease' => ($_POST['q29'] === 'Yes'),
+		'kidney_disease' => (($_POST['q29'] ?? 'No') === 'Yes'),
         'kidney_disease_remarks' => $_POST['q29_remarks'] ?? null,
-        'chicken_pox' => ($_POST['q30'] === 'Yes'),
+		'chicken_pox' => (($_POST['q30'] ?? 'No') === 'Yes'),
         'chicken_pox_remarks' => $_POST['q30_remarks'] ?? null,
-        'chronic_illness' => ($_POST['q31'] === 'Yes'),
+		'chronic_illness' => (($_POST['q31'] ?? 'No') === 'Yes'),
         'chronic_illness_remarks' => $_POST['q31_remarks'] ?? null,
-        'recent_fever' => ($_POST['q32'] === 'Yes'),
+		'recent_fever' => (($_POST['q32'] ?? 'No') === 'Yes'),
         'recent_fever_remarks' => $_POST['q32_remarks'] ?? null
     ];
     
     // Add female-specific questions if applicable
     if ($isFemale) {
-        $formData['pregnancy_history'] = ($_POST['q33'] === 'Yes');
+		$formData['pregnancy_history'] = (($_POST['q33'] ?? 'No') === 'Yes');
         $formData['pregnancy_history_remarks'] = $_POST['q33_remarks'] ?? null;
-        $formData['last_childbirth'] = ($_POST['q34'] === 'Yes');
+		$formData['last_childbirth'] = (($_POST['q34'] ?? 'No') === 'Yes');
         $formData['last_childbirth_remarks'] = $_POST['q34_remarks'] ?? null;
-        $formData['recent_miscarriage'] = ($_POST['q35'] === 'Yes');
+		$formData['recent_miscarriage'] = (($_POST['q35'] ?? 'No') === 'Yes');
         $formData['recent_miscarriage_remarks'] = $_POST['q35_remarks'] ?? null;
-        $formData['breastfeeding'] = ($_POST['q36'] === 'Yes');
+		$formData['breastfeeding'] = (($_POST['q36'] ?? 'No') === 'Yes');
         $formData['breastfeeding_remarks'] = $_POST['q36_remarks'] ?? null;
-        $formData['last_menstruation'] = ($_POST['q37'] === 'Yes');
+		$formData['last_menstruation'] = (($_POST['q37'] ?? 'No') === 'Yes');
         $formData['last_menstruation_remarks'] = $_POST['q37_remarks'] ?? null;
     }
     

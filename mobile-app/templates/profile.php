@@ -181,7 +181,7 @@ if ($user && isset($user['email'])) {
             justify-content: center;
             font-size: 48px;
             color: white;
-            background-image: url('../assets/icons/user-avatar-placeholder.png'); /* Placeholder image */
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiM2MzY2RjEiLz4KPC9zdmc+'); /* Placeholder image */
             background-size: cover;
         }
 
@@ -472,7 +472,7 @@ if ($user && isset($user['email'])) {
     </div>
     
     <div class="profile-container">
-        <div class="profile-avatar" style="background-image: url('<?php echo !empty($donorForm['profile_picture']) ? htmlspecialchars($donorForm['profile_picture']) : '../assets/icons/user-avatar-placeholder.png'; ?>');"></div>
+        <div class="profile-avatar" style="background-image: url('<?php echo !empty($donorForm['profile_picture']) ? htmlspecialchars($donorForm['profile_picture']) : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiM2MzY2RjEiLz4KPC9zdmc+'; ?>');"></div>
         <div class="profile-name">
             <?php 
                 $firstName = htmlspecialchars($donorForm['first_name'] ?? '');
@@ -544,7 +544,7 @@ if ($user && isset($user['email'])) {
             <div class="setting-item">
                 <span>Push notifications</span>
                 <label class="toggle-switch">
-                    <input type="checkbox" checked>
+                    <input type="checkbox" id="pushNotificationToggle" checked>
                     <span class="slider"></span>
                 </label>
             </div>
@@ -596,8 +596,12 @@ if ($user && isset($user['email'])) {
         </a>
     </div>
     
+    <!-- Push Notification Prompt -->
+    <?php include 'push-notification-prompt.php'; ?>
+    
     <!-- Scripts -->
     <script src="../assets/js/app.js"></script>
+    <script src="../assets/js/push-notifications.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const logoutLink = document.getElementById('logout-link');
@@ -624,7 +628,142 @@ if ($user && isset($user['email'])) {
                     hideModal();
                 }
             });
+
+            // Push notification toggle functionality
+            const pushToggle = document.getElementById('pushNotificationToggle');
+            if (pushToggle) {
+                // Wait a bit for push-notifications.js to load, then check status
+                setTimeout(() => {
+                    updateToggleState();
+                }, 500);
+                
+                pushToggle.addEventListener('change', function() {
+                    if (this.checked) {
+                        enablePushNotifications();
+                    } else {
+                        disablePushNotifications();
+                    }
+                });
+            }
         });
+
+        // Update toggle state based on current permission
+        async function updateToggleState() {
+            const toggle = document.getElementById('pushNotificationToggle');
+            if (!toggle) return;
+
+            try {
+                // Check if push notification functions are available
+                if (typeof getNotificationPermission !== 'function') {
+                    console.warn('Push notification functions not loaded yet');
+                    // Fallback: check permission directly
+                    if ('Notification' in window) {
+                        toggle.checked = Notification.permission === 'granted';
+                    }
+                    return;
+                }
+
+                const permission = getNotificationPermission();
+                toggle.checked = permission === 'granted';
+                
+                // If permission is granted, try to subscribe
+                if (permission === 'granted') {
+                    await fetchVapidKey();
+                    if (VAPID_PUBLIC_KEY) {
+                        const result = await initializePushNotifications(VAPID_PUBLIC_KEY);
+                        if (!result.success && result.error !== 'permission_denied') {
+                            console.log('Push subscription status:', result);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating toggle state:', error);
+                // Fallback: check permission directly
+                if ('Notification' in window) {
+                    toggle.checked = Notification.permission === 'granted';
+                }
+            }
+        }
+
+        // Enable push notifications
+        async function enablePushNotifications() {
+            try {
+                // Check if functions are available
+                if (typeof fetchVapidKey !== 'function' || typeof promptForPushNotifications !== 'function') {
+                    // Fallback: simple permission request
+                    if ('Notification' in window) {
+                        showPushStatus('Requesting permission...', false);
+                        const permission = await Notification.requestPermission();
+                        if (permission === 'granted') {
+                            showPushStatus('✓ Notifications enabled!', false);
+                            localStorage.setItem('pushNotificationsEnabled', 'true');
+                        } else {
+                            showPushStatus('Notifications blocked. Enable in browser settings.', true);
+                            document.getElementById('pushNotificationToggle').checked = false;
+                        }
+                    } else {
+                        showPushStatus('Push notifications not supported', true);
+                        document.getElementById('pushNotificationToggle').checked = false;
+                    }
+                    return;
+                }
+
+                await fetchVapidKey();
+                if (!VAPID_PUBLIC_KEY) {
+                    showPushStatus('Failed to load configuration', true);
+                    document.getElementById('pushNotificationToggle').checked = false;
+                    return;
+                }
+                
+                showPushStatus('Requesting permission...', false);
+                
+                const result = await promptForPushNotifications(VAPID_PUBLIC_KEY);
+                
+                if (result.success) {
+                    showPushStatus('✓ Notifications enabled!', false);
+                    localStorage.setItem('pushNotificationsEnabled', 'true');
+                } else {
+                    if (result.error === 'permission_denied') {
+                        showPushStatus('Notifications blocked. Enable in browser settings.', true);
+                    } else if (result.error === 'not_supported') {
+                        showPushStatus('Push notifications not supported', true);
+                    } else {
+                        showPushStatus('Failed to enable notifications', true);
+                    }
+                    document.getElementById('pushNotificationToggle').checked = false;
+                }
+            } catch (error) {
+                console.error('Error enabling push notifications:', error);
+                showPushStatus('Error: ' + error.message, true);
+                document.getElementById('pushNotificationToggle').checked = false;
+            }
+        }
+
+        // Disable push notifications
+        async function disablePushNotifications() {
+            try {
+                // Check if function is available
+                if (typeof unsubscribeFromPush !== 'function') {
+                    // Fallback: just remove from localStorage
+                    showPushStatus('Notifications disabled', false);
+                    localStorage.removeItem('pushNotificationsEnabled');
+                    return;
+                }
+
+                const result = await unsubscribeFromPush();
+                if (result.success) {
+                    showPushStatus('Notifications disabled', false);
+                    localStorage.removeItem('pushNotificationsEnabled');
+                } else {
+                    showPushStatus('Failed to disable notifications', true);
+                    document.getElementById('pushNotificationToggle').checked = true;
+                }
+            } catch (error) {
+                console.error('Error disabling push notifications:', error);
+                showPushStatus('Error: ' + error.message, true);
+                document.getElementById('pushNotificationToggle').checked = true;
+            }
+        }
     </script>
     <!-- Register Service Worker for PWA -->
     <script>

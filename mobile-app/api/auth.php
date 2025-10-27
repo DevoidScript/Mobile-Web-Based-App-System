@@ -82,8 +82,24 @@ function handleLogin() {
         $_SESSION['user'] = $userData['user'];
         $_SESSION['token'] = $userData['access_token'];
         
+        // Check if email is verified before allowing login
+        $user_id = $userData['user']['id'];
+        $is_verified = is_email_verified($user_id);
+        
+        if (!$is_verified) {
+            // Email not verified, redirect to verification page
+            $_SESSION['pending_verification'] = [
+                'user_id' => $user_id,
+                'email' => $email,
+                'user_name' => '', // We'll get this from donor_form if needed
+                'donor_form_id' => null
+            ];
+            
+            header('Location: ../templates/email-verification.php?error=Please verify your email before logging in.');
+            exit;
+        }
+        
         // Get additional user data from donors_detail table
-        $user_id = $userData['user']['id']; 
         $donor_data = get_record('donors_detail', $user_id);
         
         if ($donor_data['success'] && !empty($donor_data['data'])) {

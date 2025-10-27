@@ -1,5 +1,35 @@
 # Blood Donation Tracker System
 
+## Push Notifications - Database Schema
+
+Create these tables in Supabase (SQL):
+
+```sql
+-- Store one row per unique endpoint; latest keys per donor/endpoint
+create table if not exists push_subscriptions (
+    id bigserial primary key,
+    donor_id bigint not null,
+    endpoint text not null unique,
+    p256dh text not null,
+    auth text not null,
+    created_at timestamptz default now(),
+    expires_at timestamptz null
+);
+
+-- Track messages sent to donors for audit/debug
+create table if not exists donor_notifications (
+    id bigserial primary key,
+    donor_id bigint not null,
+    blood_drive_id bigint null,
+    payload_json jsonb not null,
+    status text not null check (status in ('sent','failed')),
+    error_text text null,
+    sent_at timestamptz default now()
+);
+```
+
+Note: apply RLS as appropriate for your app; broadcasting should use the service role.
+
 ## Overview
 
 The Blood Donation Tracker System provides real-time tracking of blood donations from registration through to distribution. Donors can monitor their donation progress, and staff can update donation stages as the process moves forward.

@@ -3,6 +3,9 @@
  * Common helper functions for the PWA
  */
 
+// Include email configuration
+require_once __DIR__ . '/../config/email.php';
+
 /**
  * Sanitize input to prevent XSS
  * 
@@ -1534,4 +1537,214 @@ function compute_donation_eligibility($donor_id) {
     }
 
     return $response;
+}
+
+/**
+ * Email Verification Functions
+ * These functions handle email verification for user registration
+ */
+
+/**
+ * Create email verification record in database
+ * 
+ * @param string $email User's email address
+ * @param string $user_id User's ID from Supabase Auth
+ * @param string $verification_code 6-digit verification code
+ * @return array Result array with success status and data
+ */
+function create_email_verification($email, $user_id, $verification_code) {
+    try {
+        // Calculate expiry time (15 minutes from now)
+        $expires_at = date('Y-m-d H:i:s', strtotime('+' . EMAIL_VERIFICATION_EXPIRY_MINUTES . ' minutes'));
+        
+        $verification_data = [
+            'email' => $email,
+            'verification_code' => $verification_code,
+            'user_id' => $user_id,
+            'expires_at' => $expires_at,
+            'verified' => false
+        ];
+        
+        $result = create_record('email_verifications', $verification_data);
+        
+        if ($result['success']) {
+            return [
+                'success' => true,
+                'message' => 'Verification record created successfully',
+                'data' => $result['data']
+            ];
+        } else {
+            return [
+                'success' => false,
+                'message' => 'Failed to create verification record: ' . json_encode($result['data']),
+                'data' => null
+            ];
+        }
+        
+    } catch (Exception $e) {
+        error_log("Create email verification error: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => 'Error creating verification record: ' . $e->getMessage(),
+            'data' => null
+        ];
+    }
+}
+
+/**
+ * Verify email verification code
+ * 
+ * @param string $email User's email address
+ * @param string $verification_code 6-digit verification code
+ * @return array Result array with success status and message
+ */
+function verify_email_code($email, $verification_code) {
+    try {
+        // Get the verification record
+        $params = [
+            'email' => 'eq.' . $email,
+            'verification_code' => 'eq.' . $verification_code,
+            'verified' => 'eq.false',
+            'order' => 'created_at.desc',
+            'limit' => 1
+        ];
+        
+        $result = get_records('email_verifications', $params);
+        
+        if (!$result['success'] || empty($result['data'])) {
+            return [
+                'success' => false,
+                'message' => 'Invalid verification code or email not found'
+            ];
+        }
+        
+        $verification_record = $result['data'][0];
+        
+        // Check if code has expired
+        $now = date('Y-m-d H:i:s');
+        if (strtotime($now) > strtotime($verification_record['expires_at'])) {
+            return [
+                'success' => false,
+                'message' => 'Verification code has expired. Please request a new one.'
+            ];
+        }
+        
+        // Mark as verified
+        $update_data = [
+            'verified' => true,
+            'verified_at' => $now
+        ];
+        
+        $update_result = update_record('email_verifications', $verification_record['id'], $update_data);
+        
+        if (!$update_result['success']) {
+            return [
+                'success' => false,
+                'message' => 'Failed to update verification status'
+            ];
+        }
+        
+        // Update donor_form table to mark email as verified
+        $donor_update_data = [
+            'email_verified' => true,
+            'email_verified_at' => $now
+        ];
+        
+        // Find the donor record by user_id
+        $donor_params = ['user_id' => 'eq.' . $verification_record['user_id']];
+        $donor_result = get_records('donor_form', $donor_params);
+        
+        if ($donor_result['success'] && !empty($donor_result['data'])) {
+            $donor_record = $donor_result['data'][0];
+            $donor_update_result = update_record('donor_form', $donor_record['id'], $donor_update_data);
+            
+            if (!$donor_update_result['success']) {
+                error_log("Failed to update donor_form email verification status");
+            }
+        }
+        
+        return [
+            'success' => true,
+            'message' => 'Email verified successfully'
+        ];
+        
+    } catch (Exception $e) {
+        error_log("Verify email code error: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => 'Error verifying email: ' . $e->getMessage()
+        ];
+    }
+}
+
+/**
+ * Check if user's email is verified
+ * 
+ * @param string $user_id User's ID from Supabase Auth
+ * @return bool Whether the email is verified
+ */
+function is_email_verified($user_id) {
+    try {
+        $params = [
+            'user_id' => 'eq.' . $user_id,
+            'verified' => 'eq.true',
+            'order' => 'verified_at.desc',
+            'limit' => 1
+        ];
+        
+        $result = get_records('email_verifications', $params);
+        
+        return $result['success'] && !empty($result['data']);
+        
+    } catch (Exception $e) {
+        error_log("Check email verification error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Resend verification email
+ * 
+ * @param string $email User's email address
+ * @param string $user_id User's ID from Supabase Auth
+ * @param string $user_name User's name for personalization
+ * @return array Result array with success status and message
+ */
+function resend_verification_email($email, $user_id, $user_name = '') {
+    try {
+        // Generate new verification code
+        $verification_code = generate_verification_code();
+        
+        // Create new verification record
+        $create_result = create_email_verification($email, $user_id, $verification_code);
+        
+        if (!$create_result['success']) {
+            return [
+                'success' => false,
+                'message' => 'Failed to create verification record: ' . $create_result['message']
+            ];
+        }
+        
+        // Send email
+        $email_result = send_verification_email($email, $verification_code, $user_name);
+        
+        if (!$email_result['success']) {
+            return [
+                'success' => false,
+                'message' => 'Failed to send verification email: ' . $email_result['message']
+            ];
+        }
+        
+        return [
+            'success' => true,
+            'message' => 'Verification email sent successfully'
+        ];
+        
+    } catch (Exception $e) {
+        error_log("Resend verification email error: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => 'Error resending verification email: ' . $e->getMessage()
+        ];
+    }
 }

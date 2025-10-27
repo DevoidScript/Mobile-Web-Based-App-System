@@ -380,6 +380,125 @@ if ($user && isset($user['id'])) {
             color: #FF0000;
         }
         
+        /* Notification Panel Styles */
+        .notification-panel {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            width: 300px;
+            max-height: 400px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: none;
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .notification-panel.show {
+            display: block;
+            animation: slideDown 0.3s ease-out;
+        }
+        
+        .notification-header {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .notification-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .notification-close {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .notification-content {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .notification-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .notification-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .notification-item:last-child {
+            border-bottom: none;
+        }
+        
+        .notification-item-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        
+        .notification-item-body {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .notification-item-time {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .notification-empty {
+            padding: 40px 20px;
+            text-align: center;
+            color: #666;
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .notification-icon {
+            position: relative;
+        }
+        
+        @keyframes slideDown {
+            from {
+                transform: translateY(-10px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
         .nav-icon {
             font-size: 24px;
             margin-bottom: 2px;
@@ -403,7 +522,7 @@ if ($user && isset($user['id'])) {
 <?php if (!$has_donated): ?>
     <div class="header">
         <div class="user-info-header">
-            <div class="user-avatar" style="background-image: url('<?php echo !empty($donorForm['profile_picture']) ? htmlspecialchars($donorForm['profile_picture']) : '../assets/icons/user-avatar-placeholder.png'; ?>'); background-size: cover; background-position: center;">
+            <div class="user-avatar" style="background-image: url('<?php echo !empty($donorForm['profile_picture']) ? htmlspecialchars($donorForm['profile_picture']) : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiM2MzY2RjEiLz4KPC9zdmc+'; ?>'); background-size: cover; background-position: center;">
                 <?php
                     if (empty($donorForm['profile_picture'])) {
                         if (!empty($donorForm['first_name'])) {
@@ -428,7 +547,8 @@ if ($user && isset($user['id'])) {
             </span>
         </div>
         <div class="notification-icon">
-            <a href="#">🔔</a>
+            <a href="#" id="notificationBell" onclick="toggleNotificationPanel(event)">🔔</a>
+            <span id="notificationBadge" class="notification-badge" style="display: none;">0</span>
         </div>
     </div>
     <div class="dashboard-container">
@@ -490,7 +610,7 @@ if ($user && isset($user['id'])) {
 <?php else: ?>
     <div class="header">
         <div class="user-info-header">
-            <div class="user-avatar" style="background-image: url('<?php echo !empty($donorForm['profile_picture']) ? htmlspecialchars($donorForm['profile_picture']) : '../assets/icons/user-avatar-placeholder.png'; ?>'); background-size: cover; background-position: center;">
+            <div class="user-avatar" style="background-image: url('<?php echo !empty($donorForm['profile_picture']) ? htmlspecialchars($donorForm['profile_picture']) : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiM2MzY2RjEiLz4KPC9zdmc+'; ?>'); background-size: cover; background-position: center;">
                 <?php
                     if (empty($donorForm['profile_picture'])) {
                         if (!empty($donorForm['first_name'])) {
@@ -515,7 +635,8 @@ if ($user && isset($user['id'])) {
             </span>
         </div>
         <div class="notification-icon">
-            <a href="#">🔔</a>
+            <a href="#" id="notificationBell" onclick="toggleNotificationPanel(event)">🔔</a>
+            <span id="notificationBadge" class="notification-badge" style="display: none;">0</span>
         </div>
     </div>
     
@@ -592,18 +713,36 @@ if ($user && isset($user['id'])) {
     </div>
 <?php endif; ?>
     
+    <!-- Push Notification Prompt -->
+    <?php include 'push-notification-prompt.php'; ?>
+    
+    <!-- Notification Panel -->
+    <div id="notificationPanel" class="notification-panel">
+        <div class="notification-header">
+            <h3 class="notification-title">Notifications</h3>
+            <button class="notification-close" onclick="closeNotificationPanel()">&times;</button>
+        </div>
+        <div class="notification-content" id="notificationContent">
+            <div class="notification-empty">
+                <p>No notifications yet</p>
+                <small>You'll see blood drive alerts and updates here</small>
+            </div>
+        </div>
+    </div>
+    
     <!-- Scripts -->
     <script src="../assets/js/app.js"></script>
+    <script src="../assets/js/push-notifications.js"></script>
     <!-- Register Service Worker for PWA -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
                 navigator.serviceWorker.register('../service-worker.js')
                     .then(function(registration) {
-                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                        // ServiceWorker registered successfully
                     })
                     .catch(function(error) {
-                        console.log('ServiceWorker registration failed: ', error);
+                        console.error('ServiceWorker registration failed: ', error);
                     });
             });
         }
@@ -630,10 +769,224 @@ if ($user && isset($user['id'])) {
                 }
             };
 
-            
-    
             window.focus();
         })();
+
+        // Notification panel functionality
+        let notificationPanelOpen = false;
+        let notifications = [];
+
+        // Toggle notification panel
+        function toggleNotificationPanel(event) {
+            event.preventDefault();
+            const panel = document.getElementById('notificationPanel');
+            
+            if (notificationPanelOpen) {
+                closeNotificationPanel();
+            } else {
+                openNotificationPanel();
+            }
+        }
+
+        // Open notification panel
+        function openNotificationPanel() {
+            const panel = document.getElementById('notificationPanel');
+            panel.classList.add('show');
+            notificationPanelOpen = true;
+            
+            // Load notifications
+            loadNotifications();
+            
+            // Hide badge when panel is open
+            const badge = document.getElementById('notificationBadge');
+            if (badge) {
+                badge.style.display = 'none';
+            }
+        }
+
+        // Close notification panel
+        function closeNotificationPanel() {
+            const panel = document.getElementById('notificationPanel');
+            panel.classList.remove('show');
+            notificationPanelOpen = false;
+        }
+
+        // Load notifications from database API
+        async function loadNotifications() {
+            try {
+                // Get donor_id from session or default to 211 for testing
+                const donorId = <?php echo isset($_SESSION['donor_id']) ? $_SESSION['donor_id'] : 211; ?>;
+                
+                const response = await fetch(`../api/get-notifications.php?donor_id=${donorId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    notifications = result.data.notifications;
+                    // Notifications loaded successfully
+                } else {
+                    console.error('❌ Failed to load notifications:', result.error);
+                    // Fallback to localStorage if API fails
+                    const stored = localStorage.getItem('appNotifications');
+                    if (stored) {
+                        notifications = JSON.parse(stored);
+                        // Using localStorage fallback
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Error loading notifications:', error);
+                // Fallback to localStorage if API fails
+                const stored = localStorage.getItem('appNotifications');
+                if (stored) {
+                    notifications = JSON.parse(stored);
+                    console.log('📱 Using localStorage fallback');
+                }
+            }
+            
+            renderNotifications();
+        }
+
+        // Render notifications in the panel
+        function renderNotifications() {
+            const content = document.getElementById('notificationContent');
+            
+            if (notifications.length === 0) {
+                content.innerHTML = `
+                    <div class="notification-empty">
+                        <p>No notifications yet</p>
+                        <small>You'll see blood drive alerts and updates here</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            const html = notifications.map(notification => `
+                <div class="notification-item" onclick="handleNotificationClick('${notification.id}')">
+                    <div class="notification-item-title">${notification.title}</div>
+                    <div class="notification-item-body">${notification.body}</div>
+                    <div class="notification-item-time">${formatTime(notification.timestamp)}</div>
+                </div>
+            `).join('');
+            
+            content.innerHTML = html;
+        }
+
+        // Handle notification click
+        function handleNotificationClick(notificationId) {
+            const notification = notifications.find(n => n.id === notificationId);
+            if (notification && notification.url) {
+                // Convert absolute URL to relative URL to maintain session context
+                let targetUrl = notification.url;
+                
+                // If it's an absolute path starting with /Mobile-Web-Based-App-System/, make it relative
+                if (targetUrl.startsWith('/Mobile-Web-Based-App-System/mobile-app/')) {
+                    targetUrl = targetUrl.replace('/Mobile-Web-Based-App-System/mobile-app/', '../');
+                }
+                // If it's an absolute path starting with /mobile-app/, make it relative
+                else if (targetUrl.startsWith('/mobile-app/')) {
+                    targetUrl = targetUrl.replace('/mobile-app/', '../');
+                }
+                // If it's already relative, use as is
+                else if (!targetUrl.startsWith('http') && !targetUrl.startsWith('/')) {
+                    // Already relative, use as is
+                }
+                // If it's an absolute path starting with /, make it relative to current directory
+                else if (targetUrl.startsWith('/')) {
+                    targetUrl = '..' + targetUrl;
+                }
+                
+                // Navigating to target URL
+                
+                // Use relative navigation to maintain session context
+                window.location.href = targetUrl;
+            }
+            
+            // Mark as read
+            markNotificationAsRead(notificationId);
+        }
+
+        // Mark notification as read
+        function markNotificationAsRead(notificationId) {
+            // Remove from current display
+            notifications = notifications.filter(n => n.id !== notificationId);
+            
+            // For database notifications, we could mark as read in the database
+            // For now, just update the display
+            renderNotifications();
+            updateNotificationBadge();
+            
+            // Notification marked as read
+        }
+
+        // Add notification to the list (for real-time updates)
+        function addNotification(notification) {
+            notifications.unshift(notification);
+            
+            // Update localStorage for fallback
+            localStorage.setItem('appNotifications', JSON.stringify(notifications));
+            
+            if (!notificationPanelOpen) {
+                updateNotificationBadge();
+            }
+            
+            if (notificationPanelOpen) {
+                renderNotifications();
+            }
+            
+            // New notification added
+        }
+
+        // Update notification badge
+        function updateNotificationBadge() {
+            const badge = document.getElementById('notificationBadge');
+            if (badge) {
+                if (notifications.length > 0) {
+                    badge.textContent = notifications.length;
+                    badge.style.display = 'flex';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        }
+
+        // Format timestamp
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            
+            if (diff < 60000) { // Less than 1 minute
+                return 'Just now';
+            } else if (diff < 3600000) { // Less than 1 hour
+                return Math.floor(diff / 60000) + ' minutes ago';
+            } else if (diff < 86400000) { // Less than 1 day
+                return Math.floor(diff / 3600000) + ' hours ago';
+            } else {
+                return date.toLocaleDateString();
+            }
+        }
+
+        // Listen for push notifications when app is open
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                const { type, payload } = event.data || {};
+                if (type === 'PUSH_IN_APP') {
+                    // Add to in-app notifications
+                    addNotification({
+                        id: Date.now().toString(),
+                        title: payload.title || 'New notification',
+                        body: payload.body || '',
+                        url: payload.url || '/mobile-app/templates/dashboard.php',
+                        timestamp: Date.now()
+                    });
+                }
+            });
+        }
+
+        // Initialize notification badge on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadNotifications();
+            updateNotificationBadge();
+        });
     </script>
 </body>
 </html> 

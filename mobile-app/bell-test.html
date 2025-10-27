@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bell Notification Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #dc3545;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #c82333;
+        }
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+        .instructions {
+            background: #e2e3e5;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .step {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔔 Bell Notification Test</h1>
+        
+        <div class="instructions">
+            <h3>📋 Step-by-Step Instructions:</h3>
+            
+            <div class="step">
+                <strong>Step 1:</strong> Open the correct dashboard URL:<br>
+                <a href="http://localhost/Mobile-Web-Based-App-System/mobile-app/templates/dashboard.php" target="_blank">http://localhost/Mobile-Web-Based-App-System/mobile-app/templates/dashboard.php</a>
+            </div>
+            
+            <div class="step">
+                <strong>Step 2:</strong> Open browser developer tools (Press F12)
+            </div>
+            
+            <div class="step">
+                <strong>Step 3:</strong> Go to the Console tab
+            </div>
+            
+            <div class="step">
+                <strong>Step 4:</strong> Click the button below to copy the test code
+            </div>
+            
+            <button onclick="copyTestCode()">📋 Copy Test Code</button>
+            
+            <div class="step">
+                <strong>Step 5:</strong> Paste the code in the console and press Enter
+            </div>
+            
+            <div class="step">
+                <strong>Step 6:</strong> Check the bell icon (🔔) in the top right corner
+            </div>
+        </div>
+        
+        <div class="code-block" id="testCode">
+// Clear existing notifications
+localStorage.removeItem('appNotifications');
+
+// Add test notifications
+const testNotifications = [
+    {
+        id: 'blood-drive-1',
+        title: '🚨 New Blood Drive Alert!',
+        body: 'Join us this Saturday at Community Center for our monthly blood drive',
+        url: '/Mobile-Web-Based-App-System/mobile-app/templates/dashboard.php',
+        timestamp: Date.now() - 300000 // 5 minutes ago
+    },
+    {
+        id: 'reminder-1', 
+        title: '📅 Donation Reminder',
+        body: 'You are eligible to donate again. Book your appointment today!',
+        url: '/Mobile-Web-Based-App-System/mobile-app/templates/dashboard.php',
+        timestamp: Date.now() - 1800000 // 30 minutes ago
+    },
+    {
+        id: 'urgent-1',
+        title: '🩸 Urgent: Blood Type O+ Needed',
+        body: 'Emergency blood shortage for O+ type. Please donate if you can.',
+        url: '/Mobile-Web-Based-App-System/mobile-app/templates/dashboard.php',
+        timestamp: Date.now() - 3600000 // 1 hour ago
+    }
+];
+
+// Store in localStorage
+localStorage.setItem('appNotifications', JSON.stringify(testNotifications));
+
+// Update bell badge
+const badge = document.getElementById('notificationBadge');
+if (badge) {
+    badge.textContent = testNotifications.length;
+    badge.style.display = 'flex';
+    console.log('✅ Bell badge updated with', testNotifications.length, 'notifications');
+} else {
+    console.log('❌ Bell badge element not found - make sure you are on the dashboard page');
+}
+
+// Refresh notification panel if open
+if (typeof loadNotifications === 'function') {
+    loadNotifications();
+}
+
+console.log('🎉 Test notifications added!');
+console.log('🔔 Check the bell icon - it should show a red badge with', testNotifications.length);
+console.log('👆 Click the bell icon to see the notifications');
+
+// Show success message
+alert('✅ Test notifications added! Check the bell icon (🔔) in the top right corner.');
+        </div>
+        
+        <div class="instructions">
+            <h3>🎯 What You Should See:</h3>
+            <ul>
+                <li>✅ Bell icon shows red badge with number "3"</li>
+                <li>✅ Click bell icon → panel opens with 3 notifications</li>
+                <li>✅ Each notification shows title, body, and time</li>
+                <li>✅ Click any notification → navigates to dashboard</li>
+            </ul>
+            
+            <h3>🔧 If It Doesn't Work:</h3>
+            <ul>
+                <li>Make sure you're on the correct dashboard URL</li>
+                <li>Check browser console for any errors</li>
+                <li>Verify the bell icon is visible in the top right corner</li>
+                <li>Try refreshing the dashboard page and running the code again</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function copyTestCode() {
+            const codeBlock = document.getElementById('testCode');
+            const text = codeBlock.textContent;
+            
+            navigator.clipboard.writeText(text).then(function() {
+                alert('✅ Code copied to clipboard! Now paste it in the dashboard console.');
+            }, function(err) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('✅ Code copied to clipboard! Now paste it in the dashboard console.');
+            });
+        }
+    </script>
+</body>
+</html>
+

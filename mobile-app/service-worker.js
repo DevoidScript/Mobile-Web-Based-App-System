@@ -24,8 +24,16 @@ self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
-                console.log('Service Worker: Caching initial resources');
-                return cache.addAll(INITIAL_CACHED_RESOURCES);
+                // Caching initial resources
+                // Cache resources individually to handle missing files gracefully
+                return Promise.allSettled(
+                    INITIAL_CACHED_RESOURCES.map(resource => 
+                        cache.add(resource).catch(error => {
+                            console.warn(`Service Worker: Failed to cache ${resource}:`, error);
+                            return null; // Continue with other resources
+                        })
+                    )
+                );
             })
             .then(() => {
                 // Skip waiting to activate service worker immediately
@@ -190,41 +198,98 @@ function openDB() {
 
 // Push notification event handler
 self.addEventListener('push', (event) => {
-    if (!event.data) return;
+    console.log('[Service Worker] Push notification received');
     
-    const data = event.data.json();
-    const options = {
-        body: data.body,
-        icon: '/assets/icons/icon-192x192.png',
-        badge: '/assets/icons/badge.png',
-        vibrate: [100, 50, 100],
-        data: {
-            url: data.url || '/'
-        }
-    };
+    if (!event.data) {
+        console.log('[Service Worker] Push event has no data');
+        return;
+    }
     
-    event.waitUntil(
-        self.registration.showNotification(data.title, options)
-    );
+    try {
+        const data = event.data.json();
+        console.log('[Service Worker] Push data:', data);
+        
+        const options = {
+            body: data.body || 'You have a new notification',
+            icon: data.icon || '/mobile-app/assets/icons/icon-192x192.png',
+            badge: data.badge || '/mobile-app/assets/icons/icon-192x192.png',
+            vibrate: data.vibrate || [100, 50, 100],
+            tag: data.tag || 'default',
+            requireInteraction: data.requireInteraction || false,
+            actions: data.actions || [],
+            data: {
+                url: data.url || '/mobile-app/',
+                blood_drive_id: data.blood_drive_id || null,
+                timestamp: data.timestamp || Date.now()
+            }
+        };
+        
+        event.waitUntil(
+            (async () => {
+                // Check if app is open and send in-app notification
+                const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+                let deliveredToOpenApp = false;
+                
+                for (const client of allClients) {
+                    // Send message to open app tabs
+                    client.postMessage({ 
+                        type: 'PUSH_IN_APP', 
+                        payload: data 
+                    });
+                    deliveredToOpenApp = true;
+                }
+                
+                // Still show system notification (even if app is open)
+                await self.registration.showNotification(data.title || 'Blood Donation App', options);
+                
+                console.log('[Service Worker] Notification delivered to', deliveredToOpenApp ? 'open app and system' : 'system only');
+            })()
+        );
+    } catch (error) {
+        console.error('[Service Worker] Error parsing push data:', error);
+    }
 });
 
 // Notification click event handler
 self.addEventListener('notificationclick', (event) => {
+    console.log('[Service Worker] Notification clicked');
     event.notification.close();
     
+    const urlToOpen = event.notification.data.url || '/mobile-app/';
+    
     event.waitUntil(
-        clients.matchAll({ type: 'window' })
-            .then((clientList) => {
-                // Check if a window is already open and navigate to the URL
-                for (const client of clientList) {
-                    if (client.url === event.notification.data.url && 'focus' in client) {
-                        return client.focus();
-                    }
+        clients.matchAll({ 
+            type: 'window',
+            includeUncontrolled: true
+        })
+        .then((clientList) => {
+            console.log('[Service Worker] Found', clientList.length, 'open windows');
+            
+            // Check if there's already a window open with this URL
+            for (const client of clientList) {
+                const clientUrl = new URL(client.url);
+                const targetUrl = new URL(urlToOpen, self.location.origin);
+                
+                if (clientUrl.pathname === targetUrl.pathname && 'focus' in client) {
+                    console.log('[Service Worker] Focusing existing window');
+                    return client.focus();
                 }
-                // If no window is open, open a new one
-                if (clients.openWindow) {
-                    return clients.openWindow(event.notification.data.url);
-                }
-            })
+            }
+            
+            // If no matching window, check if any app window is open and navigate it
+            if (clientList.length > 0 && 'navigate' in clientList[0]) {
+                console.log('[Service Worker] Navigating existing window to:', urlToOpen);
+                return clientList[0].navigate(urlToOpen).then(client => client.focus());
+            }
+            
+            // Otherwise, open a new window
+            if (clients.openWindow) {
+                console.log('[Service Worker] Opening new window:', urlToOpen);
+                return clients.openWindow(urlToOpen);
+            }
+        })
+        .catch((error) => {
+            console.error('[Service Worker] Error handling notification click:', error);
+        })
     );
 }); 
