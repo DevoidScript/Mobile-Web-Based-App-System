@@ -67,6 +67,15 @@ $location_lng = $data['location_lng'] ?? null;
 $radius_km = $data['radius_km'] ?? null;
 $donor_ids = $data['donor_ids'] ?? null; // Array of specific donor IDs
 
+// Support single-target payloads for convenience
+if (!$donor_ids) {
+    if (isset($data['target_donor_id']) && is_numeric($data['target_donor_id'])) {
+        $donor_ids = [ (int) $data['target_donor_id'] ];
+    } elseif (isset($data['donor_id']) && is_numeric($data['donor_id'])) {
+        $donor_ids = [ (int) $data['donor_id'] ];
+    }
+}
+
 if (empty($body)) {
     send_response(false, 'Notification body is required.', null, 400);
 }

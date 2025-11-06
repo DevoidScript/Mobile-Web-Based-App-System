@@ -32,8 +32,8 @@ if ($_POST) {
     ];
     
     if ($target_donor_id) {
-        // Send to specific donor
-        $payload['target_donor_id'] = $target_donor_id;
+        // Send to specific donor (normalize to donor_ids array expected by API)
+        $payload['donor_ids'] = [ (int) $target_donor_id ];
     }
     
     // Use the broadcast API

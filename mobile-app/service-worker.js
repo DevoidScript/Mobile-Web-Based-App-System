@@ -4,7 +4,7 @@
  */
 
 // Cache version
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `app-cache-${CACHE_VERSION}`;
 
 // Resources to cache initially
@@ -63,68 +63,46 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - serve from cache or network
 self.addEventListener('fetch', (event) => {
-    // Only cache GET requests
-    if (event.request.method !== 'GET') {
-        return;
-    }
-    
-    // Skip some URLs that shouldn't be cached
+    // Only handle GET
+    if (event.request.method !== 'GET') return;
+
     const url = new URL(event.request.url);
-    if (url.pathname.startsWith('/api/')) {
-        // For API requests, try network first, then fall back to cached response
+    const accept = event.request.headers.get('accept') || '';
+
+    // Identify API endpoints under app path; never cache API
+    const isApi = (
+        url.pathname.indexOf('/mobile-app/api/') !== -1 ||
+        url.pathname.indexOf('/Mobile-Web-Based-App-System/mobile-app/api/') !== -1 ||
+        url.pathname.startsWith('/api/')
+    );
+
+    if (isApi) {
         event.respondWith(
-            fetch(event.request)
-                .then((response) => {
-                    // Don't cache API responses by default
-                    return response;
-                })
-                .catch(() => {
-                    // If network request fails, try to get from cache
-                    return caches.match(event.request);
-                })
+            fetch(event.request).catch(() => caches.match(event.request))
         );
         return;
     }
-    
-    // For other requests, use "Cache, falling back to network" strategy
+
+    // For HTML navigations and pages, use network-first and do NOT cache to avoid serving other users' sessions
+    const isHtml = event.request.mode === 'navigate' || accept.includes('text/html');
+    if (isHtml) {
+        event.respondWith(
+            fetch(event.request).catch(() => caches.match('/templates/404.php'))
+        );
+        return;
+    }
+
+    // Static assets: Cache, falling back to network
     event.respondWith(
-        caches.match(event.request)
-            .then((cachedResponse) => {
-                if (cachedResponse) {
-                    return cachedResponse;
-                }
-                
-                // Not in cache, fetch from network
-                return fetch(event.request)
-                    .then((fetchResponse) => {
-                        // Return without caching if response is not valid
-                        if (!fetchResponse || fetchResponse.status !== 200 || fetchResponse.type !== 'basic') {
-                            return fetchResponse;
-                        }
-                        
-                        // Clone the response as it's a stream and can only be consumed once
-                        const responseToCache = fetchResponse.clone();
-                        
-                        // Cache the fetched resource
-                        caches.open(CACHE_NAME)
-                            .then((cache) => {
-                                cache.put(event.request, responseToCache);
-                            });
-                        
-                        return fetchResponse;
-                    })
-                    .catch((error) => {
-                        console.error('Service Worker: Fetch failed', error);
-                        
-                        // Return a custom offline page if available and the request is for a document
-                        if (event.request.mode === 'navigate') {
-                            return caches.match('/templates/404.php');
-                        }
-                        
-                        // Otherwise just return the error
-                        throw error;
-                    });
-            })
+        caches.match(event.request).then((cached) => {
+            if (cached) return cached;
+            return fetch(event.request).then((resp) => {
+                if (!resp || resp.status !== 200 || resp.type !== 'basic') return resp;
+                const respClone = resp.clone();
+                caches.open(CACHE_NAME).then((cache) => cache.put(event.request, respClone));
+                return resp;
+            });
+        })
     );
 });
 

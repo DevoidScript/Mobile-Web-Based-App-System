@@ -11,6 +11,64 @@ var VAPID_PUBLIC_KEY = null;
 var pushVapidKey = null; // Global variable for VAPID key
 
 /**
+ * Get the app base path using the registered Service Worker scope when available.
+ * Falls back to pathname/script inference.
+ */
+async function getAppBasePath() {
+    try {
+        if ('serviceWorker' in navigator) {
+            const registration = await navigator.serviceWorker.ready;
+            if (registration && registration.scope) {
+                const scopeUrl = new URL(registration.scope);
+                // Ensure trailing slash
+                return scopeUrl.pathname.replace(/\/$/, '/')
+            }
+        }
+    } catch (e) {
+        // ignore and fallback
+    }
+    // Fallback to static resolver
+    return apiBaseFromLocation();
+}
+
+function apiBaseFromLocation() {
+    var marker = '/mobile-app/';
+    var pathname = window.location.pathname || '';
+    var idx = pathname.indexOf(marker);
+    var base = marker; // default
+    if (idx !== -1) {
+        base = pathname.substring(0, idx + marker.length);
+    } else {
+        // Fallback: try to infer from script tag src
+        var scripts = document.getElementsByTagName('script');
+        for (var i = 0; i < scripts.length; i++) {
+            var src = scripts[i].src || '';
+            try {
+                var url = new URL(src, window.location.origin);
+                var pidx = url.pathname.indexOf(marker);
+                if (pidx !== -1) {
+                    base = url.pathname.substring(0, pidx + marker.length);
+                    break;
+                }
+            } catch (e) {}
+        }
+    }
+    return base.replace(/\/$/, '/');
+}
+
+/**
+ * Resolve API URL under any base path that contains /mobile-app/
+ */
+function apiUrl(path) {
+	try {
+		var base = apiBaseFromLocation();
+		return base + 'api/' + path.replace(/^\//, '');
+	} catch (e) {
+		return '/mobile-app/api/' + path.replace(/^\//, '');
+	}
+}
+
+/**
  * Convert base64 string to Uint8Array
  * Required for VAPID key format
  */
@@ -121,7 +179,8 @@ async function subscribeToPush() {
  */
 async function saveSubscriptionToBackend(subscription) {
     try {
-        const response = await fetch('/mobile-app/api/save-subscription.php', {
+        const base = await getAppBasePath();
+        const response = await fetch(base + 'api/save-subscription.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -217,7 +276,8 @@ async function promptForPushNotifications(vapidPublicKey) {
  */
 async function fetchVapidKey() {
     try {
-        const response = await fetch('../api/get-vapid-key.php');
+        const base = await getAppBasePath();
+        const response = await fetch(base + 'api/get-vapid-key.php');
         const data = await response.json();
         if (data.success) {
             VAPID_PUBLIC_KEY = data.publicKey;

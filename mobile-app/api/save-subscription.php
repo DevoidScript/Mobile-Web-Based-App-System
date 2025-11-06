@@ -62,21 +62,33 @@ if (empty($endpoint) || empty($p256dh) || empty($auth)) {
     send_response(false, 'Invalid subscription format. Missing endpoint or keys.', null, 400);
 }
 
-// Get donor_id from session
+// Resolve donor_form primary key for the logged-in user
 $user = $_SESSION['user'];
 $donor_id = null;
 
-// Try to get donor_id from various sources
-if (isset($user['donor_id'])) {
-    $donor_id = $user['donor_id'];
-} elseif (isset($user['id'])) {
-    $donor_id = $user['id'];
-} elseif (isset($user['email'])) {
-    // Fetch donor_id from donor_form table by email
+// 1) Explicit session mappings if present
+if (isset($_SESSION['donor_form_id']) && is_numeric($_SESSION['donor_form_id'])) {
+    $donor_id = (int) $_SESSION['donor_form_id'];
+} elseif (isset($_SESSION['donor_id']) && is_numeric($_SESSION['donor_id'])) {
+    $donor_id = (int) $_SESSION['donor_id'];
+}
+
+// 2) If still unknown, look up donor_form by user_id (Supabase Auth user id)
+if (!$donor_id && isset($user['id'])) {
+    $byUserId = get_records('donor_form', ['user_id' => 'eq.' . $user['id'], 'limit' => 1]);
+    if ($byUserId['success'] && !empty($byUserId['data'])) {
+        $row = $byUserId['data'][0];
+        $donor_id = isset($row['id']) ? (int)$row['id'] : (isset($row['donor_id']) ? (int)$row['donor_id'] : null);
+    }
+}
+
+// 3) Fallback: look up donor_form by email
+if (!$donor_id && isset($user['email'])) {
     $email = trim(strtolower($user['email']));
-    $donorFormResp = get_records('donor_form', ['email' => 'eq.' . $email]);
-    if ($donorFormResp['success'] && !empty($donorFormResp['data'])) {
-        $donor_id = $donorFormResp['data'][0]['donor_id'];
+    $byEmail = get_records('donor_form', ['email' => 'eq.' . $email, 'limit' => 1]);
+    if ($byEmail['success'] && !empty($byEmail['data'])) {
+        $row = $byEmail['data'][0];
+        $donor_id = isset($row['id']) ? (int)$row['id'] : (isset($row['donor_id']) ? (int)$row['donor_id'] : null);
     }
 }
 
@@ -84,10 +96,29 @@ if (!$donor_id) {
     send_response(false, 'Could not determine donor ID.', null, 400);
 }
 
-// Check if subscription already exists for this donor and endpoint
+// Verify donor exists in donor_form to satisfy FK
+$verified_donor_row = null;
+if ($donor_id) {
+    $check = get_records('donor_form', ['id' => 'eq.' . intval($donor_id), 'limit' => 1]);
+    if ($check['success'] && !empty($check['data'])) {
+        $verified_donor_row = $check['data'][0];
+    } else {
+        $check2 = get_records('donor_form', ['donor_id' => 'eq.' . intval($donor_id), 'limit' => 1]);
+        if ($check2['success'] && !empty($check2['data'])) {
+            $verified_donor_row = $check2['data'][0];
+        }
+    }
+}
+
+if (!$verified_donor_row) {
+    send_response(false, 'No donor profile found for this account. Please complete your donor profile before enabling notifications.', null, 400);
+}
+
+// Ensure only ONE subscription per donor: fetch latest by donor_id
 $existing = get_records('push_subscriptions', [
     'donor_id' => 'eq.' . $donor_id,
-    'endpoint' => 'eq.' . $endpoint
+    'order' => 'created_at.desc',
+    'limit' => 1
 ]);
 
 // Prepare subscription data
@@ -106,30 +137,56 @@ if (isset($subscription['expirationTime']) && $subscription['expirationTime']) {
 
 try {
     if ($existing['success'] && !empty($existing['data'])) {
-        // Update existing subscription
+        // Update existing subscription for this donor
         $subscription_id = $existing['data'][0]['id'];
         $result = update_record('push_subscriptions', $subscription_id, $subscription_data, 'id');
         
-        if ($result['success']) {
-            send_response(true, 'Push subscription updated successfully.', [
-                'subscription_id' => $subscription_id
-            ]);
-        } else {
+        if (!$result['success']) {
             error_log('Failed to update push subscription: ' . json_encode($result));
             send_response(false, 'Failed to update push subscription.', null, 500);
         }
+
+        // Clean up any duplicates for the same donor (keep the updated id)
+        $dupes = get_records('push_subscriptions', [
+            'donor_id' => 'eq.' . $donor_id
+        ]);
+        if ($dupes['success'] && !empty($dupes['data'])) {
+            foreach ($dupes['data'] as $row) {
+                if ($row['id'] !== $subscription_id) {
+                    delete_record('push_subscriptions', $row['id']);
+                }
+            }
+        }
+
+        send_response(true, 'Push subscription updated successfully.', [
+            'subscription_id' => $subscription_id
+        ]);
     } else {
-        // Insert new subscription
+        // Insert new subscription; enforce one row per donor
         $result = create_record('push_subscriptions', $subscription_data);
         
-        if ($result['success'] && !empty($result['data'])) {
-            send_response(true, 'Push subscription saved successfully.', [
-                'subscription_id' => $result['data'][0]['id']
-            ], 201);
-        } else {
+        if (!$result['success'] || empty($result['data'])) {
             error_log('Failed to save push subscription: ' . json_encode($result));
             send_response(false, 'Failed to save push subscription.', null, 500);
         }
+
+        $subscription_id = $result['data'][0]['id'];
+
+        // Clean up any older rows for same donor if they exist (defensive)
+        $dupes = get_records('push_subscriptions', [
+            'donor_id' => 'eq.' . $donor_id
+        ]);
+        if ($dupes['success'] && !empty($dupes['data'])) {
+            foreach ($dupes['data'] as $row) {
+                if ($row['id'] !== $subscription_id) {
+                    delete_record('push_subscriptions', $row['id']);
+                }
+            }
+        }
+
+        send_response(true, 'Push subscription saved successfully.', [
+            'subscription_id' => $subscription_id
+        ], 201);
     }
 } catch (Exception $e) {
     error_log('Exception saving push subscription: ' . $e->getMessage());

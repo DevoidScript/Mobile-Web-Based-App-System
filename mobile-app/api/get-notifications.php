@@ -8,28 +8,64 @@ require_once '../config/database.php';
 require_once '../includes/functions.php';
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET');
 header('Access-Control-Allow-Headers: Content-Type');
 
 try {
-    // Get donor_id from query parameter
-    $donor_id = isset($_GET['donor_id']) ? (int)$_GET['donor_id'] : null;
-    
-    if (!$donor_id) {
+    // Require authentication
+    if (!is_logged_in()) {
         echo json_encode([
             'success' => false,
-            'error' => 'donor_id parameter is required'
+            'error' => 'Unauthorized'
         ]);
         exit;
     }
 
-    // Fetch notifications from database for this donor
+    // Resolve the logged-in donor's canonical donor_id (from donor_form)
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    $session_user = $_SESSION['user'] ?? null;
+    $session_donor_id = null;
+
+    if ($session_user) {
+        if (isset($session_user['donor_form_id']) && is_numeric($session_user['donor_form_id'])) {
+            $session_donor_id = (int) $session_user['donor_form_id'];
+        } elseif (isset($session_user['donor_id']) && is_numeric($session_user['donor_id'])) {
+            $session_donor_id = (int) $session_user['donor_id'];
+        } elseif (isset($session_user['id']) && is_numeric($session_user['id'])) {
+            $session_donor_id = (int) $session_user['id'];
+        } elseif (!empty($session_user['email'])) {
+            $email = trim(strtolower($session_user['email']));
+            $lookup = get_records('donor_form', ['email' => 'eq.' . $email, 'limit' => 1]);
+            if ($lookup['success'] && !empty($lookup['data'])) {
+                $row = $lookup['data'][0];
+                $session_donor_id = isset($row['id']) ? (int)$row['id'] : (isset($row['donor_id']) ? (int)$row['donor_id'] : null);
+            }
+        }
+    }
+
+    if (!$session_donor_id) {
+        echo json_encode([
+            'success' => false,
+            'error' => 'Could not resolve donor ID for current session'
+        ]);
+        exit;
+    }
+
+    // Optional donor_id query param is ignored if it doesn't match the session donor
+    $requested_donor_id = isset($_GET['donor_id']) ? (int)$_GET['donor_id'] : null;
+    $donor_id = $session_donor_id;
+
+    // Fetch notifications from database for this donor (latest 20)
     $notifications_result = get_records(
         'donor_notifications', 
-        ['donor_id' => 'eq.' . $donor_id], 
-        ['order' => 'sent_at.desc', 'limit' => 20], // Get latest 20 notifications
-        true
+        [
+            'donor_id' => 'eq.' . $donor_id,
+            'order' => 'sent_at.desc',
+            'limit' => 20
+        ]
     );
 
     if (!$notifications_result['success']) {
