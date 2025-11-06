@@ -79,7 +79,14 @@ try {
     // Transform database notifications to bell panel format
     $bell_notifications = [];
     foreach ($notifications_result['data'] as $notification) {
-        $payload = $notification['payload_json'];
+        // payload_json may come back as a JSON string (from DB) or already decoded (from API)
+        $rawPayload = $notification['payload_json'] ?? null;
+        if (is_array($rawPayload)) {
+            $payload = $rawPayload;
+        } else {
+            $decoded = json_decode((string)$rawPayload, true);
+            $payload = is_array($decoded) ? $decoded : [];
+        }
         
         // Convert timestamp to milliseconds for JavaScript
         $timestamp = strtotime($notification['sent_at']);
@@ -89,7 +96,8 @@ try {
         $timestamp_ms = $timestamp * 1000; // Convert to milliseconds for JavaScript
         
         // Convert absolute URLs to relative URLs for better session handling
-        $url = $payload['url'] ?? '/mobile-app/templates/dashboard.php';
+        $urlFromPayload = $payload['url'] ?? ($payload['data']['url'] ?? null);
+        $url = $urlFromPayload ?: '/mobile-app/templates/dashboard.php';
         if (strpos($url, '/Mobile-Web-Based-App-System/mobile-app/') === 0) {
             $url = str_replace('/Mobile-Web-Based-App-System/mobile-app/', '../', $url);
         } elseif (strpos($url, '/mobile-app/') === 0) {
@@ -105,7 +113,7 @@ try {
             'url' => $url,
             'timestamp' => $timestamp_ms,
             'status' => $notification['status'],
-            'blood_drive_id' => $notification['blood_drive_id']
+            'blood_drive_id' => $notification['blood_drive_id'] ?? ($payload['blood_drive_id'] ?? ($payload['data']['blood_drive_id'] ?? null))
         ];
     }
 
