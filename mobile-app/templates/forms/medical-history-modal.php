@@ -219,18 +219,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_medical_histor
     error_log("Medical history sanitized payload: " . json_encode($formData));
     
     try {
-        // Insert into database
-        $ch = curl_init(SUPABASE_URL . '/rest/v1/medical_history');
-        
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($formData));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        // First, check if a medical history record already exists for this donor_id
+        $checkUrl = SUPABASE_URL . '/rest/v1/medical_history?select=medical_history_id&donor_id=eq.' . urlencode($donor_id);
+        $checkCh = curl_init($checkUrl);
+        curl_setopt($checkCh, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($checkCh, CURLOPT_HTTPHEADER, [
             'apikey: ' . SUPABASE_API_KEY,
-            'Authorization: Bearer ' . SUPABASE_API_KEY,
-            'Content-Type: application/json',
-            'Prefer: return=representation'
+            'Authorization: Bearer ' . SUPABASE_API_KEY
         ]);
+        
+        $checkResponse = curl_exec($checkCh);
+        $checkHttpCode = curl_getinfo($checkCh, CURLINFO_HTTP_CODE);
+        curl_close($checkCh);
+        
+        $existingRecord = null;
+        if ($checkHttpCode === 200) {
+            $checkData = json_decode($checkResponse, true);
+            if (is_array($checkData) && !empty($checkData) && isset($checkData[0]['medical_history_id'])) {
+                $existingRecord = $checkData[0];
+                error_log("Found existing medical history record: " . $existingRecord['medical_history_id']);
+            }
+        }
+        
+        // Remove created_by from update data (should not be updated)
+        $updateData = $formData;
+        unset($updateData['created_by']);
+        
+        if ($existingRecord) {
+            // Update existing record
+            error_log("Updating existing medical history record for donor_id: " . $donor_id);
+            $medical_history_id = $existingRecord['medical_history_id'];
+            $url = SUPABASE_URL . '/rest/v1/medical_history?medical_history_id=eq.' . urlencode($medical_history_id);
+            
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($updateData));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'apikey: ' . SUPABASE_API_KEY,
+                'Authorization: Bearer ' . SUPABASE_API_KEY,
+                'Content-Type: application/json',
+                'Prefer: return=representation'
+            ]);
+        } else {
+            // Insert new record
+            error_log("Inserting new medical history record for donor_id: " . $donor_id);
+            $url = SUPABASE_URL . '/rest/v1/medical_history';
+            
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($formData));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'apikey: ' . SUPABASE_API_KEY,
+                'Authorization: Bearer ' . SUPABASE_API_KEY,
+                'Content-Type: application/json',
+                'Prefer: return=representation'
+            ]);
+        }
         
         $response = curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -238,10 +284,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_medical_histor
         curl_close($ch);
         
         if ($http_code >= 200 && $http_code < 300) {
-            $insertedData = json_decode($response, true);
-            if (is_array($insertedData) && !empty($insertedData)) {
-                // Set the medical_history_id in session for next steps
-                $_SESSION['medical_history_id'] = $insertedData[0]['medical_history_id'];
+            $resultData = json_decode($response, true);
+            
+            // Set the medical_history_id in session for next steps
+            if ($existingRecord) {
+                // For updates, use the existing medical_history_id (PATCH might return empty array)
+                $_SESSION['medical_history_id'] = $medical_history_id;
+                error_log("Updated medical history record: " . $medical_history_id);
+            } else {
+                // For inserts, get the medical_history_id from the response
+                if (is_array($resultData) && !empty($resultData) && isset($resultData[0]['medical_history_id'])) {
+                    $_SESSION['medical_history_id'] = $resultData[0]['medical_history_id'];
+                    error_log("Created new medical history record: " . $_SESSION['medical_history_id']);
+                } else {
+                    throw new Exception("Failed to get medical_history_id from insert response.");
+                }
+            }
+            
+            // Continue with donation process if we have a valid medical_history_id
+            if (isset($_SESSION['medical_history_id']) && $_SESSION['medical_history_id']) {
                 
                 // Validate donor_id before starting donation process
                 if (!$donor_id || $donor_id <= 0) {
@@ -261,12 +322,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_medical_histor
                     $_SESSION['donation_id'] = $donation_result['donation_id'];
                     
                     // Immediately update the donation status based on existing forms
-                    error_log("Automatically updating donation status for donor_id: " . $donor_id);
-                    $status_update_result = auto_update_donation_status_after_medical_history($donor_id);
+                    // If this was an update (not new insert), reset status and don't check PE forms
+                    $is_update = isset($existingRecord) && $existingRecord !== null;
+                    error_log("Automatically updating donation status for donor_id: " . $donor_id . " (is_update: " . ($is_update ? 'true' : 'false') . ")");
+                    $status_update_result = auto_update_donation_status_after_medical_history($donor_id, $is_update);
                     error_log("Status update result: " . json_encode($status_update_result));
                     
                     if ($status_update_result['success'] && $status_update_result['status'] === 'updated') {
                         $_SESSION['success_message'] = "Medical history submitted successfully! Your donation process has started and status updated to: " . ($status_update_result['blood_type'] ? $status_update_result['blood_type'] . ' - ' : '') . $status_update_result['message'];
+                    } elseif ($status_update_result['success'] && $status_update_result['status'] === 'reset') {
+                        $_SESSION['success_message'] = "Medical history updated successfully! " . $status_update_result['message'];
                     } elseif ($status_update_result['success'] && $status_update_result['status'] === 'cancelled') {
                         $_SESSION['warning_message'] = "Medical history submitted successfully, but donation was cancelled: " . $status_update_result['reason'];
                     } else {
@@ -284,10 +349,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_medical_histor
                     exit();
                 }
             } else {
-                throw new Exception("Failed to parse inserted medical history data.");
+                throw new Exception("Failed to get valid medical_history_id after " . ($existingRecord ? "update" : "insert") . " operation.");
             }
         } else {
-            throw new Exception("Failed to insert medical history data. HTTP Code: " . $http_code);
+            $operation = $existingRecord ? "update" : "insert";
+            $responseBody = substr($response, 0, 500); // Limit response body for logging
+            error_log("Medical history " . $operation . " failed. HTTP Code: " . $http_code . ", Response: " . $responseBody);
+            throw new Exception("Failed to " . $operation . " medical history data. HTTP Code: " . $http_code);
         }
     } catch (Exception $e) {
         // Log the error but don't halt the process

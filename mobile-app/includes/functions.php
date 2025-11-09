@@ -691,9 +691,10 @@ function update_donation_status_after_blood_collection($donor_id) {
  * This function should be called immediately after medical history submission
  * 
  * @param int $donor_id The donor ID
+ * @param bool $is_update Whether this is an update to existing medical history (true) or new insert (false)
  * @return array The result of the status update
  */
-function auto_update_donation_status_after_medical_history($donor_id) {
+function auto_update_donation_status_after_medical_history($donor_id, $is_update = false) {
     // Ensure donor_id is valid
     $donor_id = intval($donor_id);
     if ($donor_id <= 0) {
@@ -716,6 +717,74 @@ function auto_update_donation_status_after_medical_history($donor_id) {
     $donation = $donation_result['data'][0];
     $donation_id = $donation['donation_id'];
     $current_status = $donation['current_status'];
+    
+    // If this is an update to existing medical history, check if PE forms are still valid
+    // by comparing their updated_at dates with the medical history updated_at
+    if ($is_update) {
+        error_log("Medical history was updated - checking if PE forms are still valid for donor_id: " . $donor_id);
+        
+        // Get the medical history updated_at timestamp
+        $medical_history_params = [
+            'donor_id' => 'eq.' . $donor_id,
+            'order' => 'updated_at.desc',
+            'limit' => 1
+        ];
+        $medical_history_result = get_records('medical_history', $medical_history_params);
+        
+        $medical_history_updated_at = null;
+        if ($medical_history_result['success'] && !empty($medical_history_result['data'])) {
+            $medical_history_updated_at = $medical_history_result['data'][0]['updated_at'] ?? null;
+            error_log("Medical history updated_at: " . ($medical_history_updated_at ?? 'NULL'));
+        }
+        
+        // Check if physical examination exists and when it was last updated
+        $exam_params = [
+            'donor_id' => 'eq.' . $donor_id,
+            'order' => 'updated_at.desc',
+            'limit' => 1
+        ];
+        $exam_result = get_records('physical_examination', $exam_params);
+        
+        $pe_is_valid = false;
+        if ($exam_result['success'] && !empty($exam_result['data'])) {
+            $exam = $exam_result['data'][0];
+            $pe_updated_at = $exam['updated_at'] ?? null;
+            
+            // PE is valid only if it was updated AFTER the medical history update
+            if ($medical_history_updated_at && $pe_updated_at) {
+                $mh_timestamp = strtotime($medical_history_updated_at);
+                $pe_timestamp = strtotime($pe_updated_at);
+                $pe_is_valid = ($pe_timestamp > $mh_timestamp);
+                error_log("PE updated_at: $pe_updated_at, MH updated_at: $medical_history_updated_at, PE is valid: " . ($pe_is_valid ? 'true' : 'false'));
+            }
+        }
+        
+        // If PE is not valid (doesn't exist or was updated before MH), reset status
+        if (!$pe_is_valid) {
+            error_log("PE form is outdated or missing - resetting donation status to Registered");
+            $reset_data = [
+                'current_status' => 'Registered',
+                'screening_completed' => false,
+                'physical_examination_completed' => false,
+                'notes' => 'Medical history updated - status reset to Registered. Physical examination needs to be re-evaluated.'
+            ];
+            
+            $reset_result = update_record('donations', $donation_id, $reset_data, 'donation_id');
+            if ($reset_result['success']) {
+                return [
+                    'success' => true,
+                    'status' => 'reset',
+                    'message' => 'Donation status reset to Registered. Please complete physical examination again.'
+                ];
+            } else {
+                return ['success' => false, 'error' => 'Failed to reset donation status'];
+            }
+        } else {
+            // PE is valid (updated after MH), so we can proceed with normal status check
+            error_log("PE form is valid (updated after medical history) - proceeding with normal status check");
+            // Continue with the normal flow below
+        }
+    }
     
     // If status is already beyond Registered, no need to update
     if ($current_status !== 'Registered') {

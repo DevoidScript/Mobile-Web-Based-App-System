@@ -60,12 +60,15 @@ if ($donor_id) {
         ];
         
         $blood_bank_result = get_records('blood_bank_units', $blood_bank_params);
+        $blood_bank_data = null; // Initialize variable
         
         if ($blood_bank_result['success'] && !empty($blood_bank_result['data'])) {
             $blood_bank_data = $blood_bank_result['data'][0];
             error_log("Blood Tracker - Found blood bank unit record: " . json_encode($blood_bank_data));
             error_log("Blood Tracker - units value: " . ($blood_bank_data['units'] ?? 'NULL'));
             error_log("Blood Tracker - status value: " . ($blood_bank_data['status'] ?? 'NULL'));
+        } else {
+            error_log("Blood Tracker - No blood bank unit record found for donor_id: $donor_id");
         }
         
         // Always try to get blood collection data for units display
@@ -533,13 +536,16 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
                             <div>Units</div>
                             <div class="detail-value">
                                 <?php 
+                                // Default to 1 unit since only 1 unit can be extracted per person
+                                $units_display = 1;
+                                
                                 if (isset($blood_collection_data) && isset($blood_collection_data['amount_taken']) && $blood_collection_data['amount_taken'] > 0) {
-                                    echo $blood_collection_data['amount_taken'];
+                                    $units_display = $blood_collection_data['amount_taken'];
                                 } elseif (isset($blood_bank_data) && isset($blood_bank_data['units']) && $blood_bank_data['units'] > 0) {
-                                    echo $blood_bank_data['units'];
-                                } else {
-                                    echo 'Pending';
+                                    $units_display = $blood_bank_data['units'];
                                 }
+                                
+                                echo $units_display;
                                 ?>
                             </div>
                         </div>
@@ -564,16 +570,37 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
                             ['key' => 'Used',       'icon' => '🏥', 'label' => 'Used'],
                         ];
 
-                        // Determine current stage index based on status
+                        // Determine current stage index based on blood_bank_units status first, then fall back to donation status
                         $current_stage_index = 0;
-                        if ($tracker_data['current_status'] === 'Registered' || $tracker_data['current_status'] === 'Sample Collected') {
-                            $current_stage_index = 0;
-                        } elseif ($tracker_data['current_status'] === 'Testing') {
-                            $current_stage_index = 1;
-                        } elseif ($tracker_data['current_status'] === 'Testing Complete' || $tracker_data['current_status'] === 'Processed') {
-                            $current_stage_index = 2;
-                        } elseif ($tracker_data['current_status'] === 'Ready for Use') {
-                            $current_stage_index = 3;
+                        $blood_bank_status = null;
+                        
+                        // Check blood_bank_units status first (this is the primary source for tracker stages)
+                        if (isset($blood_bank_data) && isset($blood_bank_data['status'])) {
+                            $blood_bank_status = strtolower(trim($blood_bank_data['status']));
+                            
+                            // Map blood_bank_units status to tracker stages
+                            if ($blood_bank_status === 'processed' || $blood_bank_status === 'valid') {
+                                $current_stage_index = 0; // Processed
+                            } elseif ($blood_bank_status === 'stored') {
+                                $current_stage_index = 1; // Stored
+                            } elseif ($blood_bank_status === 'allocated') {
+                                $current_stage_index = 2; // Allocated
+                            } elseif ($blood_bank_status === 'used' || $blood_bank_status === 'transfused') {
+                                $current_stage_index = 3; // Used
+                            }
+                            
+                            error_log("Blood Tracker - Using blood_bank_units status: " . $blood_bank_status . " -> stage index: " . $current_stage_index);
+                        } else {
+                            // Fallback to donation status if blood_bank_units not available
+                            if ($tracker_data['current_status'] === 'Registered' || $tracker_data['current_status'] === 'Sample Collected' || $tracker_data['current_status'] === 'Testing') {
+                                $current_stage_index = 0; // Processed
+                            } elseif ($tracker_data['current_status'] === 'Testing Complete' || $tracker_data['current_status'] === 'Processed') {
+                                $current_stage_index = 1; // Stored (after processing)
+                            } elseif ($tracker_data['current_status'] === 'Ready for Use') {
+                                $current_stage_index = 2; // Allocated (ready means allocated)
+                            }
+                            
+                            error_log("Blood Tracker - Using donation status fallback: " . $tracker_data['current_status'] . " -> stage index: " . $current_stage_index);
                         }
                         ?>
 
@@ -621,38 +648,6 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
                         }
                         ?>
                     </div>
-                </div>
-                
-                <div class="form-links">
-                    <h4>Required Forms</h4>
-                    
-                    <!-- 1. Medical History -->
-                    <?php if ($medical_history_status !== 'Approved'): ?>
-                        <a href="forms/medical-history-modal.php" class="form-link">Complete Medical History</a>
-                    <?php else: ?>
-                        <span class="form-link completed">✓ Medical History Completed</span>
-                    <?php endif; ?>
-                    
-                    <!-- 2. Screening Form -->
-                    <?php if ($medical_history_status === 'Approved' && !$tracker_data['form_status']['screening']): ?>
-                        <a href="forms/screening-form-modal.php" class="form-link">Complete Screening Form</a>
-                    <?php elseif ($tracker_data['form_status']['screening']): ?>
-                        <span class="form-link completed">✓ Screening Form Completed</span>
-                    <?php endif; ?>
-                    
-                    <!-- 3. Physical Examination -->
-                    <?php if ($tracker_data['form_status']['screening'] && !$tracker_data['form_status']['physical_examination']): ?>
-                        <a href="forms/physical-examination-modal.php" class="form-link">Complete Physical Examination</a>
-                    <?php elseif ($tracker_data['form_status']['physical_examination']): ?>
-                        <span class="form-link completed">✓ Physical Examination Completed</span>
-                    <?php endif; ?>
-                    
-                    <!-- 4. Blood Collection -->
-                    <?php if ($tracker_data['form_status']['physical_examination'] && !$tracker_data['form_status']['blood_collection']): ?>
-                        <a href="forms/blood-collection-modal.php" class="form-link">Complete Blood Collection</a>
-                    <?php elseif ($tracker_data['form_status']['blood_collection']): ?>
-                        <span class="form-link completed">✓ Blood Collection Completed</span>
-                    <?php endif; ?>
                 </div>
             <?php endif; ?>
         <?php else: ?>
