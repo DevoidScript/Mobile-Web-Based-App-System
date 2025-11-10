@@ -222,9 +222,9 @@ if ($donor_id) {
             <a href="<?php echo $disabled ? '#' : 'forms/medical-history-modal.php'; ?>" 
                class="btn btn-primary" 
                <?php echo $disabled ? 'aria-disabled="true"' : ''; ?>
-               style="display:inline-block;margin-top:10px;padding:14px 32px;font-size:18px;font-weight:bold;"
+               style="display:inline-block;margin-top:12px;padding:0;font-size:18px;font-weight:bold;border-radius:10px;overflow:hidden;"
                onclick="<?php echo $disabled ? 'return false;' : 'return true;'; ?>">
-                <span style="background:#d50000;color:#fff;border:none;border-radius:8px;box-shadow:0 2px 8px rgba(213,0,0,0.08);transition:background 0.2s;cursor:pointer;text-decoration:none;padding:0 0;display:inline-block;">
+                <span style="background:#d50000;color:#fff;border:none;display:inline-block;padding:14px 28px;box-shadow:0 2px 8px rgba(213,0,0,0.08);transition:background 0.2s;cursor:pointer;text-decoration:none;">
                     <?php echo $disabled ? 'Donation Not Yet Available' : 'Start Donation Process'; ?>
                 </span>
             </a>

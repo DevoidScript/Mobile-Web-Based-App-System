@@ -79,6 +79,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = "Invalid email format";
         }
 
+        // Strict PH mobile validation: 10 digits starting with 9 (equivalent to 09 when used with +63)
+        if (!empty($_POST['mobile'])) {
+            $mobile_digits = preg_replace('/[^0-9]/', '', $_POST['mobile']);
+            if (!preg_match('/^9\d{9}$/', $mobile_digits)) {
+                $errors[] = "Invalid Philippine mobile number. Enter 10 digits starting with 9 (e.g., 9123456789).";
+            } else {
+                // Normalize to 11-digit local format starting with 0 for donor_table storage
+                $_POST['mobile'] = '0' . $mobile_digits;
+            }
+        }
+
         // Password matching validation
         if ($_POST['password'] !== $_POST['confirm_password']) {
             $errors[] = "Passwords do not match";
@@ -217,6 +228,24 @@ if ($validated) {
             background-repeat: no-repeat;
             background-position: right 16px center;
             padding-right: 40px;
+        }
+        
+        /* Password field with toggle */
+        .password-wrapper { position: relative; }
+        .input.input--with-toggle { padding-right: 52px; }
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 0;
+            cursor: pointer;
+            user-select: none;
         }
         
         .submit-button {
@@ -691,21 +720,31 @@ if ($validated) {
                             </div>
                     </div>
                     
-                        <div class="field-group">
-                            <label for="barangay" class="required">Barangay</label>
-                            <input type="text" id="barangay" name="barangay" class="input" value="<?php echo $_POST['barangay'] ?? ''; ?>" placeholder="Enter your barangay" required>
-                    </div>
-                    
-                        <div class="field-group">
-                            <label for="municipality" class="required">Municipality/City</label>
-                            <input type="text" id="municipality" name="municipality" class="input" value="<?php echo $_POST['municipality'] ?? ''; ?>" placeholder="Enter your municipality or city" required>
-                    </div>
+						<!-- Province, Municipality/City, Barangay in one compact row -->
+						<div class="address-row" style="display:flex; gap:12px;">
+						<!-- Province first (with autofill) -->
+						<div class="field-group" style="flex:1;">
+							<label for="province" class="required">Province</label>
+							<input type="text" id="province" name="province" class="input" value="<?php echo $_POST['province'] ?? ''; ?>" placeholder="Enter your province" list="provinceList" autocomplete="off" required>
+							<datalist id="provinceList"></datalist>
+						</div>
+					
+						<!-- Municipality/City (autofill filtered by Province) -->
+						<div class="field-group" style="flex:1;">
+							<label for="municipality" class="required">Municipality/City</label>
+							<input type="text" id="municipality" name="municipality" class="input" value="<?php echo $_POST['municipality'] ?? ''; ?>" placeholder="Enter your municipality or city" list="municipalityList" autocomplete="off" required>
+							<datalist id="municipalityList"></datalist>
+						</div>
+					
+						<!-- Barangay (autofill filtered by Municipality/City) -->
+						<div class="field-group" style="flex:1;">
+							<label for="barangay" class="required">Barangay</label>
+							<input type="text" id="barangay" name="barangay" class="input" value="<?php echo $_POST['barangay'] ?? ''; ?>" placeholder="Enter your barangay" list="barangayList" autocomplete="off" required>
+							<datalist id="barangayList"></datalist>
+						</div>
+						</div>
                     
                         <div class="address-row">
-                            <div class="field-group">
-                                <label for="province" class="required">Province</label>
-                                <input type="text" id="province" name="province" class="input" value="<?php echo $_POST['province'] ?? ''; ?>" placeholder="Enter your province" required>
-                    </div>
                             <div class="field-group">
                                 <label for="postal_code">Postal Code</label>
                                 <input type="text" id="postal_code" name="postal_code" class="input" value="<?php echo $_POST['postal_code'] ?? ''; ?>" placeholder="e.g. 1234">
@@ -721,8 +760,11 @@ if ($validated) {
                         Your complete address will appear here as you type.
                     </div>
                     
-                    <label class="label required" for="mobile">Mobile Number:</label>
-                    <input type="tel" id="mobile" name="mobile" class="input" value="<?php echo $_POST['mobile'] ?? ''; ?>" placeholder="e.g. 09123456789" required>
+					<label class="label required" for="mobile">Mobile Number:</label>
+					<div class="phone-input" style="display:flex; align-items:stretch; max-width:420px; height:44px; border:1px solid #ccc; border-radius:6px; overflow:hidden;">
+						<span class="phone-prefix" style="display:flex; align-items:center; padding:0 12px; background:#f5f5f5; font-weight:600; color:#333; border-right:1px solid #ccc; height:100%;">+63</span>
+						<input type="tel" id="mobile" name="mobile" class="input" value="<?php echo isset($_POST['mobile']) ? preg_replace('/[^0-9]/', '', $_POST['mobile']) : ''; ?>" placeholder="9123456789" inputmode="numeric" pattern="9[0-9]{9}" title="Enter 10 digits starting with 9 (e.g., 9123456789)" maxlength="10" style="height:100%; border:0; outline:none; border-radius:0; padding:0 12px; flex:1 1 auto;" required oninput="sanitizePhMobile(this)">
+					</div>
                     
                     <div class="form-navigation">
                         <a href="../login.php" class="nav-button cancel-button">Cancel</a>
@@ -735,23 +777,56 @@ if ($validated) {
                 <div class="form-step" data-step="4">
                     <div class="section-title">ADDITIONAL INFORMATION</div>
                     
-                    <label class="label required" for="nationality">Nationality:</label>
-                    <input type="text" id="nationality" name="nationality" class="input" value="<?php echo $_POST['nationality'] ?? ''; ?>" placeholder="e.g. Filipino" required>
+					<label class="label required" for="nationality">Nationality:</label>
+					<select id="nationality" name="nationality" class="input" required style="appearance:none;-webkit-appearance:none;-moz-appearance:none;padding-right:36px;background:
+						url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2214%22 height=%2214%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23666%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><polyline points=%226 9 12 15 18 9%22/></svg>')
+						no-repeat right 12px center/14px;">
+						<?php $nat = $_POST['nationality'] ?? ''; ?>
+						<option value="">Select Nationality</option>
+						<option value="Filipino" <?php echo ($nat==='Filipino'?'selected':''); ?>>Filipino</option>
+						<option value="American" <?php echo ($nat==='American'?'selected':''); ?>>American</option>
+						<option value="Chinese" <?php echo ($nat==='Chinese'?'selected':''); ?>>Chinese</option>
+						<option value="Japanese" <?php echo ($nat==='Japanese'?'selected':''); ?>>Japanese</option>
+						<option value="Malaysian" <?php echo ($nat==='Malaysian'?'selected':''); ?>>Malaysian</option>
+						<option value="Others" <?php echo ($nat==='Others'?'selected':''); ?>>Others</option>
+					</select>
                     
-                    <label class="label" for="religion">Religion:</label>
-                    <input type="text" id="religion" name="religion" class="input" value="<?php echo $_POST['religion'] ?? ''; ?>" placeholder="e.g. Catholic (optional)">
+					<label class="label" for="religion">Religion:</label>
+					<select id="religion" name="religion" class="input" style="appearance:none;-webkit-appearance:none;-moz-appearance:none;padding-right:36px;background:
+						url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2214%22 height=%2214%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23666%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><polyline points=%226 9 12 15 18 9%22/></svg>')
+						no-repeat right 12px center/14px;">
+						<?php $rel = $_POST['religion'] ?? ''; ?>
+						<option value="">Select Religion (optional)</option>
+						<option value="Roman Catholic" <?php echo ($rel==='Roman Catholic'?'selected':''); ?>>Roman Catholic</option>
+						<option value="Christianity" <?php echo ($rel==='Christianity'?'selected':''); ?>>Christianity</option>
+						<option value="Islam" <?php echo ($rel==='Islam'?'selected':''); ?>>Islam</option>
+						<option value="Others" <?php echo ($rel==='Others'?'selected':''); ?>>Others</option>
+					</select>
                     
                     <label class="label" for="education">Education</label>
-                    <select class="input" name="education" id="education" required>
+					<select class="input" name="education" id="education" required style="appearance:none;-webkit-appearance:none;-moz-appearance:none;padding-right:36px;background:
+						url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2214%22 height=%2214%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23666%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><polyline points=%226 9 12 15 18 9%22/></svg>')
+						no-repeat right 12px center/14px;">
                         <option value="">Select Education</option>
                         <option value="Elementary">Elementary</option>
                         <option value="High School">High School</option>
-                        <option value="College">College</option>
+						<option value="College">College</option>
+						<option value="Graduate">Graduate</option>
                         <option value="Post Graduate">Post Graduate</option>
                     </select>
                     
-                    <label class="label required" for="occupation">Occupation:</label>
-                    <input type="text" id="occupation" name="occupation" class="input" value="<?php echo $_POST['occupation'] ?? ''; ?>" placeholder="e.g. Student, Engineer, Teacher" required>
+					<label class="label required" for="occupation">Occupation:</label>
+					<select id="occupation" name="occupation" class="input" required style="appearance:none;-webkit-appearance:none;-moz-appearance:none;padding-right:36px;background:
+						url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2214%22 height=%2214%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23666%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><polyline points=%226 9 12 15 18 9%22/></svg>')
+						no-repeat right 12px center/14px;">
+						<?php $occ = $_POST['occupation'] ?? ''; ?>
+						<option value="">Select Occupation</option>
+						<option value="Student" <?php echo ($occ==='Student'?'selected':''); ?>>Student</option>
+						<option value="Teacher" <?php echo ($occ==='Teacher'?'selected':''); ?>>Teacher</option>
+						<option value="Police Officer" <?php echo ($occ==='Police Officer'?'selected':''); ?>>Police Officer</option>
+						<option value="Engineer" <?php echo ($occ==='Engineer'?'selected':''); ?>>Engineer</option>
+						<option value="Others" <?php echo ($occ==='Others'?'selected':''); ?>>Others</option>
+					</select>
                     
                     <div class="form-navigation">
                         <a href="../login.php" class="nav-button cancel-button">Cancel</a>
@@ -767,11 +842,17 @@ if ($validated) {
                     <label class="label required" for="email">Email Address:</label>
                     <input type="email" id="email" name="email" class="input" value="<?php echo $_POST['email'] ?? ''; ?>" placeholder="youremail@example.com" required>
                     
-                    <label class="label required" for="password">Password:</label>
-                    <input type="password" id="password" name="password" class="input" placeholder="Enter a secure password" required>
+					<label class="label required" for="password">Password:</label>
+					<div class="password-wrapper">
+						<input type="password" id="password" name="password" class="input input--with-toggle" placeholder="Enter a secure password" required>
+						<span class="toggle-password" title="Show/Hide" aria-label="Show password"></span>
+					</div>
                     
-                    <label class="label required" for="confirm_password">Confirm Password:</label>
-                    <input type="password" id="confirm_password" name="confirm_password" class="input" placeholder="Confirm your password" required>
+					<label class="label required" for="confirm_password">Confirm Password:</label>
+					<div class="password-wrapper">
+						<input type="password" id="confirm_password" name="confirm_password" class="input input--with-toggle" placeholder="Confirm your password" required>
+						<span class="toggle-password" title="Show/Hide" aria-label="Show password"></span>
+					</div>
                     
                     <div class="form-navigation">
                         <a href="index.php" class="nav-button cancel-button">Cancel</a>
@@ -871,6 +952,23 @@ if ($validated) {
                 const currentStep = document.querySelector(`.form-step[data-step="${stepNumber}"]`);
                 const requiredFields = currentStep.querySelectorAll('[required]');
                 let isValid = true;
+
+                // Special validation for PH mobile number when on Address step (3) or later
+                const mobileField = document.getElementById('mobile');
+                if (mobileField) {
+                    const digits = (mobileField.value || '').replace(/[^0-9]/g, '');
+                    if (digits.length !== 10 || digits.charAt(0) !== '9') {
+                        if (stepNumber >= 3) {
+                            isValid = false;
+                            mobileField.style.borderColor = '#d32f2f';
+                            mobileField.style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
+                            showToast('Please enter a valid PH mobile (10 digits starting with 9).');
+                        }
+                    } else {
+                        mobileField.style.borderColor = '#ccc';
+                        mobileField.style.backgroundColor = 'white';
+                    }
+                }
                 
                 requiredFields.forEach(field => {
                     if (!field.value.trim()) {
@@ -1030,6 +1128,293 @@ if ($validated) {
                     field.addEventListener('change', updateCombinedAddress);
                 }
             });
+
+			// ---- Address Autofill (Province -> Municipality/City -> Barangay) ----
+			(function initAddressAutofill() {
+				const provinceInput = document.getElementById('province');
+				const municipalityInput = document.getElementById('municipality');
+				const barangayInput = document.getElementById('barangay');
+
+				const provinceList = document.getElementById('provinceList');
+				const municipalityList = document.getElementById('municipalityList');
+				const barangayList = document.getElementById('barangayList');
+
+				// Caches for lookups
+				let provinces = []; // [{name, code, isHUC?}]
+				let muniByProvCode = {}; // {provCode: [{name, code, isHUC?}]}
+				let brgyByCityMuniCode = {}; // {cityMuniCode: [name]}
+
+				// Helper: cached fetch with localStorage
+				async function cachedFetch(url, cacheKey, ttlMinutes = 1440) {
+					try {
+						const now = Date.now();
+						const cached = localStorage.getItem(cacheKey);
+						if (cached) {
+							const { savedAt, data } = JSON.parse(cached);
+							if (now - savedAt < ttlMinutes * 60 * 1000) {
+								return data;
+							}
+						}
+						const res = await fetch(url);
+						if (!res.ok) throw new Error('Network error');
+						const data = await res.json();
+						localStorage.setItem(cacheKey, JSON.stringify({ savedAt: now, data }));
+						return data;
+					} catch (e) {
+						console.error('cachedFetch error for', url, e);
+						return null;
+					}
+				}
+
+				// Load provinces (plus HUCs)
+				async function loadProvinces() {
+					const provs = await cachedFetch('https://psgc.gitlab.io/api/provinces/', 'psgc_provinces');
+					const hucs = await cachedFetch('https://psgc.gitlab.io/api/huc/', 'psgc_huc');
+
+					provinces = [];
+					if (Array.isArray(provs)) provs.forEach(p => provinces.push({ name: p.name, code: p.code }));
+					if (Array.isArray(hucs)) hucs.forEach(c => provinces.push({ name: c.name, code: c.code, isHUC: true }));
+
+					// Populate datalist
+					provinceList.innerHTML = '';
+					provinces
+						.sort((a, b) => a.name.localeCompare(b.name))
+						.forEach(p => {
+							const opt = document.createElement('option');
+							opt.value = p.name;
+							opt.label = p.name;
+							provinceList.appendChild(opt);
+						});
+				}
+
+				function findProvinceByName(name) {
+					if (!name) return null;
+					const n = name.trim().toLowerCase();
+					return provinces.find(p => p.name.toLowerCase() === n) || null;
+				}
+
+				async function loadMunicipalitiesForProvinceName(provinceName) {
+					municipalityList.innerHTML = '';
+					barangayList.innerHTML = '';
+					barangayInput.value = '';
+
+					const prov = findProvinceByName(provinceName);
+					if (!prov) return;
+
+					if (prov.isHUC) {
+						muniByProvCode[prov.code] = [{ name: prov.name, code: prov.code, isHUC: true }];
+					} else if (!muniByProvCode[prov.code]) {
+						const url = `https://psgc.gitlab.io/api/provinces/${prov.code}/cities-municipalities/`;
+						const data = await cachedFetch(url, `psgc_muni_${prov.code}`);
+						if (Array.isArray(data)) {
+							muniByProvCode[prov.code] = data.map(m => ({ name: m.name, code: m.code }));
+						} else {
+							muniByProvCode[prov.code] = [];
+						}
+					}
+
+					(muniByProvCode[prov.code] || [])
+						.sort((a, b) => a.name.localeCompare(b.name))
+						.forEach(m => {
+							const opt = document.createElement('option');
+							opt.value = m.name;
+							opt.label = m.name;
+							municipalityList.appendChild(opt);
+						});
+				}
+
+				function findMunicipalityByName(provinceName, muniName) {
+					const prov = findProvinceByName(provinceName);
+					if (!prov) return null;
+					const list = muniByProvCode[prov.code] || [];
+					const n = (muniName || '').trim().toLowerCase();
+					return list.find(m => m.name.toLowerCase() === n) || null;
+				}
+
+				async function loadBarangaysForMunicipality(provinceName, muniName) {
+					barangayList.innerHTML = '';
+					const muni = findMunicipalityByName(provinceName, muniName);
+					if (!muni) return;
+
+					if (!brgyByCityMuniCode[muni.code]) {
+						const url = `https://psgc.gitlab.io/api/cities-municipalities/${muni.code}/barangays/`;
+						const data = await cachedFetch(url, `psgc_brgy_${muni.code}`);
+						if (Array.isArray(data)) {
+							brgyByCityMuniCode[muni.code] = data.map(b => b.name);
+						} else {
+							brgyByCityMuniCode[muni.code] = [];
+						}
+					}
+
+					(brgyByCityMuniCode[muni.code] || [])
+						.sort((a, b) => a.localeCompare(b))
+						.forEach(name => {
+							const opt = document.createElement('option');
+							opt.value = name;
+							opt.label = name;
+							barangayList.appendChild(opt);
+						});
+				}
+
+				// Wire up events
+				if (provinceInput) {
+					provinceInput.addEventListener('change', () => {
+						loadMunicipalitiesForProvinceName(provinceInput.value);
+						updateCombinedAddress();
+					});
+				}
+				if (municipalityInput) {
+					municipalityInput.addEventListener('change', () => {
+						loadBarangaysForMunicipality(provinceInput.value, municipalityInput.value);
+						updateCombinedAddress();
+					});
+				}
+				if (barangayInput) {
+					barangayInput.addEventListener('change', updateCombinedAddress);
+				}
+
+				// Initialize
+				loadProvinces().then(() => {
+					// If existing value is present (e.g., returning to form), pre-load dependent lists
+					if (provinceInput && provinceInput.value) {
+						loadMunicipalitiesForProvinceName(provinceInput.value).then(() => {
+							if (municipalityInput && municipalityInput.value) {
+                                loadBarangaysForMunicipality(provinceInput.value, municipalityInput.value);
+							}
+						});
+					}
+				});
+			})();
+
+			// --- PH Mobile helper: enforce 10 digits (no leading 0) after +63 ---
+			function sanitizePhMobile(inputEl) {
+				// Keep digits only
+				let digits = (inputEl.value || '').replace(/[^0-9]/g, '');
+				// Enforce first digit must be 9 (equivalent to 09 when using +63 prefix)
+				if (digits.length > 0 && digits.charAt(0) !== '9') {
+					// If user typed 0 first, drop it so the sequence begins with 9 as required for PH mobiles
+					digits = digits.replace(/^0+/, '');
+				}
+				// Limit to 10 digits
+				if (digits.length > 10) digits = digits.slice(0, 10);
+				inputEl.value = digits;
+
+				// Realtime validity styling
+				if (digits.length === 10 && digits.charAt(0) === '9') {
+					inputEl.setCustomValidity('');
+					inputEl.style.borderColor = '#ccc';
+					inputEl.style.backgroundColor = 'white';
+				} else {
+					inputEl.setCustomValidity('Enter 10 digits starting with 9');
+				}
+			}
+
+			// --- Toggle password visibility buttons (SVG eye/eye-off) ---
+			(function passwordToggles(){
+				const svgEye = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+				const svgEyeOff = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.77 21.77 0 0 1 5.06-5.94"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a21.77 21.77 0 0 1-3.22 4.2"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+				
+				document.querySelectorAll('.password-wrapper .toggle-password').forEach(function(btn){
+					// Initialize with eye icon
+					btn.innerHTML = svgEye;
+					btn.addEventListener('click', function(){
+						const input = this.previousElementSibling;
+						if (!input) return;
+						const isText = input.type === 'text';
+						input.type = isText ? 'password' : 'text';
+						this.innerHTML = isText ? svgEye : svgEyeOff;
+						this.setAttribute('aria-label', isText ? 'Show password' : 'Hide password');
+						this.title = isText ? 'Show' : 'Hide';
+					});
+				});
+			})();
+
+			// --- Attempt auto-fill of Postal Code using public datasets (best-effort) ---
+			// Note: PSGC does not provide postal codes; this uses a community dataset if available.
+			(async function initPostalAutoFill() {
+				const postalInput = document.getElementById('postal_code');
+				const provinceInput = document.getElementById('province');
+				const municipalityInput = document.getElementById('municipality');
+				const barangayInput = document.getElementById('barangay');
+
+				if (!postalInput) return;
+
+				// Best-effort dataset source (may change over time). Cached in localStorage.
+				const ZIP_DATA_URL = 'https://raw.githubusercontent.com/erwinsie/ph-zipcodes/master/zipcodes.json';
+				let zipIndex = null; // { "Province|City/Municipality|Barangay" : "Zip" } and fallbacks
+
+				async function loadZipDataset() {
+					try {
+						const cacheKey = 'ph_zipcodes_dataset_v1';
+						const now = Date.now();
+						const cached = localStorage.getItem(cacheKey);
+						if (cached) {
+							const { savedAt, data } = JSON.parse(cached);
+							if (now - savedAt < 7 * 24 * 60 * 60 * 1000) { // 7 days
+								return data;
+							}
+						}
+						const res = await fetch(ZIP_DATA_URL, { cache: 'force-cache' });
+						if (!res.ok) throw new Error('Zip dataset fetch failed');
+						const data = await res.json();
+						localStorage.setItem(cacheKey, JSON.stringify({ savedAt: now, data }));
+						return data;
+					} catch (e) {
+						console.warn('Postal dataset unavailable:', e.message);
+						return null;
+					}
+				}
+
+				function buildZipIndex(raw) {
+					const idx = { exact: {}, byCity: {} };
+					if (!Array.isArray(raw)) return idx;
+					raw.forEach(row => {
+						// Expecting fields like: province, city, barangay, zipcode (varies by dataset)
+						const province = (row.province || row.Province || '').trim().toLowerCase();
+						const city = (row.city || row.municipality || row.City || '').trim().toLowerCase();
+						const barangay = (row.barangay || row.Barangay || '').trim().toLowerCase();
+						const zip = (row.zipcode || row.ZipCode || row.zip || '').toString().trim();
+						if (!zip) return;
+						if (province && city && barangay) {
+							idx.exact[`${province}|${city}|${barangay}`] = zip;
+						}
+						if (province && city && !idx.byCity[`${province}|${city}`]) {
+							idx.byCity[`${province}|${city}`] = zip; // fallback zip at city level
+						}
+					});
+					return idx;
+				}
+
+				function tryFillPostal() {
+					if (!zipIndex) return;
+					const p = (provinceInput.value || '').trim().toLowerCase();
+					const m = (municipalityInput.value || '').trim().toLowerCase();
+					const b = (barangayInput.value || '').trim().toLowerCase();
+
+					let found = null;
+					if (p && m && b) {
+						found = zipIndex.exact[`${p}|${m}|${b}`] || null;
+					}
+					if (!found && p && m) {
+						found = zipIndex.byCity[`${p}|${m}`] || null;
+					}
+					if (found) {
+						postalInput.value = found;
+					}
+				}
+
+				const dataset = await loadZipDataset();
+				if (dataset) {
+					zipIndex = buildZipIndex(dataset);
+
+					if (provinceInput) provinceInput.addEventListener('change', tryFillPostal);
+					if (municipalityInput) municipalityInput.addEventListener('change', tryFillPostal);
+					if (barangayInput) barangayInput.addEventListener('change', tryFillPostal);
+
+					// Try on load in case fields already filled
+					tryFillPostal();
+				}
+			})();
             
             // Update the combined address on page load
             window.addEventListener('DOMContentLoaded', function() {
@@ -1130,6 +1515,16 @@ if ($validated) {
                 
                 // Get form data
                 const formData = new FormData(this);
+
+                // Normalize mobile to 11 digits starting with 0 before sending to API
+                (function normalizeMobileForApi(fd){
+                    const raw = (fd.get('mobile') || '').replace(/[^0-9]/g, '');
+                    if (/^9\d{9}$/.test(raw)) {
+                        fd.set('mobile', '0' + raw);
+                    } else if (/^0\d{10}$/.test(raw)) {
+                        fd.set('mobile', raw);
+                    }
+                })(formData);
                 
                 /**
                  * Fix registration submission error
