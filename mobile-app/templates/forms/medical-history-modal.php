@@ -54,6 +54,18 @@ if (!$donorFormResp['success'] || empty($donorFormResp['data'])) {
 $donorForm = $donorFormResp['data'][0];
 $donor_id = $donorForm['donor_id']; // Use this for medical history linkage
 
+// CRITICAL FIX: Store donor_id in session to ensure it persists across form submissions
+if ($donor_id) {
+    $_SESSION['donor_id'] = $donor_id;
+    error_log("Stored donor_id in session: " . $donor_id);
+} else {
+    // Try to get donor_id from session if not found in query
+    if (isset($_SESSION['donor_id']) && $_SESSION['donor_id']) {
+        $donor_id = $_SESSION['donor_id'];
+        error_log("Retrieved donor_id from session: " . $donor_id);
+    }
+}
+
 // Debug logging
 error_log("Donor form data: " . json_encode($donorForm));
 error_log("Donor ID extracted: " . $donor_id);
@@ -67,314 +79,356 @@ $isFemale = (isset($donorData['sex']) && strtolower($donorData['sex']) === 'fema
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_medical_history'])) {
+    // CRITICAL FIX: Ensure donor_id is available from session or re-query if needed
+    $submission_donor_id = null;
+    
+    // Priority 1: Try to get donor_id from POST data (hidden field)
+    if (isset($_POST['donor_id']) && $_POST['donor_id'] && $_POST['donor_id'] > 0) {
+        $submission_donor_id = intval($_POST['donor_id']);
+        $_SESSION['donor_id'] = $submission_donor_id; // Store in session
+        error_log("Using donor_id from POST data for submission: " . $submission_donor_id);
+    }
+    // Priority 2: Try to get donor_id from session
+    elseif (isset($_SESSION['donor_id']) && $_SESSION['donor_id']) {
+        $submission_donor_id = $_SESSION['donor_id'];
+        error_log("Using donor_id from session for submission: " . $submission_donor_id);
+    }
+    // Priority 3: Try to get it from the current $donor_id variable (from page load query)
+    elseif ($donor_id) {
+        $submission_donor_id = $donor_id;
+        $_SESSION['donor_id'] = $donor_id; // Store it for future use
+        error_log("Using donor_id from current query for submission: " . $submission_donor_id);
+    }
+    // Priority 4: Last resort - try to query again using email
+    elseif ($email) {
+        $retryDonorFormResp = get_records('donor_form', ['email' => 'eq.' . $email]);
+        if ($retryDonorFormResp['success'] && !empty($retryDonorFormResp['data'])) {
+            $retryDonorForm = $retryDonorFormResp['data'][0];
+            $submission_donor_id = $retryDonorForm['donor_id'] ?? null;
+            if ($submission_donor_id) {
+                $_SESSION['donor_id'] = $submission_donor_id;
+                error_log("Retrieved donor_id from retry query: " . $submission_donor_id);
+            }
+        }
+    }
+    
+    // Validate donor_id before proceeding
+    if (!$submission_donor_id || $submission_donor_id <= 0) {
+        error_log("ERROR: Invalid or missing donor_id during form submission. Email: " . ($email ?? 'N/A'));
+        error_log("Session donor_id: " . ($_SESSION['donor_id'] ?? 'NOT SET'));
+        error_log("Current donor_id variable: " . ($donor_id ?? 'NOT SET'));
+        $_SESSION['error_message'] = "Error: Unable to identify your donor record. Please restart the donation process from the Blood Donation page.";
+        header('Location: ../../templates/blood_donation.php?error=Missing donor ID');
+        exit();
+    }
+    
+    // Use the validated donor_id
+    $donor_id = $submission_donor_id;
+    
     // Extract user ID from session
-    $user_id = 0;
+    $user_id = null; // Use null instead of 0 for optional fields
     if (isset($_SESSION['user']) && isset($_SESSION['user']['id'])) {
         $user_id = $_SESSION['user']['id'];
     } else {
-        error_log("Warning: User ID not found in session, using 0 as default");
-    }
-    
-    // Collect all form data
-    $formData = [
-        'donor_id' => $donor_id,
-		'created_by' => $user_id,
-        // Health & Risk Assessment (Step 1)
-		'feels_well' => (($_POST['q1'] ?? 'No') === 'Yes'),
-        'feels_well_remarks' => $_POST['q1_remarks'] ?? null,
-		'previously_refused' => (($_POST['q2'] ?? 'No') === 'Yes'),
-        'previously_refused_remarks' => $_POST['q2_remarks'] ?? null,
-		'testing_purpose_only' => (($_POST['q3'] ?? 'No') === 'Yes'),
-        'testing_purpose_only_remarks' => $_POST['q3_remarks'] ?? null,
-		'understands_transmission_risk' => (($_POST['q4'] ?? 'No') === 'Yes'),
-        'understands_transmission_risk_remarks' => $_POST['q4_remarks'] ?? null,
-		'recent_alcohol_consumption' => (($_POST['q5'] ?? 'No') === 'Yes'),
-        'recent_alcohol_consumption_remarks' => $_POST['q5_remarks'] ?? null,
-		'recent_aspirin' => (($_POST['q6'] ?? 'No') === 'Yes'),
-        'recent_aspirin_remarks' => $_POST['q6_remarks'] ?? null,
-		'recent_medication' => (($_POST['q7'] ?? 'No') === 'Yes'),
-        'recent_medication_remarks' => $_POST['q7_remarks'] ?? null,
-		'recent_donation' => (($_POST['q8'] ?? 'No') === 'Yes'),
-        'recent_donation_remarks' => $_POST['q8_remarks'] ?? null,
-        
-        // Past 6 Months (Step 2)
-		'zika_travel' => (($_POST['q9'] ?? 'No') === 'Yes'),
-        'zika_travel_remarks' => $_POST['q9_remarks'] ?? null,
-		'zika_contact' => (($_POST['q10'] ?? 'No') === 'Yes'),
-        'zika_contact_remarks' => $_POST['q10_remarks'] ?? null,
-		'zika_sexual_contact' => (($_POST['q11'] ?? 'No') === 'Yes'),
-        'zika_sexual_contact_remarks' => $_POST['q11_remarks'] ?? null,
-        
-        // Past 12 Months (Step 3)
-		'blood_transfusion' => (($_POST['q12'] ?? 'No') === 'Yes'),
-        'blood_transfusion_remarks' => $_POST['q12_remarks'] ?? null,
-		'surgery_dental' => (($_POST['q13'] ?? 'No') === 'Yes'),
-        'surgery_dental_remarks' => $_POST['q13_remarks'] ?? null,
-		'tattoo_piercing' => (($_POST['q14'] ?? 'No') === 'Yes'),
-        'tattoo_piercing_remarks' => $_POST['q14_remarks'] ?? null,
-		'risky_sexual_contact' => (($_POST['q15'] ?? 'No') === 'Yes'),
-        'risky_sexual_contact_remarks' => $_POST['q15_remarks'] ?? null,
-		'unsafe_sex' => (($_POST['q16'] ?? 'No') === 'Yes'),
-        'unsafe_sex_remarks' => $_POST['q16_remarks'] ?? null,
-		'hepatitis_contact' => (($_POST['q17'] ?? 'No') === 'Yes'),
-        'hepatitis_contact_remarks' => $_POST['q17_remarks'] ?? null,
-		'imprisonment' => (($_POST['q18'] ?? 'No') === 'Yes'),
-        'imprisonment_remarks' => $_POST['q18_remarks'] ?? null,
-		'uk_europe_stay' => (($_POST['q19'] ?? 'No') === 'Yes'),
-        'uk_europe_stay_remarks' => $_POST['q19_remarks'] ?? null,
-        
-        // Have you ever (Step 4)
-		'foreign_travel' => (($_POST['q20'] ?? 'No') === 'Yes'),
-        'foreign_travel_remarks' => $_POST['q20_remarks'] ?? null,
-		'drug_use' => (($_POST['q21'] ?? 'No') === 'Yes'),
-        'drug_use_remarks' => $_POST['q21_remarks'] ?? null,
-		'clotting_factor' => (($_POST['q22'] ?? 'No') === 'Yes'),
-        'clotting_factor_remarks' => $_POST['q22_remarks'] ?? null,
-		'positive_disease_test' => (($_POST['q23'] ?? 'No') === 'Yes'),
-        'positive_disease_test_remarks' => $_POST['q23_remarks'] ?? null,
-		'malaria_history' => (($_POST['q24'] ?? 'No') === 'Yes'),
-        'malaria_history_remarks' => $_POST['q24_remarks'] ?? null,
-		'std_history' => (($_POST['q25'] ?? 'No') === 'Yes'),
-        'std_history_remarks' => $_POST['q25_remarks'] ?? null,
-        
-        // Had any conditions (Step 5)
-		'cancer_blood_disease' => (($_POST['q26'] ?? 'No') === 'Yes'),
-        'cancer_blood_disease_remarks' => $_POST['q26_remarks'] ?? null,
-		'heart_disease' => (($_POST['q27'] ?? 'No') === 'Yes'),
-        'heart_disease_remarks' => $_POST['q27_remarks'] ?? null,
-		'lung_disease' => (($_POST['q28'] ?? 'No') === 'Yes'),
-        'lung_disease_remarks' => $_POST['q28_remarks'] ?? null,
-		'kidney_disease' => (($_POST['q29'] ?? 'No') === 'Yes'),
-        'kidney_disease_remarks' => $_POST['q29_remarks'] ?? null,
-		'chicken_pox' => (($_POST['q30'] ?? 'No') === 'Yes'),
-        'chicken_pox_remarks' => $_POST['q30_remarks'] ?? null,
-		'chronic_illness' => (($_POST['q31'] ?? 'No') === 'Yes'),
-        'chronic_illness_remarks' => $_POST['q31_remarks'] ?? null,
-		'recent_fever' => (($_POST['q32'] ?? 'No') === 'Yes'),
-        'recent_fever_remarks' => $_POST['q32_remarks'] ?? null
-    ];
-    
-    // Add female-specific questions if applicable
-    if ($isFemale) {
-		$formData['pregnancy_history'] = (($_POST['q33'] ?? 'No') === 'Yes');
-        $formData['pregnancy_history_remarks'] = $_POST['q33_remarks'] ?? null;
-		$formData['last_childbirth'] = (($_POST['q34'] ?? 'No') === 'Yes');
-        $formData['last_childbirth_remarks'] = $_POST['q34_remarks'] ?? null;
-		$formData['recent_miscarriage'] = (($_POST['q35'] ?? 'No') === 'Yes');
-        $formData['recent_miscarriage_remarks'] = $_POST['q35_remarks'] ?? null;
-		$formData['breastfeeding'] = (($_POST['q36'] ?? 'No') === 'Yes');
-        $formData['breastfeeding_remarks'] = $_POST['q36_remarks'] ?? null;
-		$formData['last_menstruation'] = (($_POST['q37'] ?? 'No') === 'Yes');
-        $formData['last_menstruation_remarks'] = $_POST['q37_remarks'] ?? null;
+        error_log("Warning: User ID not found in session, using null as default");
     }
     
     // Store medical history data in session for recovery in case of failure
     $_SESSION['medical_history_form_data'] = $_POST;
     
-    // Define the expected schema columns to validate against
-    $schemaColumns = [
-        'medical_history_id', 'donor_id', 'created_by', 'feels_well', 'feels_well_remarks',
-        'previously_refused', 'previously_refused_remarks', 'testing_purpose_only',
-        'testing_purpose_only_remarks', 'understands_transmission_risk',
-        'understands_transmission_risk_remarks', 'recent_alcohol_consumption',
-        'recent_alcohol_consumption_remarks', 'recent_aspirin', 'recent_aspirin_remarks',
-        'recent_medication', 'recent_medication_remarks', 'recent_donation',
-        'recent_donation_remarks', 'zika_travel', 'zika_travel_remarks',
-        'zika_contact', 'zika_contact_remarks', 'zika_sexual_contact',
-        'zika_sexual_contact_remarks', 'blood_transfusion', 'blood_transfusion_remarks',
-        'surgery_dental', 'surgery_dental_remarks', 'tattoo_piercing',
-        'tattoo_piercing_remarks', 'risky_sexual_contact', 'risky_sexual_contact_remarks',
-        'unsafe_sex', 'unsafe_sex_remarks', 'hepatitis_contact',
-        'hepatitis_contact_remarks', 'imprisonment', 'imprisonment_remarks',
-        'uk_europe_stay', 'uk_europe_stay_remarks', 'foreign_travel',
-        'foreign_travel_remarks', 'drug_use', 'drug_use_remarks',
-        'clotting_factor', 'clotting_factor_remarks', 'positive_disease_test',
-        'positive_disease_test_remarks', 'malaria_history', 'malaria_history_remarks',
-        'std_history', 'std_history_remarks', 'cancer_blood_disease',
-        'cancer_blood_disease_remarks', 'heart_disease', 'heart_disease_remarks',
-        'lung_disease', 'lung_disease_remarks', 'kidney_disease',
-        'kidney_disease_remarks', 'chicken_pox', 'chicken_pox_remarks',
-        'chronic_illness', 'chronic_illness_remarks', 'recent_fever',
-        'recent_fever_remarks', 'pregnancy_history', 'pregnancy_history_remarks',
-        'last_childbirth', 'last_childbirth_remarks', 'recent_miscarriage',
-        'recent_miscarriage_remarks', 'breastfeeding', 'breastfeeding_remarks',
-        'last_menstruation', 'last_menstruation_remarks', 'created_at', 'updated_at',
-        'medical_approval'
+    // Build form data following the EXACT pattern of working donor_form submission
+    // Start with required fields only - NOTE: created_by does NOT exist in medical_history schema
+    $formData = [
+        'donor_id' => intval($donor_id)
     ];
     
-    // Remove any field that's not in the schema to prevent 400 errors
-    $invalidFields = [];
-    foreach (array_keys($formData) as $field) {
-        if (!in_array($field, $schemaColumns)) {
-            $invalidFields[] = $field;
-            error_log("Removing invalid field: " . $field);
+    // Define boolean fields that must always be included (even if false)
+    $booleanFields = [
+        'feels_well', 'previously_refused', 'testing_purpose_only', 'understands_transmission_risk',
+        'recent_alcohol_consumption', 'recent_aspirin', 'recent_medication', 'recent_donation',
+        'zika_travel', 'zika_contact', 'zika_sexual_contact', 'blood_transfusion', 'surgery_dental',
+        'tattoo_piercing', 'risky_sexual_contact', 'unsafe_sex', 'hepatitis_contact', 'imprisonment',
+        'uk_europe_stay', 'foreign_travel', 'drug_use', 'clotting_factor', 'positive_disease_test',
+        'malaria_history', 'std_history', 'cancer_blood_disease', 'heart_disease', 'lung_disease',
+        'kidney_disease', 'chicken_pox', 'chronic_illness', 'recent_fever'
+    ];
+    
+    // Add female-specific boolean fields if applicable
+    if ($isFemale) {
+        $booleanFields = array_merge($booleanFields, [
+            'pregnancy_history', 'last_childbirth', 'recent_miscarriage', 'breastfeeding', 'last_menstruation'
+        ]);
+    }
+    
+    // Map form questions to database fields
+    $questionMap = [
+        'q1' => 'feels_well', 'q2' => 'previously_refused', 'q3' => 'testing_purpose_only',
+        'q4' => 'understands_transmission_risk', 'q5' => 'recent_alcohol_consumption',
+        'q6' => 'recent_aspirin', 'q7' => 'recent_medication', 'q8' => 'recent_donation',
+        'q9' => 'zika_travel', 'q10' => 'zika_contact', 'q11' => 'zika_sexual_contact',
+        'q12' => 'blood_transfusion', 'q13' => 'surgery_dental', 'q14' => 'tattoo_piercing',
+        'q15' => 'risky_sexual_contact', 'q16' => 'unsafe_sex', 'q17' => 'hepatitis_contact',
+        'q18' => 'imprisonment', 'q19' => 'uk_europe_stay', 'q20' => 'foreign_travel',
+        'q21' => 'drug_use', 'q22' => 'clotting_factor', 'q23' => 'positive_disease_test',
+        'q24' => 'malaria_history', 'q25' => 'std_history', 'q26' => 'cancer_blood_disease',
+        'q27' => 'heart_disease', 'q28' => 'lung_disease', 'q29' => 'kidney_disease',
+        'q30' => 'chicken_pox', 'q31' => 'chronic_illness', 'q32' => 'recent_fever',
+        'q33' => 'pregnancy_history', 'q34' => 'last_childbirth', 'q35' => 'recent_miscarriage',
+        'q36' => 'breastfeeding', 'q37' => 'last_menstruation'
+    ];
+    
+    // Process all boolean fields - always include them as boolean (true/false)
+    foreach ($booleanFields as $field) {
+        // Find the question number for this field
+        $questionNum = array_search($field, $questionMap);
+        if ($questionNum !== false && isset($_POST[$questionNum])) {
+            $formData[$field] = ($_POST[$questionNum] === 'Yes');
+        } else {
+            // If no question mapped or not in POST, default to false
+            $formData[$field] = false;
         }
     }
     
-    foreach ($invalidFields as $field) {
-        unset($formData[$field]);
+    // Process remarks fields - only include if they have values (following donor_form pattern)
+    foreach ($questionMap as $questionNum => $field) {
+        $remarksKey = $questionNum . '_remarks';
+        if (isset($_POST[$remarksKey]) && trim($_POST[$remarksKey]) !== '') {
+            $formData[$field . '_remarks'] = trim($_POST[$remarksKey]);
+        }
     }
     
-    // Log the sanitized payload
-    error_log("Medical history sanitized payload: " . json_encode($formData));
+    // CRITICAL: Remove any null or empty values - Supabase rejects them (following donor_form pattern)
+    foreach ($formData as $key => $value) {
+        if ($value === null || $value === '') {
+            unset($formData[$key]);
+        }
+    }
+    
+    // Validate that donor_id is present and valid BEFORE any other processing
+    if (!isset($formData['donor_id']) || !$formData['donor_id'] || $formData['donor_id'] <= 0) {
+        error_log("CRITICAL: Invalid donor_id in formData: " . ($formData['donor_id'] ?? 'NOT SET'));
+        throw new Exception("Invalid donor ID. Cannot save medical history.");
+    }
+    
+    // Final validation: Ensure all boolean values are actual booleans (not strings)
+    foreach ($formData as $key => $value) {
+        // Check if this is a boolean field (not remarks) - use substr for PHP 7.x compatibility
+        if (substr($key, -8) !== '_remarks' && !is_bool($value)) {
+            // If it should be boolean but isn't, check if it's in our boolean fields list
+            if (in_array($key, $booleanFields)) {
+                $formData[$key] = (bool) $value;
+            }
+        }
+    }
+    
+    // Log the final payload before sending (with full details for debugging)
+    $jsonForLog = json_encode($formData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    error_log("Medical history final payload (formatted):\n" . $jsonForLog);
+    error_log("Medical history payload count: " . count($formData) . " fields");
+    error_log("Medical history donor_id: " . $formData['donor_id']);
+    
+    // Verify JSON encoding works correctly
+    $testJson = json_encode($formData);
+    if ($testJson === false) {
+        $jsonError = json_last_error_msg();
+        error_log("CRITICAL: JSON encoding failed: " . $jsonError);
+        throw new Exception("Failed to encode medical history data: " . $jsonError);
+    }
     
     try {
-        // First, check if a medical history record already exists for this donor_id
-        $checkUrl = SUPABASE_URL . '/rest/v1/medical_history?select=medical_history_id&donor_id=eq.' . urlencode($donor_id);
-        $checkCh = curl_init($checkUrl);
-        curl_setopt($checkCh, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($checkCh, CURLOPT_HTTPHEADER, [
-            'apikey: ' . SUPABASE_API_KEY,
-            'Authorization: Bearer ' . SUPABASE_API_KEY
-        ]);
-        
-        $checkResponse = curl_exec($checkCh);
-        $checkHttpCode = curl_getinfo($checkCh, CURLINFO_HTTP_CODE);
-        curl_close($checkCh);
+        // Check if a medical history record already exists for this donor_id
+        $checkResult = get_records('medical_history', ['donor_id' => 'eq.' . $donor_id]);
         
         $existingRecord = null;
-        if ($checkHttpCode === 200) {
-            $checkData = json_decode($checkResponse, true);
-            if (is_array($checkData) && !empty($checkData) && isset($checkData[0]['medical_history_id'])) {
-                $existingRecord = $checkData[0];
-                error_log("Found existing medical history record: " . $existingRecord['medical_history_id']);
-            }
+        if ($checkResult['success'] && is_array($checkResult['data']) && !empty($checkResult['data'])) {
+            $existingRecord = $checkResult['data'][0];
+            error_log("Found existing medical history record: " . ($existingRecord['medical_history_id'] ?? 'N/A'));
         }
         
-        // Remove created_by from update data (should not be updated)
-        $updateData = $formData;
-        unset($updateData['created_by']);
+        // Prepare data for submission
+        $submitData = $formData;
+        
+        // CRITICAL: Remove any fields that don't exist in the schema or are auto-managed
+        // Schema fields we CAN send: donor_id, all boolean fields, all _remarks fields
+        // DO NOT send: created_by (doesn't exist), medical_history_id (auto-generated), 
+        // created_at, updated_at (auto-managed), medical_approval, needs_review, 
+        // interviewer, disapproval_reason, is_admin (admin-only fields)
+        $allowedFields = [
+            'donor_id', 'feels_well', 'feels_well_remarks', 'previously_refused', 'previously_refused_remarks',
+            'testing_purpose_only', 'testing_purpose_only_remarks', 'understands_transmission_risk',
+            'understands_transmission_risk_remarks', 'recent_alcohol_consumption', 'recent_alcohol_consumption_remarks',
+            'recent_aspirin', 'recent_aspirin_remarks', 'recent_medication', 'recent_medication_remarks',
+            'recent_donation', 'recent_donation_remarks', 'zika_travel', 'zika_travel_remarks',
+            'zika_contact', 'zika_contact_remarks', 'zika_sexual_contact', 'zika_sexual_contact_remarks',
+            'blood_transfusion', 'blood_transfusion_remarks', 'surgery_dental', 'surgery_dental_remarks',
+            'tattoo_piercing', 'tattoo_piercing_remarks', 'risky_sexual_contact', 'risky_sexual_contact_remarks',
+            'unsafe_sex', 'unsafe_sex_remarks', 'hepatitis_contact', 'hepatitis_contact_remarks',
+            'imprisonment', 'imprisonment_remarks', 'uk_europe_stay', 'uk_europe_stay_remarks',
+            'foreign_travel', 'foreign_travel_remarks', 'drug_use', 'drug_use_remarks',
+            'clotting_factor', 'clotting_factor_remarks', 'positive_disease_test', 'positive_disease_test_remarks',
+            'malaria_history', 'malaria_history_remarks', 'std_history', 'std_history_remarks',
+            'cancer_blood_disease', 'cancer_blood_disease_remarks', 'heart_disease', 'heart_disease_remarks',
+            'lung_disease', 'lung_disease_remarks', 'kidney_disease', 'kidney_disease_remarks',
+            'chicken_pox', 'chicken_pox_remarks', 'chronic_illness', 'chronic_illness_remarks',
+            'recent_fever', 'recent_fever_remarks', 'pregnancy_history', 'pregnancy_history_remarks',
+            'last_childbirth', 'last_childbirth_remarks', 'recent_miscarriage', 'recent_miscarriage_remarks',
+            'breastfeeding', 'breastfeeding_remarks', 'last_menstruation', 'last_menstruation_remarks'
+        ];
+        
+        // Remove any fields not in the allowed list (prevents sending invalid fields like created_by)
+        foreach ($submitData as $key => $value) {
+            if (!in_array($key, $allowedFields)) {
+                error_log("Removing invalid/auto-managed field from medical_history payload: " . $key);
+                unset($submitData[$key]);
+            }
+        }
         
         if ($existingRecord) {
-            // Update existing record
-            error_log("Updating existing medical history record for donor_id: " . $donor_id);
             $medical_history_id = $existingRecord['medical_history_id'];
-            $url = SUPABASE_URL . '/rest/v1/medical_history?medical_history_id=eq.' . urlencode($medical_history_id);
             
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($updateData));
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                'apikey: ' . SUPABASE_API_KEY,
-                'Authorization: Bearer ' . SUPABASE_API_KEY,
-                'Content-Type: application/json',
-                'Prefer: return=representation'
-            ]);
+            error_log("Updating existing medical history record ID: " . $medical_history_id);
+            error_log("Update payload: " . json_encode($submitData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            
+            // Use update_record helper function for consistency
+            $updateResult = supabase_request(
+                'rest/v1/medical_history?medical_history_id=eq.' . $medical_history_id,
+                'PATCH',
+                $submitData,
+                ['Prefer: return=representation', 'Content-Profile: public']
+            );
+            
+            if (!$updateResult['success']) {
+                error_log("CRITICAL: Update failed. Status: " . ($updateResult['status_code'] ?? 'unknown'));
+                error_log("CRITICAL: Update response: " . ($updateResult['raw_response'] ?? 'No response'));
+                throw new Exception("Failed to update medical history: " . ($updateResult['raw_response'] ?? 'Unknown error'));
+            }
+            
+            error_log("Successfully updated medical history record: " . $medical_history_id);
+            $resultData = $updateResult['data'];
+            
         } else {
-            // Insert new record
+            // Insert new record using create_record helper function
             error_log("Inserting new medical history record for donor_id: " . $donor_id);
-            $url = SUPABASE_URL . '/rest/v1/medical_history';
+            error_log("Insert payload: " . json_encode($submitData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
             
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($formData));
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                'apikey: ' . SUPABASE_API_KEY,
-                'Authorization: Bearer ' . SUPABASE_API_KEY,
-                'Content-Type: application/json',
-                'Prefer: return=representation'
-            ]);
+            $insertResult = create_record('medical_history', $submitData);
+            
+            if (!$insertResult['success']) {
+                error_log("CRITICAL: Insert failed. Status: " . ($insertResult['status_code'] ?? 'unknown'));
+                error_log("CRITICAL: Insert response: " . ($insertResult['raw_response'] ?? 'No response'));
+                error_log("CRITICAL: Insert data: " . json_encode($insertResult['data'] ?? []));
+                
+                // Extract detailed error message
+                $errorMessage = "Failed to save medical history data.";
+                if (isset($insertResult['data']) && is_array($insertResult['data'])) {
+                    if (isset($insertResult['data']['message'])) {
+                        $errorMessage .= " " . $insertResult['data']['message'];
+                    }
+                    if (isset($insertResult['data']['hint'])) {
+                        $errorMessage .= " Hint: " . $insertResult['data']['hint'];
+                    }
+                }
+                
+                throw new Exception($errorMessage);
+            }
+            
+            error_log("Successfully inserted medical history record");
+            $resultData = $insertResult['data'];
         }
         
-        $response = curl_exec($ch);
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        // Validate that we got a valid response with medical_history_id
+        $medical_history_id = null;
+        if (is_array($resultData) && !empty($resultData)) {
+            if (isset($resultData[0]['medical_history_id'])) {
+                $medical_history_id = $resultData[0]['medical_history_id'];
+            } elseif (isset($resultData['medical_history_id'])) {
+                $medical_history_id = $resultData['medical_history_id'];
+            } elseif ($existingRecord) {
+                // For updates, use existing ID if response doesn't include it
+                $medical_history_id = $existingRecord['medical_history_id'];
+            }
+        } elseif ($existingRecord) {
+            // PATCH might return empty array, use existing ID
+            $medical_history_id = $existingRecord['medical_history_id'];
+        }
         
-        curl_close($ch);
+        if (!$medical_history_id) {
+            error_log("ERROR: Could not determine medical_history_id from response.");
+            error_log("ERROR: Response data: " . json_encode($resultData));
+            throw new Exception("Failed to retrieve medical history ID after save. Please try again.");
+        }
         
-        if ($http_code >= 200 && $http_code < 300) {
-            $resultData = json_decode($response, true);
+        // Set the medical_history_id in session for next steps
+        $_SESSION['medical_history_id'] = $medical_history_id;
+        error_log("Medical history saved successfully. ID: " . $medical_history_id);
+        
+        // Continue with donation process if we have a valid medical_history_id
+        if (isset($_SESSION['medical_history_id']) && $_SESSION['medical_history_id']) {
             
-            // Set the medical_history_id in session for next steps
-            if ($existingRecord) {
-                // For updates, use the existing medical_history_id (PATCH might return empty array)
-                $_SESSION['medical_history_id'] = $medical_history_id;
-                error_log("Updated medical history record: " . $medical_history_id);
-            } else {
-                // For inserts, get the medical_history_id from the response
-                if (is_array($resultData) && !empty($resultData) && isset($resultData[0]['medical_history_id'])) {
-                    $_SESSION['medical_history_id'] = $resultData[0]['medical_history_id'];
-                    error_log("Created new medical history record: " . $_SESSION['medical_history_id']);
-                } else {
-                    throw new Exception("Failed to get medical_history_id from insert response.");
-                }
+            // Validate donor_id before starting donation process
+            if (!$donor_id || $donor_id <= 0) {
+                error_log("Invalid donor_id: " . $donor_id);
+                $_SESSION['error_message'] = "Invalid donor ID. Please restart the donation process.";
+                header('Location: ../../templates/blood_donation.php?error=Invalid donor ID');
+                exit();
             }
             
-            // Continue with donation process if we have a valid medical_history_id
-            if (isset($_SESSION['medical_history_id']) && $_SESSION['medical_history_id']) {
+            // Start the donation process
+            error_log("Starting donation process for donor_id: " . $donor_id);
+            $donation_result = start_donation_process($donor_id);
+            error_log("Donation process result: " . json_encode($donation_result));
+            
+            if ($donation_result['success']) {
+                // Store donation ID in session
+                $_SESSION['donation_id'] = $donation_result['donation_id'];
                 
-                // Validate donor_id before starting donation process
-                if (!$donor_id || $donor_id <= 0) {
-                    error_log("Invalid donor_id: " . $donor_id);
-                    $_SESSION['error_message'] = "Invalid donor ID. Please restart the donation process.";
-                    header('Location: ../../templates/blood_donation.php?error=Invalid donor ID');
-                    exit();
-                }
+                // Immediately update the donation status based on existing forms
+                // If this was an update (not new insert), reset status and don't check PE forms
+                $is_update = isset($existingRecord) && $existingRecord !== null;
+                error_log("Automatically updating donation status for donor_id: " . $donor_id . " (is_update: " . ($is_update ? 'true' : 'false') . ")");
+                $status_update_result = auto_update_donation_status_after_medical_history($donor_id, $is_update);
+                error_log("Status update result: " . json_encode($status_update_result));
                 
-                // Start the donation process
-                error_log("Starting donation process for donor_id: " . $donor_id);
-                $donation_result = start_donation_process($donor_id);
-                error_log("Donation process result: " . json_encode($donation_result));
-                
-                if ($donation_result['success']) {
-                    // Store donation ID in session
-                    $_SESSION['donation_id'] = $donation_result['donation_id'];
-                    
-                    // Immediately update the donation status based on existing forms
-                    // If this was an update (not new insert), reset status and don't check PE forms
-                    $is_update = isset($existingRecord) && $existingRecord !== null;
-                    error_log("Automatically updating donation status for donor_id: " . $donor_id . " (is_update: " . ($is_update ? 'true' : 'false') . ")");
-                    $status_update_result = auto_update_donation_status_after_medical_history($donor_id, $is_update);
-                    error_log("Status update result: " . json_encode($status_update_result));
-                    
-                    if ($status_update_result['success'] && $status_update_result['status'] === 'updated') {
-                        $_SESSION['success_message'] = "Medical history submitted successfully! Your donation process has started and status updated to: " . ($status_update_result['blood_type'] ? $status_update_result['blood_type'] . ' - ' : '') . $status_update_result['message'];
-                    } elseif ($status_update_result['success'] && $status_update_result['status'] === 'reset') {
-                        $_SESSION['success_message'] = "Medical history updated successfully! " . $status_update_result['message'];
-                    } elseif ($status_update_result['success'] && $status_update_result['status'] === 'cancelled') {
-                        $_SESSION['warning_message'] = "Medical history submitted successfully, but donation was cancelled: " . $status_update_result['reason'];
-                    } else {
-                        $_SESSION['success_message'] = "Medical history submitted successfully! Your donation process has started.";
-                    }
-                    
-                    // Redirect to blood tracker page
-                    header('Location: ../../templates/blood_tracker.php');
-                    exit();
+                if ($status_update_result['success'] && $status_update_result['status'] === 'updated') {
+                    $_SESSION['success_message'] = "Medical history submitted successfully! Your donation process has started and status updated to: " . ($status_update_result['blood_type'] ? $status_update_result['blood_type'] . ' - ' : '') . $status_update_result['message'];
+                } elseif ($status_update_result['success'] && $status_update_result['status'] === 'reset') {
+                    $_SESSION['success_message'] = "Medical history updated successfully! " . $status_update_result['message'];
+                } elseif ($status_update_result['success'] && $status_update_result['status'] === 'cancelled') {
+                    $_SESSION['warning_message'] = "Medical history submitted successfully, but donation was cancelled: " . $status_update_result['reason'];
                 } else {
-                    // If donation process fails, still redirect to success but with warning
-                    $_SESSION['warning_message'] = "Medical history submitted successfully, but there was an issue starting the donation process. Please contact staff.";
-                    error_log("Donation process failed: " . ($donation_result['message'] ?? 'Unknown error'));
-                    header('Location: ../../templates/donation-success.php');
-                    exit();
+                    $_SESSION['success_message'] = "Medical history submitted successfully! Your donation process has started.";
                 }
+                
+                // Redirect back to blood donation page
+                header('Location: ../../templates/blood_donation.php');
+                exit();
             } else {
-                throw new Exception("Failed to get valid medical_history_id after " . ($existingRecord ? "update" : "insert") . " operation.");
+                // If donation process fails, still redirect to blood donation page with warning
+                $_SESSION['warning_message'] = "Medical history submitted successfully, but there was an issue starting the donation process. Please contact staff.";
+                error_log("Donation process failed: " . ($donation_result['message'] ?? 'Unknown error'));
+                header('Location: ../../templates/blood_donation.php');
+                exit();
             }
         } else {
-            $operation = $existingRecord ? "update" : "insert";
-            $responseBody = substr($response, 0, 500); // Limit response body for logging
-            error_log("Medical history " . $operation . " failed. HTTP Code: " . $http_code . ", Response: " . $responseBody);
-            throw new Exception("Failed to " . $operation . " medical history data. HTTP Code: " . $http_code);
+            throw new Exception("Failed to get valid medical_history_id after " . ($existingRecord ? "update" : "insert") . " operation.");
         }
     } catch (Exception $e) {
-        // Log the error but don't halt the process
-        $_SESSION['error_message'] = "Warning: There was an issue saving your medical history data. The process will continue, but please inform the administrator.";
-        error_log("Error in medical history form: " . $e->getMessage());
+        // Log the error and redirect back to blood donation page with error message
+        $errorMessage = "There was an issue saving your medical history data. Please try again or contact support.";
+        $_SESSION['error_message'] = $errorMessage;
+        error_log("CRITICAL ERROR in medical history form submission: " . $e->getMessage());
+        error_log("Error details - Donor ID: " . ($donor_id ?? 'NOT SET') . ", Email: " . ($email ?? 'NOT SET'));
         
         // Record error details in session for debugging
         $_SESSION['medical_history_error'] = [
             'message' => $e->getMessage(),
             'timestamp' => date('Y-m-d H:i:s'),
-            'payload' => json_encode($formData)
+            'donor_id' => $donor_id ?? null,
+            'email' => $email ?? null
         ];
         
-        // Generate a temporary ID to allow the flow to continue
-        $_SESSION['medical_history_id'] = 'temp_' . time() . '_' . rand(1000, 9999);
-        error_log("Created temporary medical_history_id: " . $_SESSION['medical_history_id']);
-        
-        // Continue to declaration form despite the error
-        header("Location: declaration-form-modal.php");
+        // Redirect back to blood donation page with error
+        header('Location: ../../templates/blood_donation.php?error=' . urlencode($errorMessage));
         exit();
     }
 }

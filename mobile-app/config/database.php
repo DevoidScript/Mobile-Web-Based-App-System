@@ -114,7 +114,22 @@ function get_record($table, $id) {
 function get_records($table, $params = []) {
     $query_string = '';
     if (!empty($params)) {
-        $query_string = '?' . http_build_query($params);
+        // Manually construct query string to preserve Supabase operators (eq., ne., etc.)
+        // http_build_query encodes dots which breaks Supabase filters
+        $query_parts = [];
+        foreach ($params as $key => $value) {
+            // Check if value contains a Supabase operator (eq., ne., gt., etc.)
+            if (preg_match('/^([a-z]+\.)(.+)$/i', $value, $matches)) {
+                // Has operator: preserve operator, encode only the value part
+                $operator = $matches[1]; // e.g., "eq."
+                $actual_value = $matches[2]; // e.g., "123" or "user@example.com"
+                $query_parts[] = urlencode($key) . '=' . $operator . urlencode($actual_value);
+            } else {
+                // No operator: encode the whole value
+                $query_parts[] = urlencode($key) . '=' . urlencode($value);
+            }
+        }
+        $query_string = '?' . implode('&', $query_parts);
     }
     
     return supabase_request("rest/v1/$table$query_string", 'GET');

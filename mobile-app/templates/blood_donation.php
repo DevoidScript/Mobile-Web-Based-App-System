@@ -42,15 +42,41 @@ if (!is_logged_in()) {
 // Get user data
 $user = $_SESSION['user'] ?? null;
 
+// Get donor_id from session first (needed for POST handler)
+$donor_id = $_SESSION['donor_id'] ?? null;
+
 // Handle start of donation process
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['start_donation'])) {
-    // No need to create donor_form, just redirect to medical-history-modal.php
+    // CRITICAL FIX: Ensure donor_id is in session before redirecting
+    if (!$donor_id && $user && isset($user['email'])) {
+        $email = trim(strtolower($user['email']));
+        $donorFormResp = get_records('donor_form', ['email' => 'eq.' . $email]);
+        if ($donorFormResp['success'] && !empty($donorFormResp['data'])) {
+            $donor_id = $donorFormResp['data'][0]['donor_id'];
+            if ($donor_id) {
+                $_SESSION['donor_id'] = $donor_id;
+                error_log("Set donor_id in session before redirecting to medical history: " . $donor_id);
+            }
+        }
+    }
+    
+    // Validate that we have donor_id before redirecting
+    if (!$donor_id) {
+        error_log("ERROR: Cannot start donation - donor_id not found for user: " . ($user['email'] ?? 'N/A'));
+        $_SESSION['error_message'] = "Unable to find your donor record. Please complete your donor registration first.";
+        header('Location: blood_donation.php?error=Missing donor record');
+        exit;
+    }
+    
+    // Redirect to medical history form with donor_id in session
     header('Location: forms/medical-history-modal.php');
     exit;
 }
 
-// Get donor_id from session
-$donor_id = $_SESSION['donor_id'] ?? null;
+// Get donor_id from session (if not already set above)
+if (!isset($donor_id)) {
+    $donor_id = $_SESSION['donor_id'] ?? null;
+}
 $eligibility = null;
 if ($user && !$donor_id && isset($user['email'])) {
     // Derive donor_id if not in session
@@ -58,6 +84,11 @@ if ($user && !$donor_id && isset($user['email'])) {
     $donorFormResp = get_records('donor_form', ['email' => 'eq.' . $email]);
     if ($donorFormResp['success'] && !empty($donorFormResp['data'])) {
         $donor_id = $donorFormResp['data'][0]['donor_id'];
+        // CRITICAL FIX: Store donor_id in session for use in medical history form
+        if ($donor_id) {
+            $_SESSION['donor_id'] = $donor_id;
+            error_log("Stored donor_id in session from blood_donation.php: " . $donor_id);
+        }
     }
 }
 if ($donor_id) {
@@ -204,6 +235,31 @@ if ($donor_id) {
     </div>
     
     <div class="donation-container">
+        <!-- Display success/error messages -->
+        <?php if (isset($_SESSION['success_message'])): ?>
+            <div class="message-box" style="border:2px solid #28a745; background:#d4edda; color:#155724; padding:15px; margin-bottom:20px; border-radius:8px; max-width:400px; margin-left:auto; margin-right:auto;">
+                <strong>✓ Success:</strong> <?php echo htmlspecialchars($_SESSION['success_message']); unset($_SESSION['success_message']); ?>
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($_SESSION['error_message'])): ?>
+            <div class="message-box" style="border:2px solid #dc3545; background:#f8d7da; color:#721c24; padding:15px; margin-bottom:20px; border-radius:8px; max-width:400px; margin-left:auto; margin-right:auto;">
+                <strong>✗ Error:</strong> <?php echo htmlspecialchars($_SESSION['error_message']); unset($_SESSION['error_message']); ?>
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($_SESSION['warning_message'])): ?>
+            <div class="message-box" style="border:2px solid #ffc107; background:#fff3cd; color:#856404; padding:15px; margin-bottom:20px; border-radius:8px; max-width:400px; margin-left:auto; margin-right:auto;">
+                <strong>⚠ Warning:</strong> <?php echo htmlspecialchars($_SESSION['warning_message']); unset($_SESSION['warning_message']); ?>
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($_GET['error'])): ?>
+            <div class="message-box" style="border:2px solid #dc3545; background:#f8d7da; color:#721c24; padding:15px; margin-bottom:20px; border-radius:8px; max-width:400px; margin-left:auto; margin-right:auto;">
+                <strong>✗ Error:</strong> <?php echo htmlspecialchars($_GET['error']); ?>
+            </div>
+        <?php endif; ?>
+        
         <div class="message-box" style="border:1.5px solid #ccc; max-width:400px; margin:30px auto 0 auto; padding:32px 16px 20px 16px; border-radius:12px; background:#fff;">
             <img src="../assets/icons/redcrosslogo.jpg" alt="Red Cross Logo" class="coming-soon-img" style="display:block;margin:0 auto 18px auto;max-width:120px;">
             <div style="font-size:1.2rem; font-weight:500; color:#444; text-align:center; margin-bottom:18px;">To donate blood, start by answering the medical history questionnaire.</div>
