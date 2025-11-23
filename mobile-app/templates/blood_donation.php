@@ -298,7 +298,7 @@ if ($donor_id) {
         </a>
         <a href="explore.php" class="nav-button">
             <div class="nav-icon">🔍</div>
-            <div class="nav-label">Explore</div>
+            <div class="nav-label">Discover</div>
         </a>
         <a href="profile.php" class="nav-button">
             <div class="nav-icon">👤</div>

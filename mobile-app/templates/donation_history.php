@@ -443,6 +443,134 @@ if ($user && isset($user['email'])) {
         .nav-button.active {
             color: #FF0000;
         }
+        
+        /* Modal Styles */
+        .donation-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .donation-modal-overlay.active {
+            display: flex;
+        }
+        
+        .donation-modal {
+            background-color: white;
+            border-radius: 15px;
+            padding: 25px;
+            max-width: 400px;
+            width: 100%;
+            position: relative;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .donation-modal-header {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .donation-modal-title {
+            color: #FF0000;
+            font-size: 22px;
+            font-weight: bold;
+            text-align: center;
+            margin: 0;
+            padding: 0 30px;
+        }
+        
+        .donation-modal-close {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #666;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        
+        .donation-modal-close:hover {
+            color: #FF0000;
+        }
+        
+        .donation-modal-close:active {
+            opacity: 0.7;
+        }
+        
+        .donation-modal-details {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .donation-modal-detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .donation-modal-detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .donation-modal-label {
+            color: #666;
+            font-weight: 500;
+            margin: 0;
+        }
+        
+        .donation-modal-value {
+            color: #333;
+            font-weight: bold;
+            text-align: right;
+            margin: 0;
+        }
+        
+        .donation-modal-value.status-value {
+            color:#ffc107 !important;
+        }
+        
+        .donation-item {
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        
+        .donation-item:active {
+            transform: scale(0.98);
+            background-color: #e9ecef;
+        }
     </style>
 </head>
 <body>
@@ -531,8 +659,12 @@ if ($user && isset($user['email'])) {
                 <h3>Donation History</h3>
                 <?php if (count($donation_history) > 0): ?>
                     <div class="donation-list">
-                        <?php foreach ($donation_history as $donation): ?>
-                            <div class="donation-item">
+                        <?php foreach ($donation_history as $index => $donation): ?>
+                            <div class="donation-item" 
+                                 data-date="<?php echo htmlspecialchars(date('M j, Y', strtotime($donation['created_at']))); ?>"
+                                 data-blood-type="<?php echo htmlspecialchars($donation['blood_type'] ?? 'N/A'); ?>"
+                                 data-units="<?php echo htmlspecialchars($donation['units_collected'] ?? 'N/A'); ?>"
+                                 data-status="<?php echo htmlspecialchars($donation['current_status'] ?? 'Pending'); ?>">
                                 <div class="donation-date">
                                     <?php echo date('M j, Y', strtotime($donation['created_at'])); ?>
                                 </div>
@@ -563,15 +695,47 @@ if ($user && isset($user['email'])) {
         <?php endif; ?>
     </div>
     
+    <!-- Donation Details Modal -->
+    <div class="donation-modal-overlay" id="donationModal">
+        <div class="donation-modal">
+            <div class="donation-modal-header">
+                <h2 class="donation-modal-title">Donation History</h2>
+                <button class="donation-modal-close" id="closeModal" aria-label="Close">&times;</button>
+            </div>
+            <div class="donation-modal-details" id="modalDetails">
+                <div class="donation-modal-detail-row">
+                    <span class="donation-modal-label">Date:</span>
+                    <span class="donation-modal-value" id="modalDate"></span>
+                </div>
+                <div class="donation-modal-detail-row">
+                    <span class="donation-modal-label">Blood Type:</span>
+                    <span class="donation-modal-value" id="modalBloodType"></span>
+                </div>
+                <div class="donation-modal-detail-row">
+                    <span class="donation-modal-label">Units Collected:</span>
+                    <span class="donation-modal-value" id="modalUnits"></span>
+                </div>
+                <div class="donation-modal-detail-row">
+                    <span class="donation-modal-label">Donation Site:</span>
+                    <span class="donation-modal-value" id="modalSite">PRC Iloilo Chapter</span>
+                </div>
+                <div class="donation-modal-detail-row">
+                    <span class="donation-modal-label">Status:</span>
+                    <span class="donation-modal-value status-value" id="modalStatus"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Mobile-optimized bottom navigation bar -->
     <div class="navigation-bar">
         <a href="dashboard.php" class="nav-button">
             <div class="nav-icon">🏠</div>
             <div class="nav-label">Home</div>
         </a>
-        <a href="donation_history.php" class="nav-button active">
-            <div class="nav-icon">📋</div>
-            <div class="nav-label">History</div>
+        <a href="explore.php" class="nav-button">
+            <div class="nav-icon">🔍</div>
+            <div class="nav-label">Discover</div>
         </a>
         <a href="profile.php" class="nav-button">
             <div class="nav-icon">👤</div>
@@ -594,6 +758,75 @@ if ($user && isset($user['email'])) {
                     });
             });
         }
+    </script>
+    <!-- Donation Modal Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('donationModal');
+            const closeModalBtn = document.getElementById('closeModal');
+            const donationItems = document.querySelectorAll('.donation-item');
+            
+            // Function to format status
+            function formatStatus(status) {
+                if (status === 'Processed') {
+                    return 'Ready for Use';
+                } else if (status === 'Ready for Use') {
+                    return 'Used';
+                } else {
+                    return status.charAt(0).toUpperCase() + status.slice(1);
+                }
+            }
+            
+            // Function to open modal with donation data
+            function openModal(donationItem) {
+                const date = donationItem.getAttribute('data-date');
+                const bloodType = donationItem.getAttribute('data-blood-type');
+                const units = donationItem.getAttribute('data-units');
+                const status = donationItem.getAttribute('data-status');
+                
+                // Set modal content - date is already formatted in PHP, just use it directly
+                document.getElementById('modalDate').textContent = date;
+                document.getElementById('modalBloodType').textContent = bloodType;
+                document.getElementById('modalUnits').textContent = units;
+                document.getElementById('modalStatus').textContent = formatStatus(status);
+                
+                // Show modal
+                modal.classList.add('active');
+                document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            }
+            
+            // Function to close modal
+            function closeModal() {
+                modal.classList.remove('active');
+                document.body.style.overflow = ''; // Restore scrolling
+            }
+            
+            // Add click event listeners to donation items
+            donationItems.forEach(function(item) {
+                item.addEventListener('click', function() {
+                    openModal(item);
+                });
+            });
+            
+            // Close modal when clicking close button
+            closeModalBtn.addEventListener('click', function() {
+                closeModal();
+            });
+            
+            // Close modal when clicking outside the modal content
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
+            
+            // Close modal when pressing Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && modal.classList.contains('active')) {
+                    closeModal();
+                }
+            });
+        });
     </script>
 </body>
 </html> 

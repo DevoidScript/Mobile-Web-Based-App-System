@@ -665,9 +665,9 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
             <div class="nav-icon">🏠</div>
             <div class="nav-label">Home</div>
         </a>
-        <a href="blood_tracker.php" class="nav-button active">
-            <div class="nav-icon">📊</div>
-            <div class="nav-label">Tracker</div>
+        <a href="explore.php" class="nav-button">
+            <div class="nav-icon">🔍</div>
+            <div class="nav-label">Discover</div>
         </a>
         <a href="profile.php" class="nav-button">
             <div class="nav-icon">👤</div>
