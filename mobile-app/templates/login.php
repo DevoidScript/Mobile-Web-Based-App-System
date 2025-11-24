@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#db2323">
     <title>Smart Blood Management</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="assets/icons/icon-192x192.png">
+    <link rel="manifest" href="../manifest.json">
+    <link rel="apple-touch-icon" href="../assets/icons/icon-192x192.png">
     <!-- PWA meta tags -->
     <meta name="description" content="Smart Blood Management System">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -308,7 +308,7 @@
                     <label for="email" class="form-label">Email Address</label>
                     <div class="input-wrapper">
                         <span class="input-icon">✉️</span>
-                        <input type="email" id="email" class="form-control" name="email" placeholder="Enter your email" required>
+                        <input type="email" id="email" class="form-control" name="email" placeholder="Enter your email" autocomplete="email" required>
                     </div>
                 </div>
                 
@@ -316,7 +316,7 @@
                     <label for="password" class="form-label">Password</label>
                     <div class="password-input-wrapper">
                         <span class="input-icon">🔒</span>
-                        <input type="password" id="password" class="form-control" name="password" placeholder="Enter your password" required>
+                        <input type="password" id="password" class="form-control" name="password" placeholder="Enter your password" autocomplete="current-password" required>
                         <button type="button" class="toggle-password" id="togglePassword">Show</button>
                     </div>
                 </div>
@@ -382,16 +382,36 @@
             document.body.classList.add('pwa-standalone');
         }
         
-        // Register Service Worker for PWA
+        // Register Service Worker for PWA with improved error handling
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('service-worker.js')
-                    .then(function(registration) {
-                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                    })
-                    .catch(function(error) {
-                        console.log('ServiceWorker registration failed: ', error);
-                    });
+                // Determine correct path based on current location
+                const getBasePath = function() {
+                    const pathname = window.location.pathname;
+                    const marker = '/mobile-app/';
+                    const idx = pathname.indexOf(marker);
+                    if (idx !== -1) {
+                        return pathname.substring(0, idx + marker.length);
+                    }
+                    return '/mobile-app/';
+                };
+                
+                const basePath = getBasePath();
+                const swPath = basePath + 'service-worker.js';
+                
+                navigator.serviceWorker.register(swPath, {
+                    scope: basePath
+                })
+                .then(function(registration) {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                })
+                .catch(function(error) {
+                    // Only log if it's not a 404 (file might not exist in some environments)
+                    if (error.message && !error.message.includes('404') && !error.message.includes('bad HTTP response code')) {
+                        console.warn('ServiceWorker registration warning: ', error.message);
+                    }
+                    // Silently fail for 404 errors to avoid console spam
+                });
             });
         }
     </script>

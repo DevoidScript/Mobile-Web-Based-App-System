@@ -1549,7 +1549,7 @@ function compute_donation_eligibility($donor_id) {
         return ['success' => false, 'error' => 'Invalid donor ID'] + $response;
     }
 
-    // Fetch latest "Processed" donation
+    // Fetch latest "Processed" or "Ready for Use" donation (both count as completed)
     $donation_params = [
         'donor_id' => 'eq.' . $donor_id,
         'order' => 'created_at.desc'
@@ -1558,7 +1558,9 @@ function compute_donation_eligibility($donor_id) {
     $donation_result = get_records('donations', $donation_params);
     if ($donation_result['success'] && !empty($donation_result['data'])) {
         foreach ($donation_result['data'] as $donation) {
-            if (($donation['current_status'] ?? '') === 'Processed') {
+            $status = $donation['current_status'] ?? '';
+            // Check for both "Processed" and "Ready for Use" statuses
+            if ($status === 'Processed' || $status === 'Ready for Use') {
                 $response['latest_completed_donation'] = $donation;
                 break;
             }
@@ -1571,17 +1573,25 @@ function compute_donation_eligibility($donor_id) {
 
     $completed = $response['latest_completed_donation'];
 
-    // Determine when it became Processed from history if available
+    // Determine when it became Processed or Ready for Use from history if available
     $processed_at = $completed['created_at'] ?? null;
+    $completed_status = $completed['current_status'] ?? '';
+    
+    // Check history for when it reached "Processed" or "Ready for Use" status
     $history_params = [
         'donation_id' => 'eq.' . $completed['donation_id'],
-        'status' => 'eq.Processed',
-        'order' => 'changed_at.desc',
-        'limit' => 1
+        'order' => 'changed_at.desc'
     ];
     $history_result = get_records('donation_status_history', $history_params);
     if ($history_result['success'] && !empty($history_result['data'])) {
-        $processed_at = $history_result['data'][0]['changed_at'] ?? $processed_at;
+        // Find the most recent "Processed" or "Ready for Use" status change
+        foreach ($history_result['data'] as $history_item) {
+            $status = $history_item['status'] ?? '';
+            if ($status === 'Processed' || $status === 'Ready for Use') {
+                $processed_at = $history_item['changed_at'] ?? $processed_at;
+                break;
+            }
+        }
     }
     $response['processed_at'] = $processed_at;
 

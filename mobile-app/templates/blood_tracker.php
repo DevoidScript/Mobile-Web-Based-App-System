@@ -47,6 +47,39 @@ if ($donor_id) {
     $result = get_records('donations', $params);
     if ($result['success'] && !empty($result['data'])) {
         $donation = $result['data'][0];
+        
+        // Get blood type from donor's donation history for consistency
+        // Priority: 1) Current donation if it has blood_type, 2) Most recent donation with blood_type, 3) Any donation with blood_type
+        $donor_blood_type = null;
+        
+        // First, check if current donation has blood_type
+        if (!empty($donation['blood_type'])) {
+            $donor_blood_type = $donation['blood_type'];
+            error_log("Blood Tracker - Using blood type from current donation: " . $donor_blood_type);
+        } else {
+            // Get all donations for this donor to find the most recent one with blood_type
+            $all_donations_params = [
+                'donor_id' => 'eq.' . $donor_id,
+                'order' => 'created_at.desc'
+            ];
+            
+            $all_donations_result = get_records('donations', $all_donations_params);
+            if ($all_donations_result['success'] && !empty($all_donations_result['data'])) {
+                foreach ($all_donations_result['data'] as $past_donation) {
+                    if (!empty($past_donation['blood_type'])) {
+                        $donor_blood_type = $past_donation['blood_type'];
+                        error_log("Blood Tracker - Using blood type from previous donation: " . $donor_blood_type);
+                        break; // Use the most recent one with blood_type
+                    }
+                }
+            }
+        }
+        
+        // Override the blood_type in the donation data if we found one from history
+        if ($donor_blood_type) {
+            $donation['blood_type'] = $donor_blood_type;
+        }
+        
         $tracker_data = build_tracker_data($donation);
         // Compute eligibility to support grace reset and visibility
         $eligibility = compute_donation_eligibility($donor_id);

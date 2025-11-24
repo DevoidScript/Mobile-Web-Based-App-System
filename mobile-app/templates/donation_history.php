@@ -72,11 +72,18 @@ if ($user && isset($user['email'])) {
                 $latest_completed_donation = $eligibility['latest_completed_donation'];
                 $next_donation_date = $eligibility['next_donation_date'];
                 $can_donate_now = $eligibility['can_donate_now'];
-                $countdown_months = $eligibility['remaining_months'];
+                $countdown_months = $eligibility['remaining_months'] ?? 0;
+                $countdown_days = $eligibility['remaining_days'] ?? 0;
+                
+                // If countdown reaches zero, allow donation
+                if ($countdown_months == 0 && $countdown_days == 0 && !$can_donate_now) {
+                    $can_donate_now = true;
+                }
+                
                 // Show days even when months>0, keep remainder approximation
-                if (isset($eligibility['remaining_days'])) {
-                    // If months were calculated, prefer remainder days
-                    $countdown_days = $eligibility['remaining_days'] % 30;
+                if ($countdown_months > 0) {
+                    // If months were calculated, show remainder days
+                    $countdown_days = $countdown_days % 30;
                 }
             }
             
@@ -617,7 +624,7 @@ if ($user && isset($user['email'])) {
                             } elseif ($latest_completed_donation && $latest_completed_donation['current_status'] === 'Ready for Use') {
                                 echo 'Used';
                             } else {
-                                echo ucfirst($latest_completed_donation['current_status'] ?? 'Pending');
+                                echo htmlspecialchars(ucfirst($latest_completed_donation['current_status'] ?? 'Pending'));
                             }
                         ?></span>
                     </div>
@@ -626,8 +633,8 @@ if ($user && isset($user['email'])) {
 
             <!-- Next Donation Countdown Card -->
             <div class="countdown-card">
-                <h3>You can next donate</h3>
-                <?php if ($can_donate_now): ?>
+                <h3>When You Can Donate Next</h3>
+                <?php if ($can_donate_now || ($countdown_months == 0 && $countdown_days == 0)): ?>
                     <div class="can-donate-now">
                         <div class="checkmark">✓</div>
                         <p>You can donate blood now!</p>
@@ -638,18 +645,18 @@ if ($user && isset($user['email'])) {
                         <?php if ($countdown_months > 0): ?>
                             <div class="timer-box">
                                 <span class="time"><?php echo $countdown_months; ?></span>
-                                <span class="label"><?php echo $countdown_months == 1 ? 'month' : 'months'; ?></span>
+                                <span class="label"><?php echo $countdown_months == 1 ? 'Month' : 'Months'; ?></span>
                             </div>
                         <?php endif; ?>
                         <?php if ($countdown_days > 0 || $countdown_months == 0): ?>
                             <div class="timer-box">
                                 <span class="time"><?php echo $countdown_days; ?></span>
-                                <span class="label"><?php echo $countdown_days == 1 ? 'day' : 'days'; ?></span>
+                                <span class="label"><?php echo $countdown_days == 1 ? 'Day' : 'Days'; ?></span>
                             </div>
                         <?php endif; ?>
                     </div>
                     <?php if ($next_donation_date): ?>
-                        <p class="next-donation-date">Next eligible: <?php echo date('F j, Y', strtotime($next_donation_date)); ?></p>
+                        <p class="next-donation-date">Next eligible date: <?php echo date('F j, Y', strtotime($next_donation_date)); ?></p>
                     <?php endif; ?>
                 <?php endif; ?>
             </div>
@@ -749,13 +756,32 @@ if ($user && isset($user['email'])) {
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('../service-worker.js')
-                    .then(function(registration) {
-                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                    })
-                    .catch(function(error) {
-                        console.log('ServiceWorker registration failed: ', error);
-                    });
+                // Determine correct path based on current location
+                const getBasePath = function() {
+                    const pathname = window.location.pathname;
+                    const marker = '/mobile-app/';
+                    const idx = pathname.indexOf(marker);
+                    if (idx !== -1) {
+                        return pathname.substring(0, idx + marker.length);
+                    }
+                    return '/mobile-app/';
+                };
+                
+                const basePath = getBasePath();
+                const swPath = basePath + 'service-worker.js';
+                
+                navigator.serviceWorker.register(swPath, {
+                    scope: basePath
+                })
+                .then(function(registration) {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                })
+                .catch(function(error) {
+                    // Only log if it's not a 404 (file might not exist in some environments)
+                    if (error.message && !error.message.includes('404') && !error.message.includes('bad HTTP response code')) {
+                        console.warn('ServiceWorker registration warning: ', error.message);
+                    }
+                });
             });
         }
     </script>

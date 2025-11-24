@@ -1,11 +1,11 @@
 {
-    "name": "Mobile Web App",
-    "short_name": "Mobile App",
-    "description": "A Progressive Web App with PHP and Supabase",
-    "start_url": "/index.php",
+    "name": "Smart Blood Management",
+    "short_name": "Blood App",
+    "description": "Smart Blood Management System - Philippine Red Cross",
+    "start_url": "./index.php",
     "display": "standalone",
-    "background_color": "#ffffff",
-    "theme_color": "#4285f4",
+    "background_color": "#f9f4f4",
+    "theme_color": "#db2323",
     "icons": [
         {
             "src": "assets/icons/icon-192x192.png",
@@ -21,7 +21,7 @@
         }
     ],
     "orientation": "portrait",
-    "scope": "/",
+    "scope": "./",
     "lang": "en-US",
     "dir": "ltr",
     "prefer_related_applications": false,
@@ -31,7 +31,7 @@
             "name": "Login",
             "short_name": "Login",
             "description": "Login to your account",
-            "url": "/?login=true",
+            "url": "./templates/login.php",
             "icons": [
                 {
                     "src": "assets/icons/login.png",

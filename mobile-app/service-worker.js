@@ -3,8 +3,8 @@
  * Enables offline functionality and caching
  */
 
-// Cache version
-const CACHE_VERSION = 'v2';
+// Cache version - increment to force service worker update
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `app-cache-${CACHE_VERSION}`;
 
 // Resources to cache initially
@@ -68,6 +68,14 @@ self.addEventListener('fetch', (event) => {
 
     const url = new URL(event.request.url);
     const accept = event.request.headers.get('accept') || '';
+    
+    // Only cache http/https URLs, not chrome-extension://, file://, or other schemes
+    const isValidScheme = url.protocol === 'http:' || url.protocol === 'https:';
+    if (!isValidScheme) {
+        // For unsupported schemes (like chrome-extension://), just fetch without caching
+        event.respondWith(fetch(event.request));
+        return;
+    }
 
     // Identify API endpoints under app path; never cache API
     const isApi = (
@@ -98,9 +106,63 @@ self.addEventListener('fetch', (event) => {
             if (cached) return cached;
             return fetch(event.request).then((resp) => {
                 if (!resp || resp.status !== 200 || resp.type !== 'basic') return resp;
+                
+                // Multiple safety checks before caching
+                const requestUrl = event.request.url;
+                const responseUrl = resp.url;
+                
+                // Check request URL scheme
+                try {
+                    const reqUrlObj = new URL(requestUrl);
+                    if (reqUrlObj.protocol !== 'http:' && reqUrlObj.protocol !== 'https:') {
+                        return resp; // Don't cache unsupported schemes
+                    }
+                } catch (e) {
+                    // Invalid URL, don't cache
+                    return resp;
+                }
+                
+                // Check response URL scheme
+                try {
+                    const respUrlObj = new URL(responseUrl);
+                    if (respUrlObj.protocol !== 'http:' && respUrlObj.protocol !== 'https:') {
+                        return resp; // Don't cache unsupported schemes
+                    }
+                } catch (e) {
+                    // Invalid URL, don't cache
+                    return resp;
+                }
+                
+                // Additional check: verify the request URL doesn't contain unsupported schemes
+                if (requestUrl.startsWith('chrome-extension:') || 
+                    requestUrl.startsWith('chrome:') ||
+                    requestUrl.startsWith('file:') ||
+                    requestUrl.startsWith('moz-extension:') ||
+                    requestUrl.startsWith('safari-extension:')) {
+                    return resp; // Don't cache extension URLs
+                }
+                
                 const respClone = resp.clone();
-                caches.open(CACHE_NAME).then((cache) => cache.put(event.request, respClone));
+                caches.open(CACHE_NAME).then((cache) => {
+                    // Final check before attempting to cache
+                    const finalCheckUrl = new URL(event.request.url);
+                    if (finalCheckUrl.protocol === 'http:' || finalCheckUrl.protocol === 'https:') {
+                        cache.put(event.request, respClone).catch((error) => {
+                            // Silently fail if caching is not possible
+                            // This prevents console errors for unsupported schemes
+                            if (!error.message.includes('chrome-extension') && 
+                                !error.message.includes('unsupported')) {
+                                console.warn('Service Worker: Could not cache resource:', error.message);
+                            }
+                        });
+                    }
+                });
                 return resp;
+            }).catch((error) => {
+                // Handle fetch errors
+                return caches.match(event.request).catch(() => {
+                    throw error;
+                });
             });
         })
     );
@@ -209,6 +271,68 @@ self.addEventListener('push', (event) => {
                 let deliveredToOpenApp = false;
                 
                 for (const client of allClients) {
+                    // Send message to open app tabs
+                    client.postMessage({ 
+                        type: 'PUSH_IN_APP', 
+                        payload: data 
+                    });
+                    deliveredToOpenApp = true;
+                }
+                
+                // Still show system notification (even if app is open)
+                await self.registration.showNotification(data.title || 'Blood Donation App', options);
+                
+                console.log('[Service Worker] Notification delivered to', deliveredToOpenApp ? 'open app and system' : 'system only');
+            })()
+        );
+    } catch (error) {
+        console.error('[Service Worker] Error parsing push data:', error);
+    }
+});
+
+// Notification click event handler
+self.addEventListener('notificationclick', (event) => {
+    console.log('[Service Worker] Notification clicked');
+    event.notification.close();
+    
+    const urlToOpen = event.notification.data.url || '/mobile-app/';
+    
+    event.waitUntil(
+        clients.matchAll({ 
+            type: 'window',
+            includeUncontrolled: true
+        })
+        .then((clientList) => {
+            console.log('[Service Worker] Found', clientList.length, 'open windows');
+            
+            // Check if there's already a window open with this URL
+            for (const client of clientList) {
+                const clientUrl = new URL(client.url);
+                const targetUrl = new URL(urlToOpen, self.location.origin);
+                
+                if (clientUrl.pathname === targetUrl.pathname && 'focus' in client) {
+                    console.log('[Service Worker] Focusing existing window');
+                    return client.focus();
+                }
+            }
+            
+            // If no matching window, check if any app window is open and navigate it
+            if (clientList.length > 0 && 'navigate' in clientList[0]) {
+                console.log('[Service Worker] Navigating existing window to:', urlToOpen);
+                return clientList[0].navigate(urlToOpen).then(client => client.focus());
+            }
+            
+            // Otherwise, open a new window
+            if (clients.openWindow) {
+                console.log('[Service Worker] Opening new window:', urlToOpen);
+                return clients.openWindow(urlToOpen);
+            }
+        })
+        .catch((error) => {
+            console.error('[Service Worker] Error handling notification click:', error);
+        })
+    );
+}); 
                     // Send message to open app tabs
                     client.postMessage({ 
                         type: 'PUSH_IN_APP', 

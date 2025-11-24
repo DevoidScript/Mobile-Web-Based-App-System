@@ -737,13 +737,32 @@ if ($user && isset($user['id'])) {
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('../service-worker.js')
-                    .then(function(registration) {
-                        // ServiceWorker registered successfully
-                    })
-                    .catch(function(error) {
-                        console.error('ServiceWorker registration failed: ', error);
-                    });
+                // Determine correct path based on current location
+                const getBasePath = function() {
+                    const pathname = window.location.pathname;
+                    const marker = '/mobile-app/';
+                    const idx = pathname.indexOf(marker);
+                    if (idx !== -1) {
+                        return pathname.substring(0, idx + marker.length);
+                    }
+                    return '/mobile-app/';
+                };
+                
+                const basePath = getBasePath();
+                const swPath = basePath + 'service-worker.js';
+                
+                navigator.serviceWorker.register(swPath, {
+                    scope: basePath
+                })
+                .then(function(registration) {
+                    // ServiceWorker registered successfully
+                })
+                .catch(function(error) {
+                    // Only log if it's not a 404 (file might not exist in some environments)
+                    if (error.message && !error.message.includes('404') && !error.message.includes('bad HTTP response code')) {
+                        console.warn('ServiceWorker registration warning: ', error.message);
+                    }
+                });
             });
         }
         
