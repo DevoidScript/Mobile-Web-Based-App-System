@@ -39,6 +39,10 @@ $countdown_days = 0;
 $can_donate_now = false;
 $next_donation_date = null;
 $eligibility = null;
+$medical_history_record = null;
+$has_medical_history_record = false;
+$donation_processing = false;
+$latest_donation_status = null;
 
 // Get donor ID the same way blood_tracker.php, medical-history-modal.php, and profile.php do
 if ($user && isset($user['email'])) {
@@ -65,6 +69,7 @@ if ($user && isset($user['email'])) {
             
             // Get the latest donation (first in the array since we ordered by desc)
             $latest_donation = $donation_history[0];
+            $latest_donation_status = strtolower(trim($latest_donation['current_status'] ?? ''));
             
             // Compute unified eligibility with 7-day grace
             $eligibility = compute_donation_eligibility($donor_id);
@@ -100,6 +105,36 @@ if ($user && isset($user['email'])) {
     } else {
         error_log("Donation History - No donor record found for email: $email");
     }
+
+    // Fetch latest medical history record
+    $medical_history_result = get_records('medical_history', [
+        'donor_id' => 'eq.' . $donor_id,
+        'order' => 'updated_at.desc',
+        'limit' => 1
+    ]);
+
+    if ($medical_history_result['success'] && !empty($medical_history_result['data'])) {
+        $medical_history_record = $medical_history_result['data'][0];
+        $has_medical_history_record = true;
+    }
+}
+
+$active_processing_statuses = [
+    'registered',
+    'sample collected',
+    'sample_collected',
+    'testing',
+    'testing complete',
+    'processed',
+    'allocated',
+    'stored'
+];
+
+if ($has_medical_history_record && $latest_donation_status && in_array($latest_donation_status, $active_processing_statuses)) {
+    $donation_processing = true;
+} elseif ($has_medical_history_record && !$latest_donation_status) {
+    // Default to processing if a medical history exists but no donation record yet
+    $donation_processing = true;
 }
 ?>
 <!DOCTYPE html>
@@ -593,7 +628,11 @@ if ($user && isset($user['email'])) {
                 <div class="no-donations-icon">🩸</div>
                 <h2>No Donations Yet</h2>
                 <p>Start your blood donation journey today and save lives!</p>
-                <a href="blood_donation.php" class="start-donation-btn">Start Donating</a>
+                <?php if ($donation_processing): ?>
+                    <p style="color:#FF0000;font-weight:bold;margin-top:15px;">Your current donation is being processed. Please wait for it to finish before starting a new one.</p>
+                <?php else: ?>
+                    <a href="blood_donation.php" class="start-donation-btn">Start Donating</a>
+                <?php endif; ?>
             </div>
         <?php else: ?>
             <!-- Last Donation Card -->
@@ -634,7 +673,13 @@ if ($user && isset($user['email'])) {
             <!-- Next Donation Countdown Card -->
             <div class="countdown-card">
                 <h3>When You Can Donate Next</h3>
-                <?php if ($can_donate_now || ($countdown_months == 0 && $countdown_days == 0)): ?>
+                <?php if ($donation_processing): ?>
+                    <div class="can-donate-now">
+                        <div class="checkmark">⌛</div>
+                        <p style="color:#FF0000;">Your donation is currently being processed.</p>
+                        <p style="color:#666;font-size:14px;">Please wait until the ongoing donation is finished before donating again.</p>
+                    </div>
+                <?php elseif ($can_donate_now || ($countdown_months == 0 && $countdown_days == 0)): ?>
                     <div class="can-donate-now">
                         <div class="checkmark">✓</div>
                         <p>You can donate blood now!</p>
@@ -656,7 +701,7 @@ if ($user && isset($user['email'])) {
                         <?php endif; ?>
                     </div>
                     <?php if ($next_donation_date): ?>
-                        <p class="next-donation-date">Next eligible date: <?php echo date('F j, Y', strtotime($next_donation_date)); ?></p>
+                        <p class="next_donation-date">Next eligible date: <?php echo date('F j, Y', strtotime($next_donation_date)); ?></p>
                     <?php endif; ?>
                 <?php endif; ?>
             </div>

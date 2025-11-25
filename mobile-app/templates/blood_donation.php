@@ -95,6 +95,50 @@ if ($donor_id) {
     $eligibility = compute_donation_eligibility($donor_id);
 }
 
+// Track medical history + active donation status
+$medical_history_record = null;
+$has_medical_history_record = false;
+$latest_donation_status = null;
+$donation_processing = false;
+
+if ($donor_id) {
+    // Check if donor has submitted medical history
+    $medical_history_result = get_records('medical_history', [
+        'donor_id' => 'eq.' . $donor_id,
+        'order' => 'updated_at.desc',
+        'limit' => 1
+    ]);
+    if ($medical_history_result['success'] && !empty($medical_history_result['data'])) {
+        $medical_history_record = $medical_history_result['data'][0];
+        $has_medical_history_record = true;
+    }
+
+    // Inspect latest donation status
+    $latest_donation_result = get_records('donations', [
+        'donor_id' => 'eq.' . $donor_id,
+        'order' => 'created_at.desc',
+        'limit' => 1
+    ]);
+    if ($latest_donation_result['success'] && !empty($latest_donation_result['data'])) {
+        $latest_donation_status = strtolower(trim($latest_donation_result['data'][0]['current_status'] ?? ''));
+    }
+
+    $active_processing_statuses = [
+        'registered',
+        'sample collected',
+        'sample_collected',
+        'testing',
+        'testing complete',
+        'processed',
+        'allocated',
+        'stored'
+    ];
+
+    if ($has_medical_history_record && $latest_donation_status && in_array($latest_donation_status, $active_processing_statuses)) {
+        $donation_processing = true;
+    }
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -262,30 +306,22 @@ if ($donor_id) {
         
         <div class="message-box" style="border:1.5px solid #ccc; max-width:400px; margin:30px auto 0 auto; padding:32px 16px 20px 16px; border-radius:12px; background:#fff;">
             <img src="../assets/icons/redcrosslogo.jpg" alt="Red Cross Logo" class="coming-soon-img" style="display:block;margin:0 auto 18px auto;max-width:120px;">
-            <div style="font-size:1.2rem; font-weight:500; color:#444; text-align:center; margin-bottom:18px;">To donate blood, start by answering the medical history questionnaire.</div>
-            <div style="font-size:1rem; color:#666; text-align:center; font-style:italic; margin-bottom:18px;">Click the button below to fill out your Medical History Form.</div>
-            <?php 
-                $disabled = false; 
-                $tooltip = '';
-                if ($eligibility && $eligibility['latest_completed_donation']) {
-                    // Disable if still waiting until next eligible date
-                    $disabled = !$eligibility['can_donate_now'];
-                    if ($disabled && !empty($eligibility['next_donation_date'])) {
-                        $tooltip = 'Next eligible: ' . date('F j, Y', strtotime($eligibility['next_donation_date']));
-                    }
-                }
-            ?>
-            <a href="<?php echo $disabled ? '#' : 'forms/medical-history-modal.php'; ?>" 
-               class="btn btn-primary" 
-               <?php echo $disabled ? 'aria-disabled="true"' : ''; ?>
-               style="display:inline-block;margin-top:12px;padding:0;font-size:18px;font-weight:bold;border-radius:10px;overflow:hidden;"
-               onclick="<?php echo $disabled ? 'return false;' : 'return true;'; ?>">
-                <span style="background:#d50000;color:#fff;border:none;display:inline-block;padding:14px 28px;box-shadow:0 2px 8px rgba(213,0,0,0.08);transition:background 0.2s;cursor:pointer;text-decoration:none;">
-                    <?php echo $disabled ? 'Donation Not Yet Available' : 'Start Donation Process'; ?>
-                </span>
-            </a>
-            <?php if ($disabled && $tooltip): ?>
-                <div style="margin-top:8px;color:#666;font-size:0.9rem;"><?php echo htmlspecialchars($tooltip); ?></div>
+            <?php if ($donation_processing): ?>
+                <div style="font-size:1.2rem; font-weight:600; color:#444; text-align:center; margin-bottom:18px;">Your donation is being processed.</div>
+                <div style="font-size:1rem; color:#666; text-align:center; margin-bottom:18px;">Please wait until the current donation cycle is finished before starting a new one. We will notify you once you are eligible again.</div>
+                <?php if ($latest_donation_status): ?>
+                    <div style="font-size:0.95rem; color:#555; text-align:center; margin-bottom:15px;">Current status: <strong><?php echo ucfirst($latest_donation_status); ?></strong></div>
+                <?php endif; ?>
+                <div style="font-size:0.95rem; color:#666; text-align:center; margin-top:15px;">
+                    <a href="donation_history.php" style="color:#d50000; text-decoration:underline;">View your donation history</a>
+                </div>
+            <?php else: ?>
+                <div style="font-size:1.2rem; font-weight:500; color:#444; text-align:center; margin-bottom:18px;">Donation functionality is currently disabled on this page.</div>
+                <div style="font-size:1rem; color:#666; text-align:center; margin-bottom:18px;">Please use the <strong>Donation History</strong> page to start a new donation or check your eligibility.</div>
+                <a href="donation_history.php" 
+                   style="display:inline-block;margin-top:12px;padding:14px 28px;font-size:18px;font-weight:bold;border-radius:10px;background:#d50000;color:#fff;text-decoration:none;box-shadow:0 2px 8px rgba(213,0,0,0.08);transition:background 0.2s;cursor:pointer;">
+                    Go to Donation History
+                </a>
             <?php endif; ?>
         </div>
     </div>
