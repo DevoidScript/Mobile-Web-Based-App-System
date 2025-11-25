@@ -100,6 +100,7 @@ $medical_history_record = null;
 $has_medical_history_record = false;
 $latest_donation_status = null;
 $donation_processing = false;
+$can_start_new_medical_history = true;
 
 if ($donor_id) {
     // Check if donor has submitted medical history
@@ -134,9 +135,17 @@ if ($donor_id) {
         'stored'
     ];
 
-    if ($has_medical_history_record && $latest_donation_status && in_array($latest_donation_status, $active_processing_statuses)) {
-        $donation_processing = true;
-    }
+if ($has_medical_history_record && $latest_donation_status && in_array($latest_donation_status, $active_processing_statuses)) {
+    $donation_processing = true;
+}
+
+// Determine if we should allow redirect to medical history form
+$can_start_new_medical_history = (!$has_medical_history_record) || ($has_medical_history_record && $eligibility && $eligibility['can_donate_now']);
+
+// If donor has submitted history but is not yet eligible, block starting a new one
+if ($has_medical_history_record && (!$eligibility || !$eligibility['can_donate_now'])) {
+    $can_start_new_medical_history = false;
+}
 }
 
 ?>
@@ -315,12 +324,22 @@ if ($donor_id) {
                 <div style="font-size:0.95rem; color:#666; text-align:center; margin-top:15px;">
                     <a href="donation_history.php" style="color:#d50000; text-decoration:underline;">View your donation history</a>
                 </div>
-            <?php else: ?>
+            <?php elseif ($can_start_new_medical_history): ?>
                 <div style="font-size:1.2rem; font-weight:500; color:#444; text-align:center; margin-bottom:18px;">Donation functionality is currently disabled on this page.</div>
-                <div style="font-size:1rem; color:#666; text-align:center; margin-bottom:18px;">Please use the <strong>Donation History</strong> page to start a new donation or check your eligibility.</div>
+                <div style="font-size:1rem; color:#666; text-align:center; margin-bottom:18px;">To donate blood, start by answering the Medical History questionnaire.</div>
+                <a href="forms/medical-history-modal.php" 
+                   style="display:inline-block;margin-top:12px;padding:14px 28px;font-size:18px;font-weight:bold;border-radius:10px;background:#d50000;color:#fff;text-decoration:none;box-shadow:0 2px 8px rgba(213,0,0,0.08);transition:background 0.2s;cursor:pointer;">
+                    Start Medical History
+                </a>
+            <?php else: ?>
+                <div style="font-size:1.2rem; font-weight:600; color:#444; text-align:center; margin-bottom:18px;">You've already submitted your medical history.</div>
+                <div style="font-size:1rem; color:#666; text-align:center; margin-bottom:18px;">Please wait until you're eligible for your next donation. We'll let you know when it's time.</div>
+                <?php if ($eligibility && !empty($eligibility['next_donation_date'])): ?>
+                    <div style="font-size:0.95rem; color:#555; text-align:center; margin-bottom:10px;">Next eligible date: <strong><?php echo date('F j, Y', strtotime($eligibility['next_donation_date'])); ?></strong></div>
+                <?php endif; ?>
                 <a href="donation_history.php" 
                    style="display:inline-block;margin-top:12px;padding:14px 28px;font-size:18px;font-weight:bold;border-radius:10px;background:#d50000;color:#fff;text-decoration:none;box-shadow:0 2px 8px rgba(213,0,0,0.08);transition:background 0.2s;cursor:pointer;">
-                    Go to Donation History
+                    View Donation Progress
                 </a>
             <?php endif; ?>
         </div>
