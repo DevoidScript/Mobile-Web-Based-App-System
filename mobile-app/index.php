@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#db2323">
     <title>Smart Blood Management - Welcome</title>
+    <!-- Resource hints for faster loading on slow connections -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="preconnect" href="//fonts.gstatic.com" crossorigin>
+    <!-- Preload critical resources for LCP -->
+    <link rel="preload" href="assets/icons/redcrosslogo.jpg" as="image" fetchpriority="high">
+    <link rel="preload" href="assets/icons/icon-192x192.png" as="image">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icons/icon-192x192.png">
     <style>
@@ -134,7 +140,7 @@
         <div class="welcome">Welcome!</div>
         <a href="templates/login.php" style="width:100%;text-decoration:none;"><button class="btn btn-login">Login</button></a>
         <a href="templates/register.php" style="width:100%;text-decoration:none;"><button class="btn btn-register">Register</button></a>
-        <img src="assets/icons/redcrosslogo.jpg" alt="Red Cross Logo" class="logo">
+        <img src="assets/icons/redcrosslogo.jpg" alt="Red Cross Logo" class="logo" fetchpriority="high" width="70" height="70" loading="eager">
         <div class="footer">Blood Services Information System</div>
     </div>
 </body>

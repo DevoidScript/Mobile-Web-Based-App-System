@@ -150,7 +150,7 @@
     <span id="pushStatusMessage"></span>
 </div>
 
-<script src="../assets/js/push-notifications.js"></script>
+<script src="../assets/js/push-notifications.js" defer></script>
 <script>
 // Push notification initialization
 // fetchVapidKey function is now defined in push-notifications.js

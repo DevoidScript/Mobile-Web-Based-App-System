@@ -11,6 +11,11 @@
     <meta name="description" content="Smart Blood Management System">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- Resource hints for faster loading on slow connections -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="preconnect" href="//fonts.gstatic.com" crossorigin>
+    <!-- Preload critical resources -->
+    <link rel="preload" href="../assets/icons/redcrosslogo.jpg" as="image">
     <style>
         :root {
             --primary-color: #db2323;
@@ -334,7 +339,7 @@
             <a href="#" class="forgot-password">Forgot Password?</a>
             
             <div class="footer-logo">
-                <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo">
+                <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" width="70" height="70" loading="lazy">
                 <div class="system-name">Blood Services Information System</div>
             </div>
         </div>

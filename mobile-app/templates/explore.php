@@ -58,6 +58,13 @@ $donor_details = $_SESSION['donor_details'] ?? null;
     <meta name="description" content="Red Cross Mobile Application - Explore">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <!-- Resource hints for faster loading on slow connections -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="preconnect" href="//fonts.gstatic.com" crossorigin>
+    <!-- Preload critical resources -->
+    <link rel="preload" href="../assets/icons/redcrosslogo.jpg" as="image">
+    <link rel="preload" href="../assets/css/styles.css" as="style">
+    <link rel="preload" href="../assets/js/app.js" as="script">
     <style>
         /* 
          * Mobile-optimized styles for the Red Cross Explore page
@@ -321,7 +328,7 @@ $donor_details = $_SESSION['donor_details'] ?? null;
 </head>
 <body>
     <div class="header">
-        <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="logo-small">
+        <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="logo-small" width="40" height="40" loading="eager" fetchpriority="high">
         <h1>Discover</h1>
     </div>
     
@@ -334,7 +341,7 @@ $donor_details = $_SESSION['donor_details'] ?? null;
 
         <div class="cards-container" id="cardsContainer">
             <div class="blood-center-card active" data-index="0">
-                <img src="../assets/images/donate.png" alt="Blood Donation Drive" class="center-image">
+                <img src="../assets/images/donate.png" alt="Blood Donation Drive" class="center-image" width="600" height="180" loading="lazy" fetchpriority="high">
                 <div class="center-info">
                     <h3>Philippine Red Cross Iloilo Chapter</h3>
                     <p>Bonifacio Dr, Iloilo City Proper, Iloilo City, Iloilo</p>
@@ -342,7 +349,7 @@ $donor_details = $_SESSION['donor_details'] ?? null;
             </div>
             <div class="blood-center-card" data-index="1">
                 <a href="https://redcross.org.ph" target="_blank" rel="noopener noreferrer">
-                    <img src="../assets/images/prc-site.jpg" alt="Philippine Red Cross Website" class="center-image">
+                    <img src="../assets/images/prc-site.jpg" alt="Philippine Red Cross Website" class="center-image" width="600" height="180" loading="lazy">
                     <div class="center-info">
                         <h3>Philippine Red Cross Official Website</h3>
                         <p>Visit our official website for more information and services</p>
@@ -383,8 +390,8 @@ $donor_details = $_SESSION['donor_details'] ?? null;
         </a>
     </div>
     
-    <!-- Scripts -->
-    <script src="../assets/js/app.js"></script>
+    <!-- Scripts - Defer for non-blocking loading -->
+    <script src="../assets/js/app.js" defer></script>
     <!-- Register Service Worker for PWA -->
     <script>
         if ('serviceWorker' in navigator) {

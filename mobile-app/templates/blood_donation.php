@@ -156,6 +156,12 @@ if ($has_medical_history_record && (!$eligibility || !$eligibility['can_donate_n
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#FF0000">
     <title>Red Cross - Blood Donation</title>
+    <!-- Resource hints for faster loading on slow connections -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="preconnect" href="//fonts.gstatic.com" crossorigin>
+    <!-- Preload critical resources -->
+    <link rel="preload" href="../assets/css/styles.css" as="style">
+    <link rel="preload" href="../assets/js/app.js" as="script">
     <link rel="stylesheet" href="../assets/css/styles.css">
     <link rel="manifest" href="../manifest.json">
     <link rel="apple-touch-icon" href="../assets/icons/icon-192x192.png">
@@ -283,7 +289,7 @@ if ($has_medical_history_record && (!$eligibility || !$eligibility['can_donate_n
 </head>
 <body>
     <div class="header">
-        <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="logo-small">
+        <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="logo-small" width="40" height="40" loading="eager" fetchpriority="high">
         <h1>Blood Donation</h1>
     </div>
     
@@ -314,7 +320,7 @@ if ($has_medical_history_record && (!$eligibility || !$eligibility['can_donate_n
         <?php endif; ?>
         
         <div class="message-box" style="border:1.5px solid #ccc; max-width:400px; margin:30px auto 0 auto; padding:32px 16px 20px 16px; border-radius:12px; background:#fff;">
-            <img src="../assets/icons/redcrosslogo.jpg" alt="Red Cross Logo" class="coming-soon-img" style="display:block;margin:0 auto 18px auto;max-width:120px;">
+            <img src="../assets/icons/redcrosslogo.jpg" alt="Red Cross Logo" class="coming-soon-img" style="display:block;margin:0 auto 18px auto;max-width:120px;" width="120" height="120" loading="lazy">
             <?php if ($donation_processing): ?>
                 <div style="font-size:1.2rem; font-weight:600; color:#444; text-align:center; margin-bottom:18px;">Your donation is being processed.</div>
                 <div style="font-size:1rem; color:#666; text-align:center; margin-bottom:18px;">Please wait until the current donation cycle is finished before starting a new one. We will notify you once you are eligible again.</div>
@@ -362,7 +368,7 @@ if ($has_medical_history_record && (!$eligibility || !$eligibility['can_donate_n
     </div>
     
     <!-- Scripts -->
-    <script src="../assets/js/app.js"></script>
+    <script src="../assets/js/app.js" defer></script>
     <!-- Register Service Worker for PWA -->
     <script>
         if ('serviceWorker' in navigator) {

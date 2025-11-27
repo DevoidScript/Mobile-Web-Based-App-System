@@ -75,6 +75,12 @@ if ($user && isset($user['id'])) {
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Red Cross Dashboard</title>
+    <!-- Resource hints for faster loading on slow connections -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="preconnect" href="//fonts.gstatic.com" crossorigin>
+    <!-- Preload critical resources -->
+    <link rel="preload" href="../assets/css/styles.css" as="style">
+    <link rel="preload" href="../assets/js/app.js" as="script">
     <link rel="stylesheet" href="../assets/css/styles.css">
     <link rel="manifest" href="../manifest.json">
     <link rel="apple-touch-icon" href="../assets/icons/icon-192x192.png">
@@ -553,7 +559,7 @@ if ($user && isset($user['id'])) {
     </div>
     <div class="dashboard-container">
         <div style="text-align:center; margin-bottom: 20px;">
-            <img src="../assets/images/donate.png" alt="Donate Blood Illustration" style="max-width:160px;width:70%;height:auto;">
+            <img src="../assets/images/donate.png" alt="Donate Blood Illustration" style="max-width:160px;width:70%;height:auto;" width="160" height="160" loading="eager" fetchpriority="high">
             <h2 style="color:#b80000;font-size:2rem;font-weight:800;margin:16px 0 0 0;line-height:1.1;">DONATE BLOOD<br>SAVE LIVES</h2>
         </div>
         <div class="card">
@@ -642,7 +648,7 @@ if ($user && isset($user['id'])) {
     
     <div class="dashboard-container">
         <div class="countdown-section">
-            <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="red-cross-logo-large">
+            <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="red-cross-logo-large" width="200" height="200" loading="lazy">
             <h3>You can donate again in</h3>
             <div class="countdown-timer">
                 <div class="timer-box">
@@ -730,9 +736,9 @@ if ($user && isset($user['id'])) {
         </div>
     </div>
     
-    <!-- Scripts -->
-    <script src="../assets/js/app.js"></script>
-    <script src="../assets/js/push-notifications.js"></script>
+    <!-- Scripts - Defer for non-blocking loading -->
+    <script src="../assets/js/app.js" defer></script>
+    <script src="../assets/js/push-notifications.js" defer></script>
     <!-- Register Service Worker for PWA -->
     <script>
         if ('serviceWorker' in navigator) {

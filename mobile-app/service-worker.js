@@ -4,10 +4,10 @@
  */
 
 // Cache version - increment to force service worker update
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `app-cache-${CACHE_VERSION}`;
 
-// Resources to cache initially
+// Resources to cache initially - optimized for LCP and fast navigation
 const INITIAL_CACHED_RESOURCES = [
     '/mobile-app/',
     '/mobile-app/index.php',
@@ -15,6 +15,8 @@ const INITIAL_CACHED_RESOURCES = [
     '/mobile-app/assets/js/app.js',
     '/mobile-app/assets/icons/icon-192x192.png',
     '/mobile-app/assets/icons/icon-512x512.png',
+    '/mobile-app/assets/icons/redcrosslogo.jpg', // LCP image
+    '/mobile-app/assets/images/donate.png', // Common image
     '/mobile-app/manifest.json',
     '/mobile-app/templates/404.php'
 ];
@@ -100,10 +102,29 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Static assets: Cache, falling back to network
+    // Static assets: Cache-first with network fallback (optimized for slow connections)
+    // For images, CSS, and JS - serve from cache immediately, update in background
     event.respondWith(
         caches.match(event.request).then((cached) => {
-            if (cached) return cached;
+            // If cached, return immediately and update in background (stale-while-revalidate)
+            if (cached) {
+                // Update cache in background for next visit
+                fetch(event.request).then((resp) => {
+                    if (resp && resp.status === 200 && resp.type === 'basic') {
+                        const respClone = resp.clone();
+                        caches.open(CACHE_NAME).then((cache) => {
+                            try {
+                                const finalCheckUrl = new URL(event.request.url);
+                                if (finalCheckUrl.protocol === 'http:' || finalCheckUrl.protocol === 'https:') {
+                                    cache.put(event.request, respClone).catch(() => {});
+                                }
+                            } catch (e) {}
+                        });
+                    }
+                }).catch(() => {}); // Silently fail background update
+                return cached;
+            }
+            // Not cached - fetch from network
             return fetch(event.request).then((resp) => {
                 if (!resp || resp.status !== 200 || resp.type !== 'basic') return resp;
                 

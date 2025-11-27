@@ -144,6 +144,12 @@ if ($has_medical_history_record && $latest_donation_status && in_array($latest_d
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#FF0000">
     <title>Red Cross - Donation History</title>
+    <!-- Resource hints for faster loading on slow connections -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="preconnect" href="//fonts.gstatic.com" crossorigin>
+    <!-- Preload critical resources -->
+    <link rel="preload" href="../assets/css/styles.css" as="style">
+    <link rel="preload" href="../assets/js/app.js" as="script">
     <link rel="stylesheet" href="../assets/css/styles.css">
     <link rel="manifest" href="../manifest.json">
     <link rel="apple-touch-icon" href="../assets/icons/icon-192x192.png">
@@ -617,7 +623,7 @@ if ($has_medical_history_record && $latest_donation_status && in_array($latest_d
 </head>
 <body>
     <div class="header">
-        <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="logo-small">
+        <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="logo-small" width="40" height="40" loading="eager" fetchpriority="high">
         <h1>Donation History</h1>
     </div>
     
@@ -796,7 +802,7 @@ if ($has_medical_history_record && $latest_donation_status && in_array($latest_d
     </div>
     
     <!-- Scripts -->
-    <script src="../assets/js/app.js"></script>
+    <script src="../assets/js/app.js" defer></script>
     <!-- Register Service Worker for PWA -->
     <script>
         if ('serviceWorker' in navigator) {

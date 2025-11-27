@@ -118,6 +118,12 @@ if ($user && isset($user['email'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#FF0000">
     <title>Red Cross - Profile</title>
+    <!-- Resource hints for faster loading on slow connections -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="preconnect" href="//fonts.gstatic.com" crossorigin>
+    <!-- Preload critical resources -->
+    <link rel="preload" href="../assets/css/styles.css" as="style">
+    <link rel="preload" href="../assets/js/app.js" as="script">
     <link rel="stylesheet" href="../assets/css/styles.css">
     <link rel="manifest" href="../manifest.json">
     <link rel="apple-touch-icon" href="../assets/icons/icon-192x192.png">
@@ -600,8 +606,8 @@ if ($user && isset($user['email'])) {
     <?php include 'push-notification-prompt.php'; ?>
     
     <!-- Scripts -->
-    <script src="../assets/js/app.js"></script>
-    <script src="../assets/js/push-notifications.js"></script>
+    <script src="../assets/js/app.js" defer></script>
+    <script src="../assets/js/push-notifications.js" defer></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const logoutLink = document.getElementById('logout-link');
