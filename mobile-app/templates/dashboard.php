@@ -148,6 +148,62 @@ if ($user && isset($user['id'])) {
             text-decoration: none;
             color: white;
         }
+        .notification-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.45);
+            z-index: 2000;
+            padding: 20px;
+        }
+        .notification-modal.show {
+            display: flex;
+            animation: fadeIn 0.25s ease;
+        }
+        .notification-modal-card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(148,16,34,0.2);
+            max-width: 420px;
+            width: 100%;
+            overflow: hidden;
+        }
+        .notification-modal-header {
+            background: #b80000;
+            color: #fff;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .notification-modal-body {
+            padding: 20px;
+            color: #333;
+        }
+        .notification-modal-body p {
+            margin: 0 0 12px 0;
+            line-height: 1.5;
+        }
+        .notification-modal-footer {
+            padding: 16px 20px 20px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .notification-modal-btn-primary {
+            border: none;
+            border-radius: 8px;
+            padding: 12px 22px;
+            font-weight: 600;
+            cursor: pointer;
+            background: #dc3545;
+            color: #fff;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
         
         .dashboard-container {
             padding: 15px;
@@ -735,6 +791,21 @@ if ($user && isset($user['id'])) {
             </div>
         </div>
     </div>
+
+    <div id="notificationDetailModal" class="notification-modal" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="notification-modal-card">
+            <div class="notification-modal-header">
+                <h4 id="notificationModalTitle" style="margin:0;font-size:1.1rem;">Notification</h4>
+            </div>
+            <div class="notification-modal-body">
+                <p id="notificationModalBody">...</p>
+                <small id="notificationModalTime" style="color:#777;"></small>
+            </div>
+            <div class="notification-modal-footer">
+                <button id="notificationModalConfirm" class="notification-modal-btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
     
     <!-- Scripts - Defer for non-blocking loading -->
     <script src="../assets/js/app.js" defer></script>
@@ -800,6 +871,10 @@ if ($user && isset($user['id'])) {
         // Notification panel functionality
         let notificationPanelOpen = false;
         let notifications = [];
+        let notificationModalData = null;
+        let notificationPromptQueue = [];
+        let notificationPromptTimer = null;
+        let notificationPromptCycleActive = false;
 
         // Toggle notification panel
         function toggleNotificationPanel(event) {
@@ -818,6 +893,7 @@ if ($user && isset($user['id'])) {
             const panel = document.getElementById('notificationPanel');
             panel.classList.add('show');
             notificationPanelOpen = true;
+            stopNotificationPromptCycle();
             
             // Load notifications
             loadNotifications();
@@ -868,6 +944,8 @@ if ($user && isset($user['id'])) {
             }
             
             renderNotifications();
+            updateNotificationBadge();
+            maybeShowLatestPrompt();
         }
 
         // Render notifications in the panel
@@ -887,7 +965,7 @@ if ($user && isset($user['id'])) {
             const html = notifications.map(notification => `
                 <div class="notification-item" onclick="handleNotificationClick('${notification.id}')">
                     <div class="notification-item-title">${notification.title}</div>
-                    <div class="notification-item-body">${notification.body}</div>
+                    <div class="notification-item-body">${notification.body || ''}</div>
                     <div class="notification-item-time">${formatTime(notification.timestamp)}</div>
                 </div>
             `).join('');
@@ -898,33 +976,9 @@ if ($user && isset($user['id'])) {
         // Handle notification click
         function handleNotificationClick(notificationId) {
             const notification = notifications.find(n => n.id === notificationId);
-            if (notification && notification.url) {
-                // Convert absolute URL to relative URL to maintain session context
-                let targetUrl = notification.url;
-                
-                // If it's an absolute path starting with /Mobile-Web-Based-App-System/, make it relative
-                if (targetUrl.startsWith('/Mobile-Web-Based-App-System/mobile-app/')) {
-                    targetUrl = targetUrl.replace('/Mobile-Web-Based-App-System/mobile-app/', '../');
-                }
-                // If it's an absolute path starting with /mobile-app/, make it relative
-                else if (targetUrl.startsWith('/mobile-app/')) {
-                    targetUrl = targetUrl.replace('/mobile-app/', '../');
-                }
-                // If it's already relative, use as is
-                else if (!targetUrl.startsWith('http') && !targetUrl.startsWith('/')) {
-                    // Already relative, use as is
-                }
-                // If it's an absolute path starting with /, make it relative to current directory
-                else if (targetUrl.startsWith('/')) {
-                    targetUrl = '..' + targetUrl;
-                }
-                
-                // Navigating to target URL
-                
-                // Use relative navigation to maintain session context
-                window.location.href = targetUrl;
+            if (notification) {
+                showNotificationModal(notification);
             }
-            
             // Mark as read
             markNotificationAsRead(notificationId);
         }
@@ -938,6 +992,7 @@ if ($user && isset($user['id'])) {
             // For now, just update the display
             renderNotifications();
             updateNotificationBadge();
+            localStorage.setItem('appNotifications', JSON.stringify(notifications));
             
             // Notification marked as read
         }
@@ -956,6 +1011,8 @@ if ($user && isset($user['id'])) {
             if (notificationPanelOpen) {
                 renderNotifications();
             }
+
+            maybeShowLatestPrompt();
             
             // New notification added
         }
@@ -973,6 +1030,55 @@ if ($user && isset($user['id'])) {
             }
         }
 
+        function normalizeNotificationUrl(targetUrl) {
+            if (!targetUrl) return null;
+            let url = targetUrl;
+            if (url.startsWith('/Mobile-Web-Based-App-System/mobile-app/')) {
+                url = url.replace('/Mobile-Web-Based-App-System/mobile-app/', '../');
+            } else if (url.startsWith('/mobile-app/')) {
+                url = url.replace('/mobile-app/', '../');
+            } else if (url.startsWith('/')) {
+                url = '..' + url;
+            }
+            return url;
+        }
+
+        function showNotificationModal(notification) {
+            stopNotificationPromptCycle();
+            notificationModalData = notification;
+            const modal = document.getElementById('notificationDetailModal');
+            document.getElementById('notificationModalTitle').textContent = notification.title || 'Notification';
+            document.getElementById('notificationModalBody').textContent = notification.message_template || notification.body || '';
+            document.getElementById('notificationModalTime').textContent = buildNotificationMeta(notification) || formatTime(notification.timestamp);
+            const confirmBtn = document.getElementById('notificationModalConfirm');
+            confirmBtn.onclick = () => {
+                closeNotificationModal();
+            };
+            modal.classList.add('show');
+            modal.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeNotificationModal() {
+            const modal = document.getElementById('notificationDetailModal');
+            modal.classList.remove('show');
+            modal.setAttribute('aria-hidden', 'true');
+            notificationModalData = null;
+        }
+
+        document.getElementById('notificationDetailModal').addEventListener('click', function(e) {
+            if (e.target === e.currentTarget) {
+                closeNotificationModal();
+            }
+        });
+
+        window.showNotificationModal = showNotificationModal;
+        window.stopNotificationPromptCycle = stopNotificationPromptCycle;
+
+        function maybeShowLatestPrompt() {
+            if (typeof window.showLatestNotificationPrompt !== 'function') return;
+            queueNotificationPromptCycle();
+        }
+
         // Format timestamp
         function formatTime(timestamp) {
             const date = new Date(timestamp);
@@ -988,6 +1094,73 @@ if ($user && isset($user['id'])) {
             } else {
                 return date.toLocaleDateString();
             }
+        }
+
+        function buildNotificationMeta(notification) {
+            const parts = [];
+            if (notification.location) {
+                parts.push(notification.location);
+            }
+            if (notification.drive_date) {
+                parts.push(formatDriveSchedule(notification.drive_date, notification.drive_time));
+            }
+            if (!parts.length) {
+                parts.push(formatTime(notification.timestamp));
+            }
+            return parts.join(' • ');
+        }
+
+        function queueNotificationPromptCycle() {
+            const lastPromptedId = localStorage.getItem('lastPromptedNotificationId');
+            const fresh = [];
+            for (const notification of notifications) {
+                if (!notification || !notification.id) continue;
+                if (notification.id === lastPromptedId) break;
+                fresh.push(notification);
+            }
+            if (!fresh.length && !lastPromptedId && notifications.length) {
+                fresh.push(notifications[0]);
+            }
+            if (!fresh.length) return;
+            notificationPromptQueue = notificationPromptQueue.concat(fresh);
+            if (!notificationPromptCycleActive) {
+                startNotificationPromptCycle();
+            }
+        }
+
+        function startNotificationPromptCycle() {
+            if (!notificationPromptQueue.length) {
+                notificationPromptCycleActive = false;
+                dismissPushPrompt();
+                return;
+            }
+            notificationPromptCycleActive = true;
+            const next = notificationPromptQueue.shift();
+            localStorage.setItem('lastPromptedNotificationId', next.id);
+            window.showLatestNotificationPrompt(next);
+            clearTimeout(notificationPromptTimer);
+            notificationPromptTimer = setTimeout(() => {
+                dismissPushPrompt();
+                notificationPromptTimer = setTimeout(() => {
+                    startNotificationPromptCycle();
+                }, 350);
+            }, 3000);
+        }
+
+        function stopNotificationPromptCycle() {
+            notificationPromptQueue = [];
+            if (notificationPromptTimer) {
+                clearTimeout(notificationPromptTimer);
+                notificationPromptTimer = null;
+            }
+            notificationPromptCycleActive = false;
+        }
+
+        function formatDriveSchedule(dateString, timeString) {
+            const date = new Date(dateString + 'T' + (timeString || '00:00:00'));
+            const formattedDate = date.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+            const formattedTime = timeString ? date.toLocaleTimeString(undefined, { hour: 'numeric', minute: 'numeric' }) : '';
+            return formattedTime ? `${formattedDate} at ${formattedTime}` : formattedDate;
         }
 
         // Listen for push notifications when app is open

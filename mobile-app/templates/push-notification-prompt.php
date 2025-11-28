@@ -4,26 +4,28 @@
 <style>
 .push-prompt {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
-    max-width: 350px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    padding: 20px;
-    z-index: 1000;
+    top: 110px;
+    right: 32px;
+    width: 360px;
+    max-width: 90vw;
+    z-index: 1100;
+    background: #ffffff;
+    border-radius: 14px;
+    border-left: 6px solid #dc3545;
+    box-shadow: 0 12px 30px rgba(148,16,34,0.15), 0 2px 10px rgba(0,0,0,0.08);
+    padding: 22px 24px 20px 22px;
     display: none;
-    animation: slideUp 0.3s ease-out;
+    animation: slideInRight 0.35s ease forwards;
 }
 
-@keyframes slideUp {
+@keyframes slideInRight {
     from {
-        transform: translateY(100px);
         opacity: 0;
+        transform: translateX(60px);
     }
     to {
-        transform: translateY(0);
         opacity: 1;
+        transform: translateX(0);
     }
 }
 
@@ -34,95 +36,147 @@
 .push-prompt-header {
     display: flex;
     align-items: center;
-    margin-bottom: 12px;
+    gap: 12px;
+    margin-bottom: 10px;
 }
 
 .push-prompt-icon {
-    width: 40px;
-    height: 40px;
-    margin-right: 12px;
-    font-size: 24px;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: rgba(220,53,69,0.1);
+    color: #dc3545;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    box-shadow: 0 2px 6px rgba(220,53,69,0.2);
 }
 
 .push-prompt-title {
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 1.05rem;
+    font-weight: 700;
     margin: 0;
-    color: #333;
+    color: #941022;
 }
 
 .push-prompt-body {
-    font-size: 14px;
-    color: #666;
-    margin-bottom: 16px;
+    font-size: 0.95rem;
+    color: #4a4a4a;
     line-height: 1.5;
+    margin-bottom: 18px;
 }
 
 .push-prompt-actions {
     display: flex;
-    gap: 10px;
+    gap: 12px;
 }
 
 .push-prompt-btn {
     flex: 1;
-    padding: 10px;
     border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.push-prompt-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(220,53,69,0.25);
 }
 
 .push-prompt-btn-primary {
-    background: #dc3545;
-    color: white;
+    background: linear-gradient(135deg, #dc3545, #b31828);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(220,53,69,0.35);
 }
 
 .push-prompt-btn-primary:hover {
-    background: #c82333;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(220,53,69,0.35);
 }
 
 .push-prompt-btn-secondary {
-    background: #f1f1f1;
-    color: #666;
+    background: #fdf2f4;
+    color: #b31828;
+    border: 1px solid rgba(220,53,69,0.2);
 }
 
 .push-prompt-btn-secondary:hover {
-    background: #e1e1e1;
+    background: #ffeaea;
 }
 
 .push-status-indicator {
     position: fixed;
-    top: 70px;
-    right: 20px;
-    padding: 12px 20px;
+    top: 60px;
+    right: 32px;
+    padding: 12px 18px;
     background: #28a745;
-    color: white;
-    border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.18);
     display: none;
-    z-index: 1001;
-    animation: slideDown 0.3s ease-out;
+    z-index: 1110;
+    animation: slideDown 0.25s ease-out;
 }
 
 @keyframes slideDown {
     from {
-        transform: translateY(-50px);
         opacity: 0;
+        transform: translateY(-40px);
     }
     to {
-        transform: translateY(0);
         opacity: 1;
+        transform: translateY(0);
     }
 }
 
 .push-status-indicator.show {
-    display: block;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
 }
 
 .push-status-indicator.error {
     background: #dc3545;
+}
+
+#notificationBell.push-bell-attention {
+    position: relative;
+    animation: pushBellPulse 1.4s infinite;
+    color: #ffe9a6 !important;
+}
+
+#notificationBell.push-bell-attention::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    right: -6px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #dc3545;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.8);
+}
+
+#notificationBell.push-bell-active {
+    text-shadow: 0 0 12px rgba(220,53,69,0.7);
+}
+
+@keyframes pushBellPulse {
+    0% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-2px);
+    }
+    100% {
+        transform: translateY(0);
+    }
 }
 </style>
 
@@ -130,16 +184,16 @@
 <div id="pushNotificationPrompt" class="push-prompt">
     <div class="push-prompt-header">
         <div class="push-prompt-icon">🔔</div>
-        <h3 class="push-prompt-title">Stay Updated</h3>
+        <h3 id="pushPromptTitle" class="push-prompt-title">Stay Updated</h3>
     </div>
-    <div class="push-prompt-body">
+    <div id="pushPromptBody" class="push-prompt-body">
         Get notified about blood drives, donation reminders, and important updates.
     </div>
     <div class="push-prompt-actions">
         <button class="push-prompt-btn push-prompt-btn-secondary" onclick="dismissPushPrompt()">
             Not Now
         </button>
-        <button class="push-prompt-btn push-prompt-btn-primary" onclick="enablePushNotifications()">
+        <button id="pushPromptPrimaryBtn" class="push-prompt-btn push-prompt-btn-primary" onclick="handlePushPromptPrimaryAction()">
             Enable
         </button>
     </div>
@@ -155,12 +209,68 @@
 // Push notification initialization
 // fetchVapidKey function is now defined in push-notifications.js
 
+let latestPromptData = null;
+let pushPromptMode = 'push'; // 'push' | 'notification'
+
+function updatePushPromptContent({ title, body, cta }) {
+    const titleEl = document.getElementById('pushPromptTitle');
+    const bodyEl = document.getElementById('pushPromptBody');
+    const primaryBtn = document.getElementById('pushPromptPrimaryBtn');
+    if (titleEl) titleEl.textContent = title || 'Stay Updated';
+    if (bodyEl) bodyEl.textContent = body || 'Get notified about blood drives, donation reminders, and important updates.';
+    if (primaryBtn) primaryBtn.textContent = cta || 'Enable';
+}
+
+function resetPushPromptContent() {
+    updatePushPromptContent({
+        title: 'Stay Updated',
+        body: 'Get notified about blood drives, donation reminders, and important updates.',
+        cta: 'Enable'
+    });
+    latestPromptData = null;
+    pushPromptMode = 'push';
+}
+
+function getNotificationBellElements() {
+    return {
+        bell: document.getElementById('notificationBell'),
+        badge: document.getElementById('notificationBadge')
+    };
+}
+
+function activateBellPromptState() {
+    const { bell } = getNotificationBellElements();
+    if (bell) {
+        bell.classList.add('push-bell-active');
+        bell.classList.remove('push-bell-attention');
+    }
+}
+
+function markBellAttention() {
+    const { bell } = getNotificationBellElements();
+    if (bell) {
+        bell.classList.add('push-bell-attention');
+    }
+}
+
+function clearBellPromptState() {
+    const { bell } = getNotificationBellElements();
+    if (bell) {
+        bell.classList.remove('push-bell-active');
+        bell.classList.remove('push-bell-attention');
+    }
+    if (pushPromptMode === 'notification') {
+        resetPushPromptContent();
+    }
+}
+
 // Show push notification prompt
 function showPushPrompt() {
     const prompt = document.getElementById('pushNotificationPrompt');
     if (prompt) {
         prompt.classList.add('show');
     }
+    activateBellPromptState();
 }
 
 // Dismiss push notification prompt
@@ -169,8 +279,23 @@ function dismissPushPrompt() {
     if (prompt) {
         prompt.classList.remove('show');
     }
+    clearBellPromptState();
     // Save dismissal to localStorage
     localStorage.setItem('pushPromptDismissed', Date.now());
+}
+
+async function handlePushPromptPrimaryAction() {
+    if (pushPromptMode === 'notification' && latestPromptData) {
+        dismissPushPrompt();
+        if (typeof window.stopNotificationPromptCycle === 'function') {
+            window.stopNotificationPromptCycle();
+        }
+        if (typeof window.showNotificationModal === 'function') {
+            window.showNotificationModal(latestPromptData);
+        }
+        return;
+    }
+    await enablePushNotifications();
 }
 
 // Enable push notifications
@@ -194,13 +319,19 @@ async function enablePushNotifications() {
         showPushStatus('✓ Notifications enabled successfully!', false);
         localStorage.setItem('pushNotificationsEnabled', 'true');
     } else {
-        if (result.error === 'permission_denied') {
-            showPushStatus('Notifications blocked. Enable in browser settings.', true);
-        } else if (result.error === 'not_supported') {
-            showPushStatus('Push notifications not supported on this browser', true);
-        } else {
-            showPushStatus('Failed to enable notifications', true);
-        }
+        const fallbackMessage = () => {
+            if (result.error === 'permission_denied') {
+                return 'Notifications blocked. Enable in browser settings.';
+            }
+            if (result.error === 'not_supported') {
+                return 'Push notifications not supported on this browser';
+            }
+            return 'Failed to enable notifications';
+        };
+        const errorMessage = (typeof describePushError === 'function')
+            ? describePushError(result)
+            : fallbackMessage();
+        showPushStatus(errorMessage, true);
     }
 }
 
@@ -222,6 +353,8 @@ function showPushStatus(message, isError) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async function() {
+    getNotificationBellElements();
+
     // Fetch VAPID key
     await fetchVapidKey();
     
@@ -256,9 +389,22 @@ document.addEventListener('DOMContentLoaded', async function() {
     setTimeout(() => {
         const permission = getNotificationPermission();
         if (permission === 'default') {
+            markBellAttention();
             showPushPrompt();
         }
     }, 3000); // Show after 3 seconds
 });
+
+window.showLatestNotificationPrompt = function(notification) {
+    if (!notification) return;
+    latestPromptData = notification;
+    pushPromptMode = 'notification';
+    updatePushPromptContent({
+        title: notification.title || 'New Update',
+        body: notification.message_template || notification.body || 'Tap to see the latest announcement.',
+        cta: notification.url ? 'View' : 'Close'
+    });
+    showPushPrompt();
+};
 </script>
 

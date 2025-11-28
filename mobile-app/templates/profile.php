@@ -729,13 +729,19 @@ if ($user && isset($user['email'])) {
                     showPushStatus('✓ Notifications enabled!', false);
                     localStorage.setItem('pushNotificationsEnabled', 'true');
                 } else {
-                    if (result.error === 'permission_denied') {
-                        showPushStatus('Notifications blocked. Enable in browser settings.', true);
-                    } else if (result.error === 'not_supported') {
-                        showPushStatus('Push notifications not supported', true);
-                    } else {
-                        showPushStatus('Failed to enable notifications', true);
-                    }
+                    const fallbackMessage = () => {
+                        if (result.error === 'permission_denied') {
+                            return 'Notifications blocked. Enable in browser settings.';
+                        }
+                        if (result.error === 'not_supported') {
+                            return 'Push notifications not supported';
+                        }
+                        return 'Failed to enable notifications';
+                    };
+                    const errorMessage = (typeof describePushError === 'function')
+                        ? describePushError(result)
+                        : fallbackMessage();
+                    showPushStatus(errorMessage, true);
                     document.getElementById('pushNotificationToggle').checked = false;
                 }
             } catch (error) {

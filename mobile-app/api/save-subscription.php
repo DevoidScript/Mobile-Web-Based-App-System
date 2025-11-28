@@ -28,13 +28,39 @@ function send_response($success, $message, $data = null, $status_code = 200) {
     exit;
 }
 
+/**
+ * Write structured diagnostics for push subscription attempts.
+ *
+ * @param string $type
+ * @param array $payload
+ * @return void
+ */
+function log_push_event($type, $payload = []) {
+    $logDir = __DIR__ . '/../storage/logs';
+    if (!is_dir($logDir)) {
+        @mkdir($logDir, 0775, true);
+    }
+    $logFile = $logDir . '/push-subscriptions.log';
+    $entry = [
+        'timestamp' => gmdate('c'),
+        'type' => $type,
+        'session_id' => session_id() ?: null,
+        'payload' => $payload
+    ];
+    @file_put_contents($logFile, json_encode($entry) . PHP_EOL, FILE_APPEND | LOCK_EX);
+}
+
 // Check if user is logged in
 if (!is_logged_in()) {
+    log_push_event('unauthorized', [
+        'remote_addr' => $_SERVER['REMOTE_ADDR'] ?? null,
+    ]);
     send_response(false, 'Unauthorized. Please log in.', null, 401);
 }
 
 // Check if it's a POST request
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    log_push_event('invalid_method', ['method' => $_SERVER['REQUEST_METHOD']]);
     send_response(false, 'Invalid request method. Only POST is allowed.', null, 405);
 }
 
@@ -43,11 +69,13 @@ $input = file_get_contents('php://input');
 $data = json_decode($input, true);
 
 if (json_last_error() !== JSON_ERROR_NONE) {
+    log_push_event('invalid_json', ['error' => json_last_error_msg(), 'raw' => $input]);
     send_response(false, 'Invalid JSON payload.', null, 400);
 }
 
 // Validate required fields
 if (empty($data['subscription'])) {
+    log_push_event('missing_subscription_payload');
     send_response(false, 'Missing subscription data.', null, 400);
 }
 
@@ -59,6 +87,11 @@ $p256dh = $subscription['keys']['p256dh'] ?? '';
 $auth = $subscription['keys']['auth'] ?? '';
 
 if (empty($endpoint) || empty($p256dh) || empty($auth)) {
+    log_push_event('invalid_subscription_payload', [
+        'endpoint_present' => !empty($endpoint),
+        'p256dh_present' => !empty($p256dh),
+        'auth_present' => !empty($auth)
+    ]);
     send_response(false, 'Invalid subscription format. Missing endpoint or keys.', null, 400);
 }
 
@@ -93,7 +126,11 @@ if (!$donor_id && isset($user['email'])) {
 }
 
 if (!$donor_id) {
-    send_response(false, 'Could not determine donor ID.', null, 400);
+    log_push_event('missing_donor_id', [
+        'user_id' => $user['id'] ?? null,
+        'email' => $user['email'] ?? null
+    ]);
+    send_response(false, 'We could not match your account to a donor profile. Please complete your donor profile before enabling notifications.', null, 400);
 }
 
 // Verify donor exists in donor_form to satisfy FK
@@ -111,6 +148,9 @@ if ($donor_id) {
 }
 
 if (!$verified_donor_row) {
+    log_push_event('donor_profile_not_found', [
+        'donor_id' => $donor_id
+    ]);
     send_response(false, 'No donor profile found for this account. Please complete your donor profile before enabling notifications.', null, 400);
 }
 
@@ -142,7 +182,11 @@ try {
         $result = update_record('push_subscriptions', $subscription_id, $subscription_data, 'id');
         
         if (!$result['success']) {
-            error_log('Failed to update push subscription: ' . json_encode($result));
+            log_push_event('subscription_update_failed', [
+                'donor_id' => $donor_id,
+                'subscription_id' => $subscription_id,
+                'error' => $result
+            ]);
             send_response(false, 'Failed to update push subscription.', null, 500);
         }
 
@@ -157,7 +201,11 @@ try {
                 }
             }
         }
-
+        log_push_event('subscription_saved', [
+            'donor_id' => $donor_id,
+            'subscription_id' => $subscription_id,
+            'mode' => 'update'
+        ]);
         send_response(true, 'Push subscription updated successfully.', [
             'subscription_id' => $subscription_id
         ]);
@@ -166,7 +214,10 @@ try {
         $result = create_record('push_subscriptions', $subscription_data);
         
         if (!$result['success'] || empty($result['data'])) {
-            error_log('Failed to save push subscription: ' . json_encode($result));
+            log_push_event('subscription_insert_failed', [
+                'donor_id' => $donor_id,
+                'error' => $result
+            ]);
             send_response(false, 'Failed to save push subscription.', null, 500);
         }
 
@@ -183,13 +234,20 @@ try {
                 }
             }
         }
-
+        log_push_event('subscription_saved', [
+            'donor_id' => $donor_id,
+            'subscription_id' => $subscription_id,
+            'mode' => 'insert'
+        ]);
         send_response(true, 'Push subscription saved successfully.', [
             'subscription_id' => $subscription_id
         ], 201);
     }
 } catch (Exception $e) {
-    error_log('Exception saving push subscription: ' . $e->getMessage());
+    log_push_event('subscription_exception', [
+        'donor_id' => $donor_id,
+        'message' => $e->getMessage()
+    ]);
     send_response(false, 'An error occurred while saving the subscription.', null, 500);
 }
 ?>

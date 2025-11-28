@@ -76,6 +76,8 @@ try {
         exit;
     }
 
+    // Preload blood drive message templates when available
+    $blood_drive_cache = [];
     // Transform database notifications to bell panel format
     $bell_notifications = [];
     foreach ($notifications_result['data'] as $notification) {
@@ -94,7 +96,24 @@ try {
             $timestamp = time(); // Fallback to current time
         }
         $timestamp_ms = $timestamp * 1000; // Convert to milliseconds for JavaScript
-        
+        $blood_drive_id = $notification['blood_drive_id'] ?? ($payload['blood_drive_id'] ?? ($payload['data']['blood_drive_id'] ?? null));
+        $blood_drive_meta = null;
+        if ($blood_drive_id) {
+            if (!array_key_exists($blood_drive_id, $blood_drive_cache)) {
+                $drive_lookup = get_records('blood_drive_notifications', [
+                    'id' => 'eq.' . $blood_drive_id,
+                    'limit' => 1
+                ]);
+                if ($drive_lookup['success'] && !empty($drive_lookup['data'])) {
+                    $blood_drive_cache[$blood_drive_id] = $drive_lookup['data'][0];
+                } else {
+                    $blood_drive_cache[$blood_drive_id] = null;
+                }
+            }
+            $blood_drive_meta = $blood_drive_cache[$blood_drive_id];
+        }
+        $message_template = $blood_drive_meta['message_template'] ?? ($payload['message_template'] ?? null);
+
         // Convert absolute URLs to relative URLs for better session handling
         $urlFromPayload = $payload['url'] ?? ($payload['data']['url'] ?? null);
         $url = $urlFromPayload ?: '/mobile-app/templates/dashboard.php';
@@ -110,10 +129,15 @@ try {
             'id' => $notification['id'],
             'title' => $payload['title'] ?? 'Notification',
             'body' => $payload['body'] ?? 'You have a new notification',
+            'message_template' => $message_template,
             'url' => $url,
             'timestamp' => $timestamp_ms,
             'status' => $notification['status'],
-            'blood_drive_id' => $notification['blood_drive_id'] ?? ($payload['blood_drive_id'] ?? ($payload['data']['blood_drive_id'] ?? null))
+            'blood_drive_id' => $blood_drive_id,
+            'location' => $blood_drive_meta['location'] ?? null,
+            'drive_date' => $blood_drive_meta['drive_date'] ?? null,
+            'drive_time' => $blood_drive_meta['drive_time'] ?? null,
+            'radius_km' => $blood_drive_meta['radius_km'] ?? null
         ];
     }
 
