@@ -336,7 +336,7 @@
             
             <a href="../index.php" class="btn-register">Back</a>
             
-            <a href="#" class="forgot-password">Forgot Password?</a>
+            <a href="forgot-password.php" class="forgot-password">Forgot Password?</a>
             
             <div class="footer-logo">
                 <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" width="70" height="70" loading="lazy">

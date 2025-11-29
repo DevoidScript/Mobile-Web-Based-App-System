@@ -498,6 +498,11 @@ if ($user && isset($user['id'])) {
             transition: background 0.2s;
         }
         
+        .notification-item.read {
+            background: #fafafa;
+            opacity: 0.75;
+        }
+        
         .notification-item:hover {
             background: #f8f9fa;
         }
@@ -802,7 +807,7 @@ if ($user && isset($user['id'])) {
                 <small id="notificationModalTime" style="color:#777;"></small>
             </div>
             <div class="notification-modal-footer">
-                <button id="notificationModalConfirm" class="notification-modal-btn-primary">Confirm</button>
+                <button id="notificationModalConfirm" class="notification-modal-btn-primary">Close</button>
             </div>
         </div>
     </div>
@@ -876,6 +881,22 @@ if ($user && isset($user['id'])) {
         let notificationPromptTimer = null;
         let notificationPromptCycleActive = false;
 
+        function sanitizeNotifications(list) {
+            if (!Array.isArray(list)) {
+                return [];
+            }
+            return list
+                .filter(item => !!item)
+                .map(item => {
+                    if (item.read === undefined) {
+                        item.read = false;
+                    } else {
+                        item.read = Boolean(item.read);
+                    }
+                    return item;
+                });
+        }
+
         // Toggle notification panel
         function toggleNotificationPanel(event) {
             event.preventDefault();
@@ -922,14 +943,14 @@ if ($user && isset($user['id'])) {
                 const result = await response.json();
                 
                 if (result.success) {
-                    notifications = result.data.notifications;
+                    notifications = sanitizeNotifications(result.data.notifications || []);
                     // Notifications loaded successfully
                 } else {
                     console.error('❌ Failed to load notifications:', result.error);
                     // Fallback to localStorage if API fails
                     const stored = localStorage.getItem('appNotifications');
                     if (stored) {
-                        notifications = JSON.parse(stored);
+                        notifications = sanitizeNotifications(JSON.parse(stored));
                         // Using localStorage fallback
                     }
                 }
@@ -938,7 +959,7 @@ if ($user && isset($user['id'])) {
                 // Fallback to localStorage if API fails
                 const stored = localStorage.getItem('appNotifications');
                 if (stored) {
-                    notifications = JSON.parse(stored);
+                    notifications = sanitizeNotifications(JSON.parse(stored));
                     console.log('📱 Using localStorage fallback');
                 }
             }
@@ -963,7 +984,7 @@ if ($user && isset($user['id'])) {
             }
             
             const html = notifications.map(notification => `
-                <div class="notification-item" onclick="handleNotificationClick('${notification.id}')">
+                <div class="notification-item ${notification.read ? 'read' : ''}" onclick="handleNotificationClick('${notification.id}')">
                     <div class="notification-item-title">${notification.title}</div>
                     <div class="notification-item-body">${notification.body || ''}</div>
                     <div class="notification-item-time">${formatTime(notification.timestamp)}</div>
@@ -979,26 +1000,41 @@ if ($user && isset($user['id'])) {
             if (notification) {
                 showNotificationModal(notification);
             }
-            // Mark as read
-            markNotificationAsRead(notificationId);
         }
 
-        // Mark notification as read
+        // Mark notification as read without removing it
         function markNotificationAsRead(notificationId) {
-            // Remove from current display
-            notifications = notifications.filter(n => n.id !== notificationId);
+            if (notificationId == null) {
+                return;
+            }
+            const targetId = String(notificationId);
+            let updated = false;
+            notifications = notifications.map(notification => {
+                if (!notification || notification.id == null) {
+                    return notification;
+                }
+                if (String(notification.id) === targetId && !notification.read) {
+                    notification.read = true;
+                    updated = true;
+                }
+                return notification;
+            });
             
-            // For database notifications, we could mark as read in the database
-            // For now, just update the display
+            if (!updated) {
+                return;
+            }
+            
             renderNotifications();
             updateNotificationBadge();
             localStorage.setItem('appNotifications', JSON.stringify(notifications));
-            
-            // Notification marked as read
         }
 
         // Add notification to the list (for real-time updates)
         function addNotification(notification) {
+            if (!notification) {
+                return;
+            }
+            notification.read = false;
             notifications.unshift(notification);
             
             // Update localStorage for fallback
@@ -1021,8 +1057,9 @@ if ($user && isset($user['id'])) {
         function updateNotificationBadge() {
             const badge = document.getElementById('notificationBadge');
             if (badge) {
-                if (notifications.length > 0) {
-                    badge.textContent = notifications.length;
+                const unreadCount = notifications.filter(notification => !notification.read).length;
+                if (unreadCount > 0) {
+                    badge.textContent = unreadCount;
                     badge.style.display = 'flex';
                 } else {
                     badge.style.display = 'none';
@@ -1062,6 +1099,9 @@ if ($user && isset($user['id'])) {
             const modal = document.getElementById('notificationDetailModal');
             modal.classList.remove('show');
             modal.setAttribute('aria-hidden', 'true');
+            if (notificationModalData && notificationModalData.id) {
+                markNotificationAsRead(notificationModalData.id);
+            }
             notificationModalData = null;
         }
 
