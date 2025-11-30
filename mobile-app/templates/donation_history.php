@@ -57,10 +57,43 @@ if ($user && isset($user['email'])) {
         // Debug logging
         error_log("Donation History - Found donor record for email: $email, donor_id: $donor_id");
         
-        // Get donation history from donations table
+        // ROOT CAUSE FIX: Use eligibility table as primary source (matching admin dashboard logic)
+        // Get latest eligibility record to determine actual donation status
+        $eligibility_params = [
+            'donor_id' => 'eq.' . $donor_id,
+            'order' => 'collection_start_time.desc,created_at.desc',
+            'limit' => 1
+        ];
+        
+        $eligibility_result = get_records('eligibility', $eligibility_params);
+        $eligibility_record = null;
+        $eligibility_status_map = [];
+        
+        if ($eligibility_result['success'] && !empty($eligibility_result['data'])) {
+            $eligibility_record = $eligibility_result['data'][0];
+            $elig_status = strtolower(trim($eligibility_record['status'] ?? ''));
+            $collection_successful = isset($eligibility_record['collection_successful']) && 
+                                     ($eligibility_record['collection_successful'] === true || 
+                                      $eligibility_record['collection_successful'] === 'true' || 
+                                      $eligibility_record['collection_successful'] === 1);
+            $has_blood_collection_id = !empty($eligibility_record['blood_collection_id'] ?? null);
+            
+            // Map eligibility to donation status (matching admin dashboard logic)
+            if (($elig_status === 'approved' || $elig_status === 'eligible') && $has_blood_collection_id) {
+                $eligibility_status_map[$donor_id] = 'Processed';
+            } elseif ($collection_successful && $has_blood_collection_id) {
+                $eligibility_status_map[$donor_id] = 'Processed';
+            } elseif ($has_blood_collection_id) {
+                $eligibility_status_map[$donor_id] = 'Testing';
+            }
+            
+            error_log("Donation History - Eligibility record found: status={$elig_status}, collection_successful=" . var_export($collection_successful, true) . ", has_blood_collection_id=" . var_export($has_blood_collection_id, true));
+        }
+        
+        // Get donation history from donations table, ordered by last_updated to get most recent
         $donation_params = [
             'donor_id' => 'eq.' . $donor_id,
-            'order' => 'created_at.desc'
+            'order' => 'last_updated.desc'
         ];
         
         $donation_result = get_records('donations', $donation_params);
@@ -69,7 +102,202 @@ if ($user && isset($user['email'])) {
             
             // Get the latest donation (first in the array since we ordered by desc)
             $latest_donation = $donation_history[0];
-            $latest_donation_status = strtolower(trim($latest_donation['current_status'] ?? ''));
+            $latest_donation_id = $latest_donation['donation_id'];
+            
+            // PRIORITY 1: Check blood_bank_units for handed_over_at/disposed_at (highest priority - indicates Used status)
+            $blood_bank_check_params = [
+                'donor_id' => 'eq.' . $donor_id,
+                'order' => 'created_at.desc',
+                'limit' => 1
+            ];
+            $blood_bank_check_result = get_records('blood_bank_units', $blood_bank_check_params);
+            $status_from_blood_bank = null;
+            
+            if ($blood_bank_check_result['success'] && !empty($blood_bank_check_result['data'])) {
+                $bb_check_unit = $blood_bank_check_result['data'][0];
+                $handed_over_at = $bb_check_unit['handed_over_at'] ?? null;
+                $disposed_at = $bb_check_unit['disposed_at'] ?? null;
+                $bb_status = strtolower(trim($bb_check_unit['status'] ?? ''));
+                
+                if (!empty($disposed_at)) {
+                    $status_from_blood_bank = 'Used'; // Will show as Expired in history
+                    error_log("Donation History - Unit disposed at {$disposed_at}, setting status to Used");
+                } elseif (!empty($handed_over_at)) {
+                    $status_from_blood_bank = 'Used';
+                    error_log("Donation History - Unit handed over at {$handed_over_at}, setting status to Used");
+                } elseif ($bb_status === 'used' || $bb_status === 'transfused' || $bb_status === 'buffer') {
+                    // Buffer is used by admin system as a way to update the blood bank, so it should be treated as Used
+                    $status_from_blood_bank = 'Used';
+                    error_log("Donation History - Unit status is {$bb_status}, setting status to Used");
+                } elseif ($bb_status === 'stored') {
+                    $status_from_blood_bank = 'Stored';
+                } elseif ($bb_status === 'allocated') {
+                    $status_from_blood_bank = 'Allocated';
+                }
+            }
+            
+            // Use status from blood_bank_units if available, otherwise use eligibility status, then fallback to history
+            if ($status_from_blood_bank) {
+                $latest_donation['current_status'] = $status_from_blood_bank;
+                error_log("Donation History - Using status from blood_bank_units: {$status_from_blood_bank}");
+            } elseif (isset($eligibility_status_map[$donor_id])) {
+                $latest_donation['current_status'] = $eligibility_status_map[$donor_id];
+                error_log("Donation History - Using status from eligibility table: {$eligibility_status_map[$donor_id]}");
+            } else {
+                // Fallback: Verify current_status against donation_status_history
+                $history_params = [
+                    'donation_id' => 'eq.' . $latest_donation_id,
+                    'order' => 'changed_at.desc',
+                    'limit' => 1
+                ];
+                
+                $history_result = get_records('donation_status_history', $history_params);
+                if ($history_result['success'] && !empty($history_result['data'])) {
+                    $latest_history = $history_result['data'][0];
+                    $history_status = $latest_history['status'] ?? null;
+                    
+                    if ($history_status && $history_status !== $latest_donation['current_status']) {
+                        error_log("Donation History - Status mismatch for donation_id={$latest_donation_id}: donations.current_status={$latest_donation['current_status']}, history.status={$history_status}. Using history status.");
+                        $latest_donation['current_status'] = $history_status;
+                    }
+                }
+            }
+            
+            // Sync blood_type - Priority: 1) Eligibility table, 2) Screening form, 3) Donation record
+            if (empty($latest_donation['blood_type'])) {
+                if ($eligibility_record && !empty($eligibility_record['blood_type'])) {
+                    $latest_donation['blood_type'] = $eligibility_record['blood_type'];
+                    error_log("Donation History - Synced blood_type from eligibility: " . $eligibility_record['blood_type']);
+                } else {
+                    // Check screening form for blood_type
+                    $donor_form_params = ['donor_id' => 'eq.' . $donor_id];
+                    $donor_form_result = get_records('donor_form', $donor_form_params);
+                    if ($donor_form_result['success'] && !empty($donor_form_result['data'])) {
+                        $donor_form = $donor_form_result['data'][0];
+                        $donor_form_id = $donor_form['donor_id'];
+                        
+                        $screening_params = [
+                            'donor_form_id' => 'eq.' . $donor_form_id,
+                            'order' => 'created_at.desc',
+                            'limit' => 1
+                        ];
+                        
+                        $screening_result = get_records('screening_form', $screening_params);
+                        if ($screening_result['success'] && !empty($screening_result['data'])) {
+                            $screening = $screening_result['data'][0];
+                            if (!empty($screening['blood_type'])) {
+                                $latest_donation['blood_type'] = $screening['blood_type'];
+                                error_log("Donation History - Synced blood_type from screening: " . $screening['blood_type']);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Get blood_bank_units data for all donations to determine actual status
+            $blood_bank_params = [
+                'donor_id' => 'eq.' . $donor_id,
+                'order' => 'created_at.desc'
+            ];
+            
+            $blood_bank_result = get_records('blood_bank_units', $blood_bank_params);
+            $blood_bank_lookup = [];
+            
+            if ($blood_bank_result['success'] && !empty($blood_bank_result['data'])) {
+                // Create lookup by donor_id (since we can't directly link to donation_id)
+                // Use the most recent blood_bank_unit for this donor
+                $blood_bank_lookup[$donor_id] = $blood_bank_result['data'][0];
+                error_log("Donation History - Found " . count($blood_bank_result['data']) . " blood_bank_units records for donor_id: $donor_id");
+            }
+            
+            // Update all donations in history with verified statuses from blood_bank_units, eligibility, or history
+            foreach ($donation_history as $idx => $donation) {
+                $don_id = $donation['donation_id'];
+                $final_status = $donation['current_status'];
+                $status_notes = '';
+                
+                // Priority 1: Check blood_bank_units (most accurate for current status)
+                if (isset($blood_bank_lookup[$donor_id])) {
+                    $bb_unit = $blood_bank_lookup[$donor_id];
+                    $bb_status = strtolower(trim($bb_unit['status'] ?? ''));
+                    $handed_over_at = $bb_unit['handed_over_at'] ?? null;
+                    $disposed_at = $bb_unit['disposed_at'] ?? null;
+                    $hospital_from = $bb_unit['hospital_from'] ?? null;
+                    
+                    // Check disposed first (highest priority)
+                    if (!empty($disposed_at)) {
+                        $final_status = 'Expired';
+                        $status_notes = ' (Disposed)';
+                        error_log("Donation History - Donation {$don_id}: Unit disposed at {$disposed_at}");
+                    }
+                    // Check handed over
+                    elseif (!empty($handed_over_at)) {
+                        $final_status = 'Used';
+                        if (!empty($hospital_from)) {
+                            $status_notes = ' - Sent to ' . htmlspecialchars($hospital_from);
+                        }
+                        error_log("Donation History - Donation {$don_id}: Unit handed over at {$handed_over_at} to " . ($hospital_from ?? 'N/A'));
+                    }
+                    // Check status field
+                    elseif ($bb_status === 'stored') {
+                        $final_status = 'Stored';
+                    } elseif ($bb_status === 'allocated') {
+                        $final_status = 'Allocated';
+                    } elseif ($bb_status === 'used' || $bb_status === 'transfused') {
+                        $final_status = 'Used';
+                        if (!empty($hospital_from)) {
+                            $status_notes = ' - Sent to ' . htmlspecialchars($hospital_from);
+                        }
+                    } elseif ($bb_status === 'buffer') {
+                        // Buffer is used by admin system as a way to update the blood bank, so it should be treated as Used
+                        $final_status = 'Used';
+                        error_log("Donation History - Donation {$don_id}: Unit status is Buffer - mapped to Used");
+                    } elseif ($bb_status === 'processed' || $bb_status === 'valid' || empty($bb_status)) {
+                        $final_status = 'Processed';
+                    }
+                }
+                // Priority 2: Use eligibility status if available
+                elseif (isset($eligibility_status_map[$donor_id])) {
+                    $final_status = $eligibility_status_map[$donor_id];
+                }
+                // Priority 3: Fallback to donation_status_history
+                else {
+                    $hist_params = [
+                        'donation_id' => 'eq.' . $don_id,
+                        'order' => 'changed_at.desc',
+                        'limit' => 1
+                    ];
+                    
+                    $hist_result = get_records('donation_status_history', $hist_params);
+                    if ($hist_result['success'] && !empty($hist_result['data'])) {
+                        $hist = $hist_result['data'][0];
+                        $hist_status = $hist['status'] ?? null;
+                        if ($hist_status && $hist_status !== $donation['current_status']) {
+                            $final_status = $hist_status;
+                        }
+                    }
+                }
+                
+                $donation_history[$idx]['current_status'] = $final_status;
+                $donation_history[$idx]['status_notes'] = $status_notes;
+                
+                // Update latest_donation if this is the latest one (first in array)
+                if ($idx === 0) {
+                    $latest_donation['current_status'] = $final_status;
+                }
+                
+                // Sync blood_type from eligibility if missing
+                if (empty($donation_history[$idx]['blood_type']) && $eligibility_record && !empty($eligibility_record['blood_type'])) {
+                    $donation_history[$idx]['blood_type'] = $eligibility_record['blood_type'];
+                }
+            }
+            
+            // Update latest_donation_status to reflect the actual status from blood_bank_units
+            // This ensures "Used", "Expired", etc. are properly recognized for donation_processing check
+            if (!empty($latest_donation)) {
+                $latest_donation_status = strtolower(trim($latest_donation['current_status'] ?? ''));
+                error_log("Donation History - Latest donation status after blood_bank_units update: " . $latest_donation_status);
+            }
             
             // Compute unified eligibility with 7-day grace
             $eligibility = compute_donation_eligibility($donor_id);
@@ -90,6 +318,8 @@ if ($user && isset($user['email'])) {
                     // If months were calculated, show remainder days
                     $countdown_days = $countdown_days % 30;
                 }
+                
+                error_log("Donation History - Eligibility computed: can_donate_now=" . var_export($can_donate_now, true) . ", months={$countdown_months}, days={$countdown_days}, next_date=" . ($next_donation_date ?? 'NULL'));
             }
             
             // If no completed donation found in eligibility, use the latest donation
@@ -119,19 +349,43 @@ if ($user && isset($user['email'])) {
     }
 }
 
+// Completed statuses - these should show countdown (blood has been collected)
+// These include: Stored, Allocated (blood is ready/allocated), Used, Expired, etc.
+$completed_statuses = [
+    'stored',
+    'allocated',
+    'used',
+    'expired',
+    'ready for use',
+    'transfused',
+    'processed'  // Processed also means blood collection is complete
+];
+
+// Active processing statuses - these should show as "processing" (blood not yet collected/stored)
 $active_processing_statuses = [
     'registered',
     'sample collected',
     'sample_collected',
     'testing',
-    'testing complete',
-    'processed',
-    'allocated',
-    'stored'
+    'testing complete'
 ];
 
-if ($has_medical_history_record && $latest_donation_status && in_array($latest_donation_status, $active_processing_statuses)) {
-    $donation_processing = true;
+// Only show as processing if:
+// 1. Has medical history AND
+// 2. Latest donation status is in active_processing_statuses AND
+// 3. Latest donation status is NOT in completed_statuses (Stored, Allocated, Used, Expired, etc.)
+if ($has_medical_history_record && $latest_donation_status) {
+    $is_completed = in_array($latest_donation_status, $completed_statuses);
+    $is_processing = in_array($latest_donation_status, $active_processing_statuses);
+    
+    // Show as processing only if it's actively processing AND not completed
+    if ($is_processing && !$is_completed) {
+        $donation_processing = true;
+    } elseif ($is_completed) {
+        // If completed (Stored, Allocated, Used, Expired, etc.), don't show as processing - show countdown instead
+        $donation_processing = false;
+        error_log("Donation History - Status '{$latest_donation_status}' is completed, showing countdown instead of processing message");
+    }
 } elseif ($has_medical_history_record && !$latest_donation_status) {
     // Default to processing if a medical history exists but no donation record yet
     $donation_processing = true;
@@ -664,12 +918,20 @@ if ($has_medical_history_record && $latest_donation_status && in_array($latest_d
                     <div class="detail-row">
                         <span class="label">Status:</span>
                         <span class="value status-completed"><?php 
-                            if ($latest_completed_donation && $latest_completed_donation['current_status'] === 'Processed') {
+                            $display_status = $latest_completed_donation['current_status'] ?? 'Pending';
+                            $status_notes = $latest_completed_donation['status_notes'] ?? '';
+                            
+                            // Format status display
+                            if ($display_status === 'Expired') {
+                                echo 'Expired';
+                            } elseif ($display_status === 'Used') {
+                                echo 'Used' . $status_notes;
+                            } elseif ($display_status === 'Processed') {
                                 echo 'Ready for Use';
-                            } elseif ($latest_completed_donation && $latest_completed_donation['current_status'] === 'Ready for Use') {
+                            } elseif ($display_status === 'Ready for Use') {
                                 echo 'Used';
                             } else {
-                                echo htmlspecialchars(ucfirst($latest_completed_donation['current_status'] ?? 'Pending'));
+                                echo htmlspecialchars(ucfirst($display_status));
                             }
                         ?></span>
                     </div>
@@ -722,19 +984,32 @@ if ($has_medical_history_record && $latest_donation_status && in_array($latest_d
                                  data-date="<?php echo htmlspecialchars(date('M j, Y', strtotime($donation['created_at']))); ?>"
                                  data-blood-type="<?php echo htmlspecialchars($donation['blood_type'] ?? 'N/A'); ?>"
                                  data-units="<?php echo htmlspecialchars($donation['units_collected'] ?? 'N/A'); ?>"
-                                 data-status="<?php echo htmlspecialchars($donation['current_status'] ?? 'Pending'); ?>">
+                                 data-status="<?php echo htmlspecialchars($donation['current_status'] ?? 'Pending'); ?>"
+                                 data-status-notes="<?php echo htmlspecialchars($donation['status_notes'] ?? ''); ?>">
                                 <div class="donation-date">
                                     <?php echo date('M j, Y', strtotime($donation['created_at'])); ?>
                                 </div>
                                 <div class="donation-info">
-                                    <div class="donation-status <?php echo $donation['current_status'] === 'Processed' ? 'completed' : 'pending'; ?>">
+                                    <div class="donation-status <?php 
+                                        $donation_status = $donation['current_status'] ?? 'Pending';
+                                        echo (in_array($donation_status, ['Processed', 'Stored', 'Allocated', 'Used', 'Expired']) ? 'completed' : 'pending'); 
+                                    ?>">
                                         <?php 
-                                            if ($donation['current_status'] === 'Processed') {
+                                            $status_notes = $donation['status_notes'] ?? '';
+                                            if ($donation_status === 'Expired') {
+                                                echo 'Expired';
+                                            } elseif ($donation_status === 'Used') {
+                                                echo 'Used' . $status_notes;
+                                            } elseif ($donation_status === 'Processed') {
                                                 echo 'Ready for Use';
-                                            } elseif ($donation['current_status'] === 'Ready for Use') {
+                                            } elseif ($donation_status === 'Ready for Use') {
                                                 echo 'Used';
+                                            } elseif ($donation_status === 'Stored') {
+                                                echo 'Stored';
+                                            } elseif ($donation_status === 'Allocated') {
+                                                echo 'Allocated';
                                             } else {
-                                                echo ucfirst($donation['current_status']);
+                                                echo ucfirst($donation_status);
                                             }
                                         ?>
                                     </div>
@@ -844,11 +1119,17 @@ if ($has_medical_history_record && $latest_donation_status && in_array($latest_d
             const donationItems = document.querySelectorAll('.donation-item');
             
             // Function to format status
-            function formatStatus(status) {
-                if (status === 'Processed') {
+            function formatStatus(status, statusNotes) {
+                if (status === 'Expired') {
+                    return 'Expired';
+                } else if (status === 'Used') {
+                    return 'Used' + (statusNotes || '');
+                } else if (status === 'Processed') {
                     return 'Ready for Use';
                 } else if (status === 'Ready for Use') {
                     return 'Used';
+                } else if (status === 'Stored' || status === 'Allocated') {
+                    return status;
                 } else {
                     return status.charAt(0).toUpperCase() + status.slice(1);
                 }
@@ -860,12 +1141,13 @@ if ($has_medical_history_record && $latest_donation_status && in_array($latest_d
                 const bloodType = donationItem.getAttribute('data-blood-type');
                 const units = donationItem.getAttribute('data-units');
                 const status = donationItem.getAttribute('data-status');
+                const statusNotes = donationItem.getAttribute('data-status-notes') || '';
                 
                 // Set modal content - date is already formatted in PHP, just use it directly
                 document.getElementById('modalDate').textContent = date;
                 document.getElementById('modalBloodType').textContent = bloodType;
                 document.getElementById('modalUnits').textContent = units;
-                document.getElementById('modalStatus').textContent = formatStatus(status);
+                document.getElementById('modalStatus').textContent = formatStatus(status, statusNotes);
                 
                 // Show modal
                 modal.classList.add('active');

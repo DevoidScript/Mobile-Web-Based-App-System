@@ -1250,22 +1250,45 @@ function check_and_update_donation_status_automatically($donor_id) {
         return ['success' => false, 'error' => 'Invalid donor ID'];
     }
     
-    // Get the active donation for this donor
+    // Get the active donation for this donor (get all and filter in PHP to avoid query limitations)
     $donation_params = [
         'donor_id' => 'eq.' . $donor_id,
-        'current_status' => 'not.eq.Ready for Use',
         'order' => 'created_at.desc',
-        'limit' => 1
+        'limit' => 10  // Get multiple to filter completed ones
     ];
     
     $donation_result = get_records('donations', $donation_params);
     if (!$donation_result['success'] || empty($donation_result['data'])) {
-        return ['success' => false, 'error' => 'No active donation found for donor'];
+        return ['success' => false, 'error' => 'No donation found for donor'];
     }
     
-    $donation = $donation_result['data'][0];
+    // Filter out completed statuses (Used, Expired, Ready for Use) - find the first non-completed one
+    $completed_statuses = ['Used', 'Expired', 'Ready for Use'];
+    $donation = null;
+    foreach ($donation_result['data'] as $don) {
+        if (!in_array($don['current_status'], $completed_statuses)) {
+            $donation = $don;
+            break;
+        }
+    }
+    
+    // If all donations are completed, use the latest one anyway (for status updates)
+    if (!$donation) {
+        $donation = $donation_result['data'][0];
+    }
+    
     $donation_id = $donation['donation_id'];
     $current_status = $donation['current_status'];
+    
+    // If status is already "Used", "Expired", or "Ready for Use", don't update (prevent unnecessary updates)
+    if (in_array($current_status, ['Used', 'Expired', 'Ready for Use'])) {
+        return [
+            'success' => true,
+            'status' => 'no_update_needed',
+            'message' => 'Donation already completed - no update needed'
+        ];
+    }
+    
     $status_changed = false;
     $update_data = [];
     
@@ -1359,27 +1382,100 @@ function check_and_update_donation_status_automatically($donor_id) {
         $blood_bank_result = get_records('blood_bank_units', $blood_bank_params);
         if ($blood_bank_result['success'] && !empty($blood_bank_result['data'])) {
             $blood_bank_unit = $blood_bank_result['data'][0];
-            $unit_status = $blood_bank_unit['status'] ?? '';
+            $unit_status = strtolower(trim($blood_bank_unit['status'] ?? ''));
+            $handed_over_at = $blood_bank_unit['handed_over_at'] ?? null;
+            $disposed_at = $blood_bank_unit['disposed_at'] ?? null;
+            $hospital_from = $blood_bank_unit['hospital_from'] ?? null;
             
-            if ($current_status === 'Testing' || $current_status === 'Processed') {
-                if ($unit_status === 'Valid') {
-                    // Blood unit is valid, keep current status as Processed
+            // PRIORITY 1: Check handed_over_at or disposed_at FIRST (highest priority - indicates Used status)
+            // This should update regardless of current_status (including Buffer, Processed, Stored, Allocated, etc.)
+            if (!empty($disposed_at)) {
+                // Unit was disposed - status should be "Used" (will show as Expired in history)
+                if ($current_status !== 'Used') {
                     $update_data = [
-                        'current_status' => 'Processed',
+                        'current_status' => 'Used',
                         'blood_collection_completed' => true,
                         'units_collected' => $blood_bank_unit['units'] ?? 1,
-                        'notes' => 'Blood unit status is Valid - maintaining Processed status'
+                        'notes' => 'Blood unit disposed at ' . $disposed_at . ' - donation cycle complete (Expired)'
                     ];
                     $status_changed = true;
-                } elseif ($unit_status === 'Disposed' || $unit_status === 'Expired') {
-                    // Blood unit is disposed or expired, update to Ready for Use
+                    error_log("Auto Status Update - Unit disposed at {$disposed_at}, updating to Used status (current_status was: {$current_status})");
+                }
+            } elseif (!empty($handed_over_at)) {
+                // Unit was handed over - status should be "Used"
+                if ($current_status !== 'Used') {
+                    $hospital_note = !empty($hospital_from) ? ' - Sent to ' . $hospital_from : '';
                     $update_data = [
-                        'current_status' => 'Ready for Use',
+                        'current_status' => 'Used',
                         'blood_collection_completed' => true,
                         'units_collected' => $blood_bank_unit['units'] ?? 1,
-                        'notes' => 'Blood unit status is ' . $unit_status . ' - updating to Ready for Use'
+                        'notes' => 'Blood unit handed over at ' . $handed_over_at . $hospital_note . ' - donation cycle complete'
                     ];
                     $status_changed = true;
+                    error_log("Auto Status Update - Unit handed over at {$handed_over_at} to " . ($hospital_from ?? 'N/A') . ", updating to Used status (current_status was: {$current_status})");
+                }
+            }
+            // PRIORITY 2: Check status field if handed_over_at/disposed_at not set
+            elseif ($current_status === 'Testing' || $current_status === 'Processed' || $current_status === 'Ready for Use' || $current_status === 'Buffer' || $current_status === 'Stored' || $current_status === 'Allocated') {
+                if ($unit_status === 'used' || $unit_status === 'transfused' || $unit_status === 'buffer') {
+                    // Blood unit is used/transfused/buffer - update to Used
+                    // Buffer is used by admin system as a way to update the blood bank, so it should be treated as Used
+                    if ($current_status !== 'Used') {
+                        $update_data = [
+                            'current_status' => 'Used',
+                            'blood_collection_completed' => true,
+                            'units_collected' => $blood_bank_unit['units'] ?? 1,
+                            'notes' => 'Blood unit status is ' . ucfirst($unit_status) . ' - donation cycle complete'
+                        ];
+                        $status_changed = true;
+                        error_log("Auto Status Update - Unit status is {$unit_status}, updating to Used status");
+                    }
+                } elseif ($unit_status === 'valid') {
+                    // Blood unit is valid
+                    if ($current_status === 'Testing') {
+                        // Update from Testing to Processed
+                        $update_data = [
+                            'current_status' => 'Processed',
+                            'blood_collection_completed' => true,
+                            'units_collected' => $blood_bank_unit['units'] ?? 1,
+                            'notes' => 'Blood unit status is Valid - updating to Processed status'
+                        ];
+                        $status_changed = true;
+                    }
+                    // If already Processed and unit_status is valid, don't update (prevents infinite loop)
+                } elseif ($unit_status === 'disposed' || $unit_status === 'expired') {
+                    // Blood unit is disposed or expired, update to Used (will show as Expired in history)
+                    if ($current_status !== 'Used') {
+                        $update_data = [
+                            'current_status' => 'Used',
+                            'blood_collection_completed' => true,
+                            'units_collected' => $blood_bank_unit['units'] ?? 1,
+                            'notes' => 'Blood unit status is ' . ucfirst($unit_status) . ' - donation cycle complete (Expired)'
+                        ];
+                        $status_changed = true;
+                    }
+                } elseif ($unit_status === 'stored') {
+                    // Blood unit is stored - only update if not already Stored
+                    if ($current_status !== 'Stored') {
+                        $update_data = [
+                            'current_status' => 'Stored',
+                            'blood_collection_completed' => true,
+                            'units_collected' => $blood_bank_unit['units'] ?? 1,
+                            'notes' => 'Blood unit status is Stored'
+                        ];
+                        $status_changed = true;
+                    }
+                } elseif ($unit_status === 'allocated') {
+                    // Blood unit is allocated - only update if not already Allocated
+                    if ($current_status !== 'Allocated') {
+                        $update_data = [
+                            'current_status' => 'Allocated',
+                            'blood_collection_completed' => true,
+                            'units_collected' => $blood_bank_unit['units'] ?? 1,
+                            'notes' => 'Blood unit status is Allocated'
+                        ];
+                        $status_changed = true;
+                    }
                 }
             }
         } else {

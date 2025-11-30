@@ -38,29 +38,125 @@ $tracker_data = null;
 $eligibility = null;
 $blood_collection_data = null;
 if ($donor_id) {
+    // ROOT CAUSE FIX: Use eligibility table as primary source (matching admin dashboard logic)
+    // Admin dashboard checks eligibility table with collection_successful=true and blood_collection_id not null
+    $eligibility_params = [
+        'donor_id' => 'eq.' . $donor_id,
+        'order' => 'collection_start_time.desc,created_at.desc',
+        'limit' => 1
+    ];
+    
+    $eligibility_result = get_records('eligibility', $eligibility_params);
+    $eligibility_record = null;
+    $donation_status_from_eligibility = null;
+    
+    if ($eligibility_result['success'] && !empty($eligibility_result['data'])) {
+        $eligibility_record = $eligibility_result['data'][0];
+        $elig_status = strtolower(trim($eligibility_record['status'] ?? ''));
+        $collection_successful = isset($eligibility_record['collection_successful']) && 
+                                 ($eligibility_record['collection_successful'] === true || 
+                                  $eligibility_record['collection_successful'] === 'true' || 
+                                  $eligibility_record['collection_successful'] === 1);
+        $has_blood_collection_id = !empty($eligibility_record['blood_collection_id'] ?? null);
+        
+        // Determine status from eligibility (matching admin dashboard logic)
+        if (($elig_status === 'approved' || $elig_status === 'eligible') && $has_blood_collection_id) {
+            $donation_status_from_eligibility = 'Processed';
+        } elseif ($collection_successful && $has_blood_collection_id) {
+            $donation_status_from_eligibility = 'Processed';
+        } elseif ($has_blood_collection_id) {
+            // Has blood collection but not yet approved - could be in testing
+            $donation_status_from_eligibility = 'Testing';
+        }
+        
+        error_log("Blood Tracker - Eligibility record found: status={$elig_status}, collection_successful=" . var_export($collection_successful, true) . ", has_blood_collection_id=" . var_export($has_blood_collection_id, true) . ", derived_status={$donation_status_from_eligibility}");
+    }
+    
+    // Get donation record (secondary source)
     $params = [
         'donor_id' => 'eq.' . $donor_id,
-        'order' => 'created_at.desc',
+        'order' => 'last_updated.desc',
         'limit' => 1
     ];
 
     $result = get_records('donations', $params);
     if ($result['success'] && !empty($result['data'])) {
         $donation = $result['data'][0];
+        $donation_id = $donation['donation_id'];
         
-        // Get blood type from donor's donation history for consistency
-        // Priority: 1) Current donation if it has blood_type, 2) Most recent donation with blood_type, 3) Any donation with blood_type
+        // PRIORITY 1: Check blood_bank_units for handed_over_at/disposed_at (highest priority - indicates Used status)
+        $blood_bank_check_params = [
+            'donor_id' => 'eq.' . $donor_id,
+            'order' => 'created_at.desc',
+            'limit' => 1
+        ];
+        $blood_bank_check_result = get_records('blood_bank_units', $blood_bank_check_params);
+        $status_from_blood_bank = null;
+        
+        if ($blood_bank_check_result['success'] && !empty($blood_bank_check_result['data'])) {
+            $bb_check_unit = $blood_bank_check_result['data'][0];
+            $handed_over_at = $bb_check_unit['handed_over_at'] ?? null;
+            $disposed_at = $bb_check_unit['disposed_at'] ?? null;
+            $bb_status = strtolower(trim($bb_check_unit['status'] ?? ''));
+            
+            if (!empty($disposed_at)) {
+                $status_from_blood_bank = 'Used'; // Will show as Expired in history
+                error_log("Blood Tracker - Unit disposed at {$disposed_at}, setting status to Used");
+            } elseif (!empty($handed_over_at)) {
+                $status_from_blood_bank = 'Used';
+                error_log("Blood Tracker - Unit handed over at {$handed_over_at}, setting status to Used");
+                } elseif ($bb_status === 'used' || $bb_status === 'transfused' || $bb_status === 'buffer') {
+                    // Buffer is used by admin system as a way to update the blood bank, so it should be treated as Used
+                    $status_from_blood_bank = 'Used';
+                    error_log("Blood Tracker - Unit status is {$bb_status}, setting status to Used");
+                } elseif ($bb_status === 'stored') {
+                    $status_from_blood_bank = 'Stored';
+                } elseif ($bb_status === 'allocated') {
+                    $status_from_blood_bank = 'Allocated';
+                }
+        }
+        
+        // Use status from blood_bank_units if available, otherwise use eligibility status, then fallback to history
+        if ($status_from_blood_bank) {
+            $donation['current_status'] = $status_from_blood_bank;
+            error_log("Blood Tracker - Using status from blood_bank_units: {$status_from_blood_bank}");
+        } elseif ($donation_status_from_eligibility) {
+            $donation['current_status'] = $donation_status_from_eligibility;
+            error_log("Blood Tracker - Using status from eligibility table: {$donation_status_from_eligibility}");
+        } else {
+            // Fallback: Get the latest status from donation_status_history
+            $history_params = [
+                'donation_id' => 'eq.' . $donation_id,
+                'order' => 'changed_at.desc',
+                'limit' => 1
+            ];
+            
+            $history_result = get_records('donation_status_history', $history_params);
+            if ($history_result['success'] && !empty($history_result['data'])) {
+                $latest_history = $history_result['data'][0];
+                $history_status = $latest_history['status'] ?? null;
+                
+                if ($history_status && $history_status !== $donation['current_status']) {
+                    error_log("Blood Tracker - Status mismatch: donations.current_status={$donation['current_status']}, history.status={$history_status}. Using history status.");
+                    $donation['current_status'] = $history_status;
+                }
+            }
+        }
+        
+        // Get blood type - Priority: 1) Eligibility table, 2) Current donation, 3) Previous donations
         $donor_blood_type = null;
         
-        // First, check if current donation has blood_type
-        if (!empty($donation['blood_type'])) {
+        if ($eligibility_record && !empty($eligibility_record['blood_type'])) {
+            $donor_blood_type = $eligibility_record['blood_type'];
+            error_log("Blood Tracker - Using blood type from eligibility table: " . $donor_blood_type);
+        } elseif (!empty($donation['blood_type'])) {
             $donor_blood_type = $donation['blood_type'];
             error_log("Blood Tracker - Using blood type from current donation: " . $donor_blood_type);
         } else {
             // Get all donations for this donor to find the most recent one with blood_type
             $all_donations_params = [
                 'donor_id' => 'eq.' . $donor_id,
-                'order' => 'created_at.desc'
+                'order' => 'last_updated.desc'
             ];
             
             $all_donations_result = get_records('donations', $all_donations_params);
@@ -69,18 +165,25 @@ if ($donor_id) {
                     if (!empty($past_donation['blood_type'])) {
                         $donor_blood_type = $past_donation['blood_type'];
                         error_log("Blood Tracker - Using blood type from previous donation: " . $donor_blood_type);
-                        break; // Use the most recent one with blood_type
+                        break;
                     }
                 }
             }
         }
         
-        // Override the blood_type in the donation data if we found one from history
+        // Override the blood_type in the donation data
         if ($donor_blood_type) {
             $donation['blood_type'] = $donor_blood_type;
         }
         
+        // Log the status before building tracker data
+        error_log("Blood Tracker - Donation status before build_tracker_data: " . ($donation['current_status'] ?? 'NULL'));
+        
         $tracker_data = build_tracker_data($donation);
+        
+        // Log the status after building tracker data
+        error_log("Blood Tracker - Tracker data current_status: " . ($tracker_data['current_status'] ?? 'NULL'));
+        
         // Compute eligibility to support grace reset and visibility
         $eligibility = compute_donation_eligibility($donor_id);
         error_log("Blood Tracker - Found donation record: " . json_encode($donation));
@@ -98,10 +201,34 @@ if ($donor_id) {
         if ($blood_bank_result['success'] && !empty($blood_bank_result['data'])) {
             $blood_bank_data = $blood_bank_result['data'][0];
             error_log("Blood Tracker - Found blood bank unit record: " . json_encode($blood_bank_data));
-            error_log("Blood Tracker - units value: " . ($blood_bank_data['units'] ?? 'NULL'));
-            error_log("Blood Tracker - status value: " . ($blood_bank_data['status'] ?? 'NULL'));
+            error_log("Blood Tracker - status: " . ($blood_bank_data['status'] ?? 'NULL'));
+            error_log("Blood Tracker - handed_over_at: " . ($blood_bank_data['handed_over_at'] ?? 'NULL'));
+            error_log("Blood Tracker - disposed_at: " . ($blood_bank_data['disposed_at'] ?? 'NULL'));
+            error_log("Blood Tracker - hospital_from: " . ($blood_bank_data['hospital_from'] ?? 'NULL'));
         } else {
             error_log("Blood Tracker - No blood bank unit record found for donor_id: $donor_id");
+            
+            // Use eligibility record we already fetched above (if available)
+            if ($eligibility_record) {
+                $elig_status = strtolower(trim($eligibility_record['status'] ?? ''));
+                $collection_successful = isset($eligibility_record['collection_successful']) && 
+                                         ($eligibility_record['collection_successful'] === true || 
+                                          $eligibility_record['collection_successful'] === 'true' || 
+                                          $eligibility_record['collection_successful'] === 1);
+                $has_blood_collection_id = !empty($eligibility_record['blood_collection_id'] ?? null);
+                
+                // If eligibility shows approved/eligible with blood_collection_id, create synthetic blood_bank_data
+                if ((($elig_status === 'approved' || $elig_status === 'eligible') || $collection_successful) && $has_blood_collection_id) {
+                    error_log("Blood Tracker - Found approved eligibility record with blood_collection_id, creating synthetic blood_bank_data");
+                    
+                    // Create synthetic blood_bank_data to indicate Processed status
+                    $blood_bank_data = [
+                        'status' => 'Valid',
+                        'units' => 1,
+                        'donor_id' => $donor_id
+                    ];
+                }
+            }
         }
         
         // Always try to get blood collection data for units display
@@ -603,37 +730,46 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
                             ['key' => 'Used',       'icon' => '🏥', 'label' => 'Used'],
                         ];
 
-                        // Determine current stage index based on blood_bank_units status first, then fall back to donation status
+                        // Determine current stage index based on donation current_status (which already includes blood_bank_units check)
                         $current_stage_index = 0;
-                        $blood_bank_status = null;
+                        $stage_description_extra = '';
+                        $current_donation_status = $tracker_data['current_status'] ?? $donation['current_status'] ?? 'Processed';
                         
-                        // Check blood_bank_units status first (this is the primary source for tracker stages)
-                        if (isset($blood_bank_data) && isset($blood_bank_data['status'])) {
-                            $blood_bank_status = strtolower(trim($blood_bank_data['status']));
-                            
-                            // Map blood_bank_units status to tracker stages
-                            if ($blood_bank_status === 'processed' || $blood_bank_status === 'valid') {
-                                $current_stage_index = 0; // Processed
-                            } elseif ($blood_bank_status === 'stored') {
-                                $current_stage_index = 1; // Stored
-                            } elseif ($blood_bank_status === 'allocated') {
-                                $current_stage_index = 2; // Allocated
-                            } elseif ($blood_bank_status === 'used' || $blood_bank_status === 'transfused') {
-                                $current_stage_index = 3; // Used
+                        // Get hospital_from from blood_bank_data if available for Used status
+                        $hospital_from = null;
+                        if (isset($blood_bank_data)) {
+                            $hospital_from = $blood_bank_data['hospital_from'] ?? null;
+                        }
+                        
+                        // Map donation status to stage index (status was already determined from blood_bank_units priority)
+                        if ($current_donation_status === 'Used') {
+                            $current_stage_index = 3; // Used
+                            if (!empty($hospital_from)) {
+                                $stage_description_extra = ' - Sent to ' . htmlspecialchars($hospital_from);
                             }
-                            
-                            error_log("Blood Tracker - Using blood_bank_units status: " . $blood_bank_status . " -> stage index: " . $current_stage_index);
+                            // Check if it's expired/disposed
+                            if (isset($blood_bank_data) && !empty($blood_bank_data['disposed_at'])) {
+                                $stage_description_extra = ' (Expired/Disposed)';
+                            }
+                            error_log("Blood Tracker - Status is Used -> stage index: 3");
+                        } elseif ($current_donation_status === 'Stored') {
+                            $current_stage_index = 1; // Stored
+                            error_log("Blood Tracker - Status is Stored -> stage index: 1");
+                        } elseif ($current_donation_status === 'Allocated') {
+                            $current_stage_index = 2; // Allocated
+                            error_log("Blood Tracker - Status is Allocated -> stage index: 2");
+                        } elseif ($current_donation_status === 'Processed' || $current_donation_status === 'Testing Complete' || 
+                                  $current_donation_status === 'Testing' || $current_donation_status === 'Registered' || 
+                                  $current_donation_status === 'Sample Collected') {
+                            $current_stage_index = 0; // Processed
+                            error_log("Blood Tracker - Status is {$current_donation_status} -> stage index: 0");
+                        } elseif ($current_donation_status === 'Ready for Use') {
+                            $current_stage_index = 2; // Allocated (ready means allocated)
+                            error_log("Blood Tracker - Status is Ready for Use -> stage index: 2");
                         } else {
-                            // Fallback to donation status if blood_bank_units not available
-                            if ($tracker_data['current_status'] === 'Registered' || $tracker_data['current_status'] === 'Sample Collected' || $tracker_data['current_status'] === 'Testing') {
-                                $current_stage_index = 0; // Processed
-                            } elseif ($tracker_data['current_status'] === 'Testing Complete' || $tracker_data['current_status'] === 'Processed') {
-                                $current_stage_index = 1; // Stored (after processing)
-                            } elseif ($tracker_data['current_status'] === 'Ready for Use') {
-                                $current_stage_index = 2; // Allocated (ready means allocated)
-                            }
-                            
-                            error_log("Blood Tracker - Using donation status fallback: " . $tracker_data['current_status'] . " -> stage index: " . $current_stage_index);
+                            // Default to Processed
+                            $current_stage_index = 0;
+                            error_log("Blood Tracker - Unknown status '{$current_donation_status}' -> defaulting to stage index: 0");
                         }
                         ?>
 
@@ -673,11 +809,11 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
                         if ($current_stage_index === 0) {
                             echo "Your blood is being processed and tested.";
                         } elseif ($current_stage_index === 1) {
-                            echo "Your blood is stored and ready for testing.";
+                            echo "Your blood is stored and ready for distribution.";
                         } elseif ($current_stage_index === 2) {
                             echo "Your blood is allocated for a hospital request.";
                         } elseif ($current_stage_index === 3) {
-                            echo "Your blood has been used to save lives!";
+                            echo "Your blood has been used to save lives!" . $stage_description_extra;
                         }
                         ?>
                     </div>
@@ -709,11 +845,6 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
     </div>
     
     <script>
-        // Auto-refresh every 30 seconds to check for status updates
-        setInterval(() => {
-            checkForStatusUpdates();
-        }, 30000);
-        
         // Function to check for status updates automatically
         function checkForStatusUpdates() {
             fetch('../api/auto_status_update.php?action=update_by_email&email=<?php echo urlencode($_SESSION['user']['email'] ?? ''); ?>', {
@@ -735,8 +866,18 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
             });
         }
         
-        // Handle refresh status button
-        document.getElementById('refresh-status').addEventListener('click', function() {
+        // Call immediately on page load to sync status with admin approval (only once)
+        checkForStatusUpdates();
+        
+        // Auto-refresh every 30 seconds to check for status updates (only one interval)
+        setInterval(() => {
+            checkForStatusUpdates();
+        }, 30000);
+        
+        // Handle refresh status button (if it exists)
+        const refreshBtn = document.getElementById('refresh-status');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', function() {
             this.textContent = '🔄 Updating...';
             this.disabled = true;
             
@@ -777,7 +918,8 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
                 this.textContent = '🔄 Refresh Status';
                 this.disabled = false;
             });
-        });
+            });
+        }
         
         // Show cancellation popup
         function showCancellationPopup(reason) {
