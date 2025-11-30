@@ -601,11 +601,213 @@ if ($validated) {
             color: #333;
         }
         
+        /* Password hint styling */
+        .password-hint {
+            font-size: 13px;
+            color: #666;
+            margin-top: -12px;
+            margin-bottom: 16px;
+            font-style: italic;
+        }
+        
+        /* Error Modal Styling */
+        .error-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            padding: 20px;
+            box-sizing: border-box;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .error-modal {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+            position: relative;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .error-modal-header {
+            background-color: #d32f2f;
+            color: white;
+            padding: 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .error-modal-header h3 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .error-modal-header .error-icon {
+            font-size: 24px;
+        }
+        
+        .error-modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s;
+        }
+        
+        .error-modal-close:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .error-modal-body {
+            padding: 24px;
+        }
+        
+        .error-modal-body .error-type {
+            font-size: 14px;
+            color: #666;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+        
+        .error-modal-body .error-message {
+            font-size: 16px;
+            color: #333;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+        
+        .error-modal-body .error-details {
+            background-color: #f5f5f5;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 16px;
+            font-family: monospace;
+            word-break: break-word;
+        }
+        
+        .error-modal-body .error-help {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.5;
+            padding: 12px;
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .error-modal-footer {
+            padding: 0 24px 24px;
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        
+        .error-modal-button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 100px;
+        }
+        
+        .error-modal-button-primary {
+            background-color: #d32f2f;
+            color: white;
+        }
+        
+        .error-modal-button-primary:hover {
+            background-color: #b71c1c;
+        }
+        
+        .error-modal-button-secondary {
+            background-color: #f5f5f5;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+        
+        .error-modal-button-secondary:hover {
+            background-color: #e0e0e0;
+        }
+        
         /* Mobile-specific adjustment for the cancel button */
         @media (max-width: 480px) {
             .cancel-button {
                 padding: 6px 12px;
                 font-size: 13px;
+            }
+            
+            .error-modal {
+                max-width: 100%;
+                margin: 10px;
+            }
+            
+            .error-modal-header {
+                padding: 16px;
+            }
+            
+            .error-modal-header h3 {
+                font-size: 18px;
+            }
+            
+            .error-modal-body {
+                padding: 20px;
+            }
+            
+            .error-modal-footer {
+                flex-direction: column;
+                padding: 0 20px 20px;
+            }
+            
+            .error-modal-button {
+                width: 100%;
             }
         }
     </style>
@@ -643,7 +845,7 @@ if ($validated) {
                 <div class="step" data-step="5">5</div>
             </div>
             
-            <form method="POST" action="" id="registrationForm">
+            <form method="POST" action="" id="registrationForm" novalidate>
                 <input type="hidden" name="step" id="step" value="1">
                 
                 <!-- Step 1: Personal Information -->
@@ -844,15 +1046,17 @@ if ($validated) {
                     
 					<label class="label required" for="password">Password:</label>
 					<div class="password-wrapper">
-						<input type="password" id="password" name="password" class="input input--with-toggle" placeholder="Enter a secure password" required>
+						<input type="password" id="password" name="password" class="input input--with-toggle" placeholder="Enter a secure password" required minlength="8">
 						<span class="toggle-password" title="Show/Hide" aria-label="Show password"></span>
 					</div>
+					<p class="password-hint">Password must be at least 8 characters long</p>
                     
 					<label class="label required" for="confirm_password">Confirm Password:</label>
 					<div class="password-wrapper">
-						<input type="password" id="confirm_password" name="confirm_password" class="input input--with-toggle" placeholder="Confirm your password" required>
+						<input type="password" id="confirm_password" name="confirm_password" class="input input--with-toggle" placeholder="Confirm your password" required minlength="8">
 						<span class="toggle-password" title="Show/Hide" aria-label="Show password"></span>
 					</div>
+					<p class="password-hint">Password must be at least 8 characters long</p>
                     
                     <div class="form-navigation">
                         <a href="index.php" class="nav-button cancel-button">Cancel</a>
@@ -962,7 +1166,14 @@ if ($validated) {
                             isValid = false;
                             mobileField.style.borderColor = '#d32f2f';
                             mobileField.style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
-                            showToast('Please enter a valid PH mobile (10 digits starting with 9).');
+                            const mobileError = categorizeError(
+                                new Error('Please enter a valid Philippine mobile number. It must be 10 digits starting with 9 (e.g., 9123456789).'),
+                                null
+                            );
+                            mobileError.type = 'Invalid Mobile Number';
+                            mobileError.category = 'Validation Error';
+                            mobileError.help = 'Philippine mobile numbers should be entered as 10 digits starting with 9. The +63 prefix is automatically added. Example: 9123456789';
+                            showErrorModal(mobileError);
                         }
                     } else {
                         mobileField.style.borderColor = '#ccc';
@@ -989,21 +1200,64 @@ if ($validated) {
                 });
                 
                 if (!isValid) {
-                    // Show toast notification instead of alert for better mobile UX
-                    showToast('Please fill in all required fields.');
+                    // Show error modal for validation errors
+                    const validationError = categorizeError(
+                        new Error('Please fill in all required fields correctly.'),
+                        null
+                    );
+                    validationError.type = 'Validation Error';
+                    validationError.category = 'Validation Error';
+                    validationError.help = 'Please review the form and make sure all required fields (marked with *) are filled correctly.';
+                    showErrorModal(validationError);
                 }
                 
                 // Special case for step 5 (the final step)
                 if (stepNumber === 5 && isValid) {
-                    // Password matching validation
+                    // Password length validation
                     const password = document.getElementById('password').value;
                     const confirmPassword = document.getElementById('confirm_password').value;
                     
-                    if (password !== confirmPassword) {
-                        showToast('Passwords do not match!');
+                    // Check password length first
+                    if (!password || password.length < 8) {
+                        const passwordLengthError = categorizeError(
+                            new Error('Password must be at least 8 characters long. Your password is too short.'),
+                            null
+                        );
+                        passwordLengthError.type = 'Password Too Short';
+                        passwordLengthError.category = 'Validation Error';
+                        passwordLengthError.help = 'Please enter a password that is at least 8 characters long. Make sure it\'s secure and easy for you to remember.';
+                        showErrorModal(passwordLengthError);
+                        document.getElementById('password').style.borderColor = '#d32f2f';
+                        document.getElementById('password').style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
+                        isValid = false;
+                    } else {
+                        document.getElementById('password').style.borderColor = '#ccc';
+                        document.getElementById('password').style.backgroundColor = 'white';
+                    }
+                    
+                    // Check confirm password length
+                    if (confirmPassword && confirmPassword.length < 8) {
                         document.getElementById('confirm_password').style.borderColor = '#d32f2f';
                         document.getElementById('confirm_password').style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
-                return false;
+                        isValid = false;
+                    }
+                    
+                    // Password matching validation (only if both passwords are valid length)
+                    if (isValid && password !== confirmPassword) {
+                        const passwordError = categorizeError(
+                            new Error('The passwords you entered do not match. Please make sure both password fields contain the same password.'),
+                            null
+                        );
+                        passwordError.type = 'Password Mismatch';
+                        passwordError.category = 'Validation Error';
+                        passwordError.help = 'Please enter the same password in both the "Password" and "Confirm Password" fields.';
+                        showErrorModal(passwordError);
+                        document.getElementById('confirm_password').style.borderColor = '#d32f2f';
+                        document.getElementById('confirm_password').style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
+                        isValid = false;
+                    } else if (isValid && password === confirmPassword) {
+                        document.getElementById('confirm_password').style.borderColor = '#ccc';
+                        document.getElementById('confirm_password').style.backgroundColor = 'white';
                     }
                 }
                 
@@ -1027,6 +1281,189 @@ if ($validated) {
                         document.body.removeChild(toast);
                     }, 300);
                 }, 3000);
+            }
+            
+            /**
+             * Enhanced Error Modal System
+             * Displays user-friendly error messages in a modal dialog
+             */
+            function showErrorModal(errorData) {
+                // Remove any existing error modals
+                const existingModal = document.querySelector('.error-modal-overlay');
+                if (existingModal) {
+                    existingModal.remove();
+                }
+                
+                // Determine error type and message
+                const errorType = errorData.type || 'Registration Error';
+                const errorMessage = errorData.message || 'An unknown error occurred';
+                const errorDetails = errorData.details || null;
+                const errorHelp = errorData.help || 'Please check your information and try again. If the problem persists, contact technical support.';
+                
+                // Create modal overlay
+                const overlay = document.createElement('div');
+                overlay.className = 'error-modal-overlay';
+                
+                // Create modal
+                const modal = document.createElement('div');
+                modal.className = 'error-modal';
+                
+                // Modal header
+                const header = document.createElement('div');
+                header.className = 'error-modal-header';
+                header.innerHTML = `
+                    <h3>
+                        <span class="error-icon">⚠️</span>
+                        <span>${errorType}</span>
+                    </h3>
+                    <button class="error-modal-close" aria-label="Close">&times;</button>
+                `;
+                
+                // Modal body
+                const body = document.createElement('div');
+                body.className = 'error-modal-body';
+                
+                const typeLabel = document.createElement('div');
+                typeLabel.className = 'error-type';
+                typeLabel.textContent = errorData.category || 'Error';
+                
+                const message = document.createElement('div');
+                message.className = 'error-message';
+                message.textContent = errorMessage;
+                
+                body.appendChild(typeLabel);
+                body.appendChild(message);
+                
+                // Add error details if available
+                if (errorDetails) {
+                    const details = document.createElement('div');
+                    details.className = 'error-details';
+                    details.textContent = errorDetails;
+                    body.appendChild(details);
+                }
+                
+                // Add help text
+                const help = document.createElement('div');
+                help.className = 'error-help';
+                help.textContent = errorHelp;
+                body.appendChild(help);
+                
+                // Modal footer
+                const footer = document.createElement('div');
+                footer.className = 'error-modal-footer';
+                footer.innerHTML = `
+                    <button class="error-modal-button error-modal-button-primary" onclick="this.closest('.error-modal-overlay').remove()">
+                        OK, I Understand
+                    </button>
+                `;
+                
+                // Assemble modal
+                modal.appendChild(header);
+                modal.appendChild(body);
+                modal.appendChild(footer);
+                overlay.appendChild(modal);
+                
+                // Add to document
+                document.body.appendChild(overlay);
+                
+                // Close on overlay click (outside modal)
+                overlay.addEventListener('click', function(e) {
+                    if (e.target === overlay) {
+                        overlay.remove();
+                    }
+                });
+                
+                // Close on close button click
+                header.querySelector('.error-modal-close').addEventListener('click', function() {
+                    overlay.remove();
+                });
+                
+                // Close on Escape key
+                const escapeHandler = function(e) {
+                    if (e.key === 'Escape') {
+                        overlay.remove();
+                        document.removeEventListener('keydown', escapeHandler);
+                    }
+                };
+                document.addEventListener('keydown', escapeHandler);
+                
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            
+            /**
+             * Categorize and format errors for better user experience
+             */
+            function categorizeError(error, responseStatus = null) {
+                let category = 'Error';
+                let type = 'Registration Error';
+                let message = error.message || 'An unexpected error occurred';
+                let details = null;
+                let help = 'Please check your information and try again. If the problem persists, contact technical support.';
+                
+                // Network errors
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('network')) {
+                    category = 'Network Error';
+                    type = 'Connection Problem';
+                    message = 'Unable to connect to the server. Please check your internet connection and try again.';
+                    help = 'Make sure you have a stable internet connection. If you\'re using mobile data, try switching to Wi-Fi.';
+                }
+                // Timeout errors
+                else if (error.message.includes('timeout') || error.message.includes('taking too long')) {
+                    category = 'Timeout Error';
+                    type = 'Request Timeout';
+                    message = 'The server is taking too long to respond. Please try again in a moment.';
+                    help = 'The server might be experiencing high traffic. Please wait a few moments and try again.';
+                }
+                // Validation errors
+                else if (error.message.includes('Missing required field') || error.message.includes('Invalid') || error.message.includes('required')) {
+                    category = 'Validation Error';
+                    type = 'Invalid Information';
+                    message = error.message;
+                    help = 'Please review all the fields and make sure they are filled correctly. Required fields are marked with an asterisk (*).';
+                }
+                // Email already exists
+                else if (error.message.includes('Email already registered') || error.message.includes('already exists') || error.message.includes('duplicate')) {
+                    category = 'Account Error';
+                    type = 'Email Already Registered';
+                    message = 'This email address is already registered. Please use a different email or try logging in.';
+                    help = 'If you already have an account, try logging in instead. If you forgot your password, use the "Forgot Password" option.';
+                }
+                // Server errors (5xx)
+                else if (responseStatus >= 500) {
+                    category = 'Server Error';
+                    type = 'Server Problem';
+                    message = 'The server encountered an error processing your request. Please try again later.';
+                    help = 'This is a temporary server issue. Please try again in a few minutes. If the problem continues, contact technical support.';
+                    details = error.message;
+                }
+                // Client errors (4xx)
+                else if (responseStatus >= 400 && responseStatus < 500) {
+                    category = 'Request Error';
+                    type = 'Invalid Request';
+                    message = error.message || 'Your request could not be processed. Please check your information.';
+                    help = 'Please review your information and make sure all fields are correct.';
+                }
+                // JSON parse errors
+                else if (error.message.includes('JSON') || error.message.includes('parse')) {
+                    category = 'Data Error';
+                    type = 'Invalid Response';
+                    message = 'The server returned an invalid response. Please try again.';
+                    help = 'This might be a temporary issue. Please refresh the page and try again.';
+                    details = error.message;
+                }
+                // Generic errors
+                else {
+                    details = error.message;
+                }
+                
+                return {
+                    category: category,
+                    type: type,
+                    message: message,
+                    details: details,
+                    help: help
+                };
             }
             
             // Add animation class for shake effect
@@ -1482,21 +1919,63 @@ if ($validated) {
             document.getElementById('registrationForm').addEventListener('submit', function(e) {
                 const currentStepNum = parseInt(stepInput.value);
                 
+                // Always prevent default form submission - we handle it via AJAX
+                e.preventDefault();
+                e.stopPropagation();
+                
                 // Always ensure we're on step 5 when submitting
                 if (currentStepNum !== 5) {
                     // If we're not on the final step, prevent submission
-                e.preventDefault();
-                    return;
+                    const stepError = categorizeError(
+                        new Error('Please complete all steps before submitting the registration form.'),
+                        null
+                    );
+                    stepError.type = 'Incomplete Registration';
+                    stepError.category = 'Validation Error';
+                    stepError.help = 'Please navigate through all 5 steps and fill in all required information before submitting.';
+                    showErrorModal(stepError);
+                    return false;
                 }
                 
-                // Validate the current step fields
+                // Validate the current step fields - this includes password length check
                 if (!validateStep(currentStepNum)) {
-                    e.preventDefault();
-                    return;
+                    // Validation failed - error modal already shown by validateStep
+                    return false;
+                }
+                
+                // Additional password validation before submission (double-check)
+                const password = document.getElementById('password').value;
+                const confirmPassword = document.getElementById('confirm_password').value;
+                
+                if (!password || password.length < 8) {
+                    const passwordLengthError = categorizeError(
+                        new Error('Password must be at least 8 characters long. Your password is too short.'),
+                        null
+                    );
+                    passwordLengthError.type = 'Password Too Short';
+                    passwordLengthError.category = 'Validation Error';
+                    passwordLengthError.help = 'Please enter a password that is at least 8 characters long. Make sure it\'s secure and easy for you to remember.';
+                    showErrorModal(passwordLengthError);
+                    document.getElementById('password').style.borderColor = '#d32f2f';
+                    document.getElementById('password').style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
+                    return false;
+                }
+                
+                if (password !== confirmPassword) {
+                    const passwordMatchError = categorizeError(
+                        new Error('The passwords you entered do not match. Please make sure both password fields contain the same password.'),
+                        null
+                    );
+                    passwordMatchError.type = 'Password Mismatch';
+                    passwordMatchError.category = 'Validation Error';
+                    passwordMatchError.help = 'Please enter the same password in both the "Password" and "Confirm Password" fields.';
+                    showErrorModal(passwordMatchError);
+                    document.getElementById('confirm_password').style.borderColor = '#d32f2f';
+                    document.getElementById('confirm_password').style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
+                    return false;
                 }
                 
                 // Handle form submission via AJAX instead of traditional form submission
-                e.preventDefault();
                 
                 // Make sure the step is set to 5 when submitting
                 stepInput.value = 5;
@@ -1537,7 +2016,11 @@ if ($validated) {
                 const loadingTimeout = setTimeout(() => {
                     if (document.body.contains(loadingOverlay)) {
                         loadingOverlay.remove();
-                        showToast('The server is taking too long to respond. Please try again later.');
+                        const timeoutError = categorizeError(
+                            new Error('The server is taking too long to respond'),
+                            null
+                        );
+                        showErrorModal(timeoutError);
                     }
                 }, 15000);
                 
@@ -1549,23 +2032,32 @@ if ($validated) {
                     credentials: 'same-origin'
                 })
                 .then(response => {
+                    // Store response status for error categorization
+                    const responseStatus = response.status;
+                    
                     // Check if response is OK
                     if (!response.ok) {
                         // Log the response for debugging
                         console.error('Server response error:', response.status, response.statusText);
                         return response.text().then(text => {
                             // Try to parse as JSON, but if it fails, return as text
+                            let errorMessage;
                             try {
                                 const jsonData = JSON.parse(text);
-                                throw new Error(jsonData.message || `Server responded with status: ${response.status}`);
+                                errorMessage = jsonData.message || `Server responded with status: ${response.status}`;
                             } catch (e) {
                                 if (e instanceof SyntaxError) {
                                     // This is a parsing error, return the raw text
-                                    throw new Error(`Server error (${response.status}): ${text || 'No response details'}`);
+                                    errorMessage = `Server error (${response.status}): ${text || 'No response details'}`;
+                                } else {
+                                    errorMessage = text || `Server error (${response.status})`;
                                 }
-                                // Otherwise this is our constructed error, so rethrow it
-                                throw e;
                             }
+                            
+                            // Create error object with status
+                            const error = new Error(errorMessage);
+                            error.status = responseStatus;
+                            throw error;
                         });
                     }
                     
@@ -1578,14 +2070,18 @@ if ($validated) {
                             return JSON.parse(text);
                         } catch (error) {
                             console.error('JSON parse error:', error);
-                            throw new Error('Invalid response format: ' + text.substring(0, 100));
+                            const parseError = new Error('Invalid response format: ' + text.substring(0, 100));
+                            parseError.status = responseStatus;
+                            throw parseError;
                         }
                     });
                 })
                 .then(data => {
                     // Remove loading timeout and overlay
                     clearTimeout(loadingTimeout);
-                    loadingOverlay.remove();
+                    if (document.body.contains(loadingOverlay)) {
+                        loadingOverlay.remove();
+                    }
                     
                     if (data.success) {
                         // Show success message and redirect
@@ -1602,23 +2098,15 @@ if ($validated) {
                             window.location.href = data.data.redirect;
                         }, 1500);
                     } else {
-                        // Show error message
-                        showToast('Registration failed: ' + (data.message || 'Unknown error'));
+                        // Categorize and show error in modal
+                        const errorData = categorizeError(
+                            new Error(data.message || 'Unknown error occurred'),
+                            data.status || 400
+                        );
+                        showErrorModal(errorData);
                         
-                        // Add error message to the page
-                        const errorContainer = document.createElement('div');
-                        errorContainer.className = 'error-message';
-                        errorContainer.innerHTML = `
-                            <h3>Registration Error:</h3>
-                            <p>${data.message || 'Unknown error'}</p>
-                            <p><small>If this error persists, please contact technical support with the error details above.</small></p>
-                        `;
-                        
-                        // Insert at the top of the form container
-                        formContainer.insertBefore(errorContainer, formContainer.firstChild);
-                        
-                        // Scroll to the top to show the error
-                        window.scrollTo(0, 0);
+                        // Also show toast for quick feedback
+                        showToast('Registration failed. Please see the error message below.');
                     }
                 })
                 .catch(error => {
@@ -1628,25 +2116,15 @@ if ($validated) {
                         loadingOverlay.remove();
                     }
                     
-                    // Show detailed error message
-                    const errorMsg = 'Registration error: ' + error.message;
-                    console.error(errorMsg);
-                    showToast(errorMsg);
+                    // Log error for debugging
+                    console.error('Registration error:', error);
                     
-                    // Add detailed error message to the page
-                    const errorContainer = document.createElement('div');
-                    errorContainer.className = 'error-message';
-                    errorContainer.innerHTML = `
-                        <h3>Technical Error:</h3>
-                        <p>${error.message}</p>
-                        <p><small>Please try again later or contact technical support with this error message.</small></p>
-                    `;
+                    // Categorize and show error in modal
+                    const errorData = categorizeError(error, error.status || null);
+                    showErrorModal(errorData);
                     
-                    // Insert at the top of the form container
-                    formContainer.insertBefore(errorContainer, formContainer.firstChild);
-                    
-                    // Scroll to the top to show the error
-                    window.scrollTo(0, 0);
+                    // Also show toast for quick feedback
+                    showToast('An error occurred. Please see the error message below.');
                 });
             });
             
@@ -1674,14 +2152,28 @@ if ($validated) {
                 const password = document.getElementById('password').value;
                 const confirmPassword = document.getElementById('confirm_password').value;
                 
-                if (!password || password.length < 6) {
-                    showToast('Password must be at least 6 characters long');
+                if (!password || password.length < 8) {
+                    const passwordLengthError = categorizeError(
+                        new Error('Password must be at least 8 characters long. Your password is too short.'),
+                        null
+                    );
+                    passwordLengthError.type = 'Password Too Short';
+                    passwordLengthError.category = 'Validation Error';
+                    passwordLengthError.help = 'Please enter a password that is at least 8 characters long. Make sure it\'s secure and easy for you to remember.';
+                    showErrorModal(passwordLengthError);
                     document.getElementById('password').style.borderColor = '#d32f2f';
                     return false;
                 }
                 
                 if (password !== confirmPassword) {
-                    showToast('Passwords do not match');
+                    const passwordMatchError = categorizeError(
+                        new Error('The passwords you entered do not match. Please make sure both password fields contain the same password.'),
+                        null
+                    );
+                    passwordMatchError.type = 'Password Mismatch';
+                    passwordMatchError.category = 'Validation Error';
+                    passwordMatchError.help = 'Please enter the same password in both the "Password" and "Confirm Password" fields.';
+                    showErrorModal(passwordMatchError);
                     document.getElementById('confirm_password').style.borderColor = '#d32f2f';
                     return false;
                 }
@@ -1703,14 +2195,28 @@ if ($validated) {
                 });
                 
                 if (missingFields.length > 0) {
-                    showToast('Please fill in all required fields before submitting');
+                    const missingFieldsError = categorizeError(
+                        new Error('Some required fields are missing. Please fill in all required fields before submitting.'),
+                        null
+                    );
+                    missingFieldsError.type = 'Incomplete Form';
+                    missingFieldsError.category = 'Validation Error';
+                    missingFieldsError.help = 'Please go through all steps and make sure all required fields (marked with *) are filled correctly.';
+                    showErrorModal(missingFieldsError);
                     return false;
                 }
                 
                 // Ensure the permanent address is combined and set
                 updateCombinedAddress();
                 if (!document.getElementById('permanent_address').value) {
-                    showToast('Please provide a valid address');
+                    const addressError = categorizeError(
+                        new Error('Please provide a valid permanent address. The address field cannot be empty.'),
+                        null
+                    );
+                    addressError.type = 'Missing Address';
+                    addressError.category = 'Validation Error';
+                    addressError.help = 'Please go back to Step 3 (Address Information) and fill in at least the required address fields: Province, Municipality/City, and Barangay.';
+                    showErrorModal(addressError);
                     return false;
                 }
                 

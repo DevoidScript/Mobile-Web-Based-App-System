@@ -152,8 +152,8 @@ function create_record($table, $data) {
     // Make sure table doesn't already have schema prefix
     $tableName = str_replace('public.', '', $table);
     
-    // Use service role key for donations table to bypass RLS
-    if ($tableName === 'donations') {
+    // Use service role key for tables that need to bypass RLS
+    if ($tableName === 'donations' || $tableName === 'email_verifications') {
         return supabase_request("rest/v1/$tableName", 'POST', $data, $headers, true);
     }
     
@@ -171,7 +171,14 @@ function create_record($table, $data) {
  */
 function update_record($table, $id, $data, $primaryKey = 'id') {
     $headers = ['Prefer: return=representation'];
-    return supabase_request("rest/v1/$table?$primaryKey=eq.$id", 'PATCH', $data, $headers);
+    
+    // Make sure table doesn't already have schema prefix
+    $tableName = str_replace('public.', '', $table);
+    
+    // Use service role key for tables that need to bypass RLS
+    $use_service_role = ($tableName === 'donations' || $tableName === 'email_verifications');
+    
+    return supabase_request("rest/v1/$tableName?$primaryKey=eq.$id", 'PATCH', $data, $headers, $use_service_role);
 }
 
 /**

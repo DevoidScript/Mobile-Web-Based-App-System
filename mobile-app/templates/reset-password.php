@@ -217,6 +217,14 @@
             line-height: 1.5;
         }
         
+        .password-hint {
+            font-size: 13px;
+            color: #666;
+            margin-top: 6px;
+            margin-bottom: 0;
+            font-style: italic;
+        }
+        
         @media (max-width: 768px) {
             .reset-password-container {
                 padding: 15px;
@@ -251,6 +259,7 @@
                             <input type="password" id="password" class="form-control" name="password" placeholder="Enter new password" autocomplete="new-password" required minlength="8">
                             <button type="button" class="toggle-password" id="togglePassword1">Show</button>
                         </div>
+                        <p class="password-hint">Password must be at least 8 characters long</p>
                     </div>
                     
                     <div class="input-group">
@@ -260,6 +269,7 @@
                             <input type="password" id="confirm_password" class="form-control" name="confirm_password" placeholder="Confirm new password" autocomplete="new-password" required minlength="8">
                             <button type="button" class="toggle-password" id="togglePassword2">Show</button>
                         </div>
+                        <p class="password-hint">Password must be at least 8 characters long</p>
                     </div>
                     
                     <button type="submit" class="btn-submit" id="submitBtn">Reset Password</button>

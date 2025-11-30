@@ -185,12 +185,12 @@ function handle_reset_password($post_data) {
     $email = $token_result['email'];
     
     // Update password using Supabase Auth (admin endpoint)
+    // Similar approach to change-password.php but using admin endpoint since we don't have current password
     $supabase_url = SUPABASE_URL;
     $supabase_key = SUPABASE_API_KEY;
+    $supabase_service_key = SUPABASE_SERVICE_KEY;
     
-    // Use Supabase's password update endpoint
-    // First, we need to get an admin token or use the service role
-    // For now, we'll use the update user endpoint with service role
+    // Step 1: Update password using admin endpoint (similar to change-password.php Step 2)
     $update_url = rtrim($supabase_url, '/') . '/auth/v1/admin/users/' . $user_id;
     $update_data = json_encode([
         'password' => $password
@@ -202,16 +202,16 @@ function handle_reset_password($post_data) {
     curl_setopt($ch, CURLOPT_POSTFIELDS, $update_data);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json',
-        'apikey: ' . $supabase_key,
-        'Authorization: Bearer ' . $supabase_key
+        'apikey: ' . $supabase_service_key,
+        'Authorization: Bearer ' . $supabase_service_key
     ]);
     $response = curl_exec($ch);
     $status_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     
     if ($status_code === 200) {
-        // Double-check that Supabase actually accepts the new password by attempting a login,
-        // similar to the logic used in templates/change-password.php.
+        // Step 2: Verify password by signing in (same as change-password.php verification)
+        // This ensures the password was actually updated correctly
         $sign_in_url = rtrim($supabase_url, '/') . '/auth/v1/token?grant_type=password';
         $sign_in_data = json_encode([
             'email' => $email,
@@ -228,15 +228,16 @@ function handle_reset_password($post_data) {
         $sign_in_response = curl_exec($ch);
         $sign_in_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+        $sign_in_result = json_decode($sign_in_response, true);
 
-        if ($sign_in_status === 200) {
-            // Mark token as used only when the new password is actually valid
+        if ($sign_in_status === 200 && !empty($sign_in_result['access_token'])) {
+            // Password verified successfully - same approach as change-password.php
             mark_password_reset_token_used($token);
             send_response(true, 'Password has been reset successfully. You can now login with your new password.');
         } else {
             // Admin update returned 200 but login with new password failed – treat as failure
             error_log("Password reset: admin update returned 200 but login with new password failed for email: $email, status: $sign_in_status, response: $sign_in_response");
-            send_response(false, 'Failed to verify new password with Supabase. Please try again.', null, 500);
+            send_response(false, 'Failed to verify new password. Please try again.', null, 500);
         }
     } else {
         // Try alternative method: use password reset endpoint
@@ -297,7 +298,14 @@ function create_password_reset_code($email) {
         // Log for debugging
         error_log("Password reset request for email: $email, resolved user_id: " . $user_id);
 
-        // Store reset code in email_verifications
+        // Check if there's an existing email_verifications record for this email
+        $existing_params = [
+            'email' => 'eq.' . $email,
+            'order' => 'created_at.desc',
+            'limit' => 1
+        ];
+        $existing_result = get_records('email_verifications', $existing_params);
+        
         $reset_data = [
             'email' => $email,
             // Keep verification_code populated (NOT NULL column) and also
@@ -310,18 +318,42 @@ function create_password_reset_code($email) {
             'reset_requested_at' => date('Y-m-d H:i:s') // when reset was requested
         ];
         
-        error_log("Attempting to create password reset record with data: " . json_encode($reset_data));
-        $result = create_record('email_verifications', $reset_data);
-        
-        if (!$result['success']) {
-            error_log("Failed to create password reset code record: " . json_encode($result));
-            return [
-                'success' => false,
-                'message' => 'Failed to create password reset record. ' . json_encode($result['data'] ?? $result)
-            ];
+        // If an existing record exists, update it instead of creating a new one
+        if ($existing_result['success'] && !empty($existing_result['data'])) {
+            $existing_record = $existing_result['data'][0];
+            $existing_id = $existing_record['id'];
+            
+            error_log("Found existing email_verifications record (ID: $existing_id) for email: $email, updating with new reset code");
+            
+            // Update the existing record with new reset code
+            $update_result = update_record('email_verifications', $existing_id, $reset_data);
+            
+            if (!$update_result['success']) {
+                error_log("Failed to update password reset code record: " . json_encode($update_result));
+                return [
+                    'success' => false,
+                    'message' => 'Failed to update password reset record. ' . json_encode($update_result['data'] ?? $update_result)
+                ];
+            }
+            
+            error_log("Password reset code record updated successfully in database (ID: $existing_id)");
+        } else {
+            // No existing record, create a new one
+            error_log("No existing email_verifications record found for email: $email, creating new record");
+            error_log("Attempting to create password reset record with data: " . json_encode($reset_data));
+            
+            $result = create_record('email_verifications', $reset_data);
+            
+            if (!$result['success']) {
+                error_log("Failed to create password reset code record: " . json_encode($result));
+                return [
+                    'success' => false,
+                    'message' => 'Failed to create password reset record. ' . json_encode($result['data'] ?? $result)
+                ];
+            }
+            
+            error_log("Password reset code record created successfully in database");
         }
-        
-        error_log("Password reset code record created successfully in database");
         
         // Log code creation for debugging
         error_log("Password reset code generated for email: $email, code: $code");
@@ -678,10 +710,12 @@ function reset_password_with_token($token, $password) {
     }
     
     $user_id = $token_result['user_id'];
+    $email = $token_result['email'] ?? null;
     
-    // Update password using Supabase
+    // Update password using Supabase (same approach as handle_reset_password)
     $supabase_url = SUPABASE_URL;
     $supabase_key = SUPABASE_API_KEY;
+    $supabase_service_key = SUPABASE_SERVICE_KEY;
     
     $update_url = rtrim($supabase_url, '/') . '/auth/v1/admin/users/' . $user_id;
     $update_data = json_encode(['password' => $password]);
@@ -692,14 +726,45 @@ function reset_password_with_token($token, $password) {
     curl_setopt($ch, CURLOPT_POSTFIELDS, $update_data);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json',
-        'apikey: ' . $supabase_key,
-        'Authorization: Bearer ' . $supabase_key
+        'apikey: ' . $supabase_service_key,
+        'Authorization: Bearer ' . $supabase_service_key
     ]);
     $response = curl_exec($ch);
     $status_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     
-    if ($status_code === 200) {
+    if ($status_code === 200 && $email) {
+        // Verify password by signing in (same as change-password.php)
+        $sign_in_url = rtrim($supabase_url, '/') . '/auth/v1/token?grant_type=password';
+        $sign_in_data = json_encode([
+            'email' => $email,
+            'password' => $password
+        ]);
+        $ch = curl_init($sign_in_url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $sign_in_data);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'apikey: ' . $supabase_key
+        ]);
+        $sign_in_response = curl_exec($ch);
+        $sign_in_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $sign_in_result = json_decode($sign_in_response, true);
+
+        if ($sign_in_status === 200 && !empty($sign_in_result['access_token'])) {
+            mark_password_reset_token_used($token);
+            return ['success' => true];
+        } else {
+            error_log("reset_password_with_token: admin update returned 200 but login with new password failed for email: $email, status: $sign_in_status");
+            return [
+                'success' => false,
+                'message' => 'Failed to verify new password'
+            ];
+        }
+    } else if ($status_code === 200) {
+        // If we don't have email, just mark as used (fallback)
         mark_password_reset_token_used($token);
         return ['success' => true];
     } else {

@@ -189,6 +189,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-weight: bold;
             text-align: center;
         }
+        
+        .password-hint {
+            font-size: 13px;
+            color: #666;
+            margin-top: 6px;
+            margin-bottom: 0;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -220,16 +228,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="form-group">
                 <label for="new-password">New Password</label>
                 <div class="password-wrapper">
-                    <input type="password" id="new-password" name="new-password" placeholder="Enter new password here">
+                    <input type="password" id="new-password" name="new-password" placeholder="Enter new password here" required minlength="8">
                     <span class="toggle-password">👁️</span>
                 </div>
+                <p class="password-hint">Password must be at least 8 characters long</p>
             </div>
             <div class="form-group">
                 <label for="confirm-password">Confirm Password</label>
                 <div class="password-wrapper">
-                    <input type="password" id="confirm-password" name="confirm-password" placeholder="Confirm new password">
+                    <input type="password" id="confirm-password" name="confirm-password" placeholder="Confirm new password" required minlength="8">
                     <span class="toggle-password">👁️</span>
                 </div>
+                <p class="password-hint">Password must be at least 8 characters long</p>
             </div>
 
             <button type="submit" class="update-btn">Update Password</button>
