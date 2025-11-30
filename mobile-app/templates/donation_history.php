@@ -1015,7 +1015,11 @@ if ($has_medical_history_record && $latest_donation_status) {
                                     </div>
                                     <div class="donation-site">
                                         <?php echo htmlspecialchars($donation['blood_type'] ?? 'N/A'); ?> • 
-                                        <?php echo htmlspecialchars($donation['units_collected'] ?? 'N/A'); ?> units
+                                        <?php 
+                                            $units = $donation['units_collected'] ?? 'N/A';
+                                            $unit_text = ($units == 1) ? 'unit' : 'units';
+                                            echo htmlspecialchars($units) . ' ' . $unit_text;
+                                        ?>
                                     </div>
                                 </div>
                             </div>

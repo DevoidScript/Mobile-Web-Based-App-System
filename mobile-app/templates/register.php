@@ -821,11 +821,11 @@ if ($validated) {
 						no-repeat right 12px center/14px;">
 						<?php $occ = $_POST['occupation'] ?? ''; ?>
 						<option value="">Select Occupation</option>
+						<option value="Employed" <?php echo ($occ==='Employed'?'selected':''); ?>>Employed</option>
+						<option value="Unemployed" <?php echo ($occ==='Unemployed'?'selected':''); ?>>Unemployed</option>
+						<option value="Self-Employed" <?php echo ($occ==='Self-Employed'?'selected':''); ?>>Self-Employed</option>
 						<option value="Student" <?php echo ($occ==='Student'?'selected':''); ?>>Student</option>
-						<option value="Teacher" <?php echo ($occ==='Teacher'?'selected':''); ?>>Teacher</option>
-						<option value="Police Officer" <?php echo ($occ==='Police Officer'?'selected':''); ?>>Police Officer</option>
-						<option value="Engineer" <?php echo ($occ==='Engineer'?'selected':''); ?>>Engineer</option>
-						<option value="Others" <?php echo ($occ==='Others'?'selected':''); ?>>Others</option>
+						<option value="Retired" <?php echo ($occ==='Retired'?'selected':''); ?>>Retired</option>
 					</select>
                     
                     <div class="form-navigation">
