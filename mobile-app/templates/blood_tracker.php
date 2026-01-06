@@ -84,7 +84,7 @@ if ($donor_id) {
         $donation = $result['data'][0];
         $donation_id = $donation['donation_id'];
         
-        // PRIORITY 1: Check blood_bank_units for handed_over_at/disposed_at (highest priority - indicates Used status)
+        // PRIORITY 1: Check blood_bank_units for handed_over_at/disposed_at (highest priority - indicates terminal status)
         $blood_bank_check_params = [
             'donor_id' => 'eq.' . $donor_id,
             'order' => 'created_at.desc',
@@ -100,20 +100,24 @@ if ($donor_id) {
             $bb_status = strtolower(trim($bb_check_unit['status'] ?? ''));
             
             if (!empty($disposed_at)) {
-                $status_from_blood_bank = 'Used'; // Will show as Expired in history
-                error_log("Blood Tracker - Unit disposed at {$disposed_at}, setting status to Used");
+                // Disposed units should appear as Expired for donors
+                $status_from_blood_bank = 'Expired';
+                error_log("Blood Tracker - Unit disposed at {$disposed_at}, setting status to Expired");
             } elseif (!empty($handed_over_at)) {
+                // Handed over units are considered Used (no longer in Red Cross blood bank)
                 $status_from_blood_bank = 'Used';
                 error_log("Blood Tracker - Unit handed over at {$handed_over_at}, setting status to Used");
-                } elseif ($bb_status === 'used' || $bb_status === 'transfused' || $bb_status === 'buffer') {
-                    // Buffer is used by admin system as a way to update the blood bank, so it should be treated as Used
-                    $status_from_blood_bank = 'Used';
-                    error_log("Blood Tracker - Unit status is {$bb_status}, setting status to Used");
-                } elseif ($bb_status === 'stored') {
-                    $status_from_blood_bank = 'Stored';
-                } elseif ($bb_status === 'allocated') {
-                    $status_from_blood_bank = 'Allocated';
-                }
+            } elseif ($bb_status === 'used' || $bb_status === 'transfused' || $bb_status === 'buffer') {
+                // Buffer is used by admin system as a way to update the blood bank, so it should be treated as Used
+                $status_from_blood_bank = 'Used';
+                error_log("Blood Tracker - Unit status is {$bb_status}, setting status to Used");
+            } elseif ($bb_status === 'stored') {
+                $status_from_blood_bank = 'Stored';
+            } elseif ($bb_status === 'allocated') {
+                // Allocated to a hospital request – treat as Used for the donor
+                $status_from_blood_bank = 'Used';
+                error_log("Blood Tracker - Unit status is allocated, treating as Used for donor view");
+            }
         }
         
         // Use status from blood_bank_units if available, otherwise use eligibility status, then fallback to history
@@ -184,7 +188,7 @@ if ($donor_id) {
         // Log the status after building tracker data
         error_log("Blood Tracker - Tracker data current_status: " . ($tracker_data['current_status'] ?? 'NULL'));
         
-        // Compute eligibility to support grace reset and visibility
+        // Compute eligibility and grace window exactly as donation_history.php
         $eligibility = compute_donation_eligibility($donor_id);
         error_log("Blood Tracker - Found donation record: " . json_encode($donation));
         
@@ -363,7 +367,6 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
         
         .timeline-container {
             position: relative;
-            
             margin: 32px 0 24px 0;
         }
         
@@ -621,18 +624,18 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
             align-items: center;
             justify-content: space-between;
             margin-bottom: 12px;
-            padding: 0 40px;
+            padding: 0 32px;
         }
         .step {
-            width: 56px;
-            height: 56px;
+            width: 52px;
+            height: 52px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             background: #ffffff;
             border: 3px solid #dcdcdc; /* pending */
-            font-size: 24px;
+            font-size: 22px;
             flex-shrink: 0;
             box-shadow: 0 2px 10px rgba(0,0,0,0.06);
         }
@@ -644,11 +647,66 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
             background: #eaeaea; /* inactive */
         }
         .step-connector.active { background: #d50000; }
+
+        /* Small phones: make tracker icons fit the screen more comfortably */
+        @media (max-width: 480px) {
+            .tracker-container {
+                padding: 18px 12px 80px;
+            }
+            .blood-tracker-card {
+                padding: 16px 12px;
+            }
+            .step-indicators {
+                padding: 0 16px;
+                margin-bottom: 16px;
+            }
+            .step {
+                width: 48px;
+                height: 48px;
+                font-size: 20px;
+            }
+            .timeline-stages {
+                margin-top: 4px;
+            }
+            .stage-label {
+                font-size: 11px;
+            }
+            .stage-status {
+                font-size: 9px;
+                padding: 3px 7px;
+            }
+        }
+
+        /* Extra small phones: balanced compact size */
+        @media (max-width: 360px) {
+            .tracker-container {
+                padding: 16px 10px 80px;
+            }
+            .blood-tracker-card {
+                padding: 14px 10px;
+            }
+            .step-indicators {
+                padding: 0 12px;
+                margin-bottom: 14px;
+            }
+            .step {
+                width: 44px;
+                height: 44px;
+                font-size: 18px;
+            }
+            .stage-label {
+                font-size: 10px;
+            }
+            .stage-status {
+                font-size: 9px;
+                padding: 3px 6px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>Blood Donation Tracker</h1>
+        <h1>My Donations</h1>
     </div>
     
     <div class="tracker-container">
@@ -669,10 +727,11 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
                 </div>
             <?php else: ?>
                 <?php
-                    // If latest donation reached Processed and grace period has passed, suggest reset view
+                    // Reset tracker only when donor is actually eligible again,
+                    // using the same eligibility countdown logic as donation_history.php.
                     $hide_tracker_after_grace = false;
-                    if ($eligibility && $eligibility['latest_completed_donation'] && !empty($eligibility['grace_until'])) {
-                        $hide_tracker_after_grace = (strtotime(date('Y-m-d H:i:s')) > strtotime($eligibility['grace_until']));
+                    if ($eligibility && !empty($eligibility['latest_completed_donation'])) {
+                        $hide_tracker_after_grace = !empty($eligibility['can_donate_now']);
                     }
                 ?>
                 <?php if ($hide_tracker_after_grace): ?>
@@ -713,10 +772,10 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
                 </div>
                 <?php endif; ?>
                 
-                <!-- Blood Tracker Card -->
+                <!-- My Donations Card -->
                 <div class="blood-tracker-card">
                     <div class="card-header">
-                        <h3 class="card-title">Blood Tracker</h3>
+                        <h3 class="card-title">My Donations</h3>
                         <span class="card-arrow">→</span>
                     </div>
                     
@@ -742,30 +801,24 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
                         }
                         
                         // Map donation status to stage index (status was already determined from blood_bank_units priority)
-                        if ($current_donation_status === 'Used') {
-                            $current_stage_index = 3; // Used
+                        $used_like_statuses = ['Used', 'Allocated', 'Ready for Use', 'Expired'];
+                        if (in_array($current_donation_status, $used_like_statuses, true)) {
+                            $current_stage_index = 3; // Used terminal step
                             if (!empty($hospital_from)) {
                                 $stage_description_extra = ' - Sent to ' . htmlspecialchars($hospital_from);
                             }
-                            // Check if it's expired/disposed
                             if (isset($blood_bank_data) && !empty($blood_bank_data['disposed_at'])) {
                                 $stage_description_extra = ' (Expired/Disposed)';
                             }
-                            error_log("Blood Tracker - Status is Used -> stage index: 3");
+                            error_log("Blood Tracker - Status is {$current_donation_status} -> stage index: 3 (Used terminal)");
                         } elseif ($current_donation_status === 'Stored') {
                             $current_stage_index = 1; // Stored
                             error_log("Blood Tracker - Status is Stored -> stage index: 1");
-                        } elseif ($current_donation_status === 'Allocated') {
-                            $current_stage_index = 2; // Allocated
-                            error_log("Blood Tracker - Status is Allocated -> stage index: 2");
                         } elseif ($current_donation_status === 'Processed' || $current_donation_status === 'Testing Complete' || 
                                   $current_donation_status === 'Testing' || $current_donation_status === 'Registered' || 
                                   $current_donation_status === 'Sample Collected') {
                             $current_stage_index = 0; // Processed
                             error_log("Blood Tracker - Status is {$current_donation_status} -> stage index: 0");
-                        } elseif ($current_donation_status === 'Ready for Use') {
-                            $current_stage_index = 2; // Allocated (ready means allocated)
-                            error_log("Blood Tracker - Status is Ready for Use -> stage index: 2");
                         } else {
                             // Default to Processed
                             $current_stage_index = 0;
@@ -810,10 +863,18 @@ $donation_started = isset($_GET['donation_started']) && $_GET['donation_started'
                             echo "Your blood is being processed and tested.";
                         } elseif ($current_stage_index === 1) {
                             echo "Your blood is stored and ready for distribution.";
-                        } elseif ($current_stage_index === 2) {
-                            echo "Your blood is allocated for a hospital request.";
                         } elseif ($current_stage_index === 3) {
-                            echo "Your blood has been used to save lives!" . $stage_description_extra;
+                            // Terminal/used-like states (Used, Allocated, Ready for Use, Expired)
+                            if ($current_donation_status === 'Allocated') {
+                                echo "Your blood was allocated to a hospital request and is being used." . $stage_description_extra;
+                            } elseif ($current_donation_status === 'Expired') {
+                                echo "Your blood unit expired/disposed." . $stage_description_extra;
+                            } else {
+                                echo "Your blood has been used to save lives!" . $stage_description_extra;
+                            }
+                        } else {
+                            // Fallback
+                            echo "Your blood is being processed and tested.";
                         }
                         ?>
                     </div>

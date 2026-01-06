@@ -1645,7 +1645,7 @@ function compute_donation_eligibility($donor_id) {
         return ['success' => false, 'error' => 'Invalid donor ID'] + $response;
     }
 
-    // Fetch latest "Processed" or "Ready for Use" donation (both count as completed)
+    // Fetch latest completed donation based on terminal statuses
     $donation_params = [
         'donor_id' => 'eq.' . $donor_id,
         'order' => 'created_at.desc'
@@ -1653,10 +1653,15 @@ function compute_donation_eligibility($donor_id) {
 
     $donation_result = get_records('donations', $donation_params);
     if ($donation_result['success'] && !empty($donation_result['data'])) {
+        $terminal_statuses = [
+            'Processed',
+            'Ready for Use',
+            'Used',
+            'Expired'
+        ];
         foreach ($donation_result['data'] as $donation) {
             $status = $donation['current_status'] ?? '';
-            // Check for both "Processed" and "Ready for Use" statuses
-            if ($status === 'Processed' || $status === 'Ready for Use') {
+            if (in_array($status, $terminal_statuses, true)) {
                 $response['latest_completed_donation'] = $donation;
                 break;
             }
@@ -1669,21 +1674,27 @@ function compute_donation_eligibility($donor_id) {
 
     $completed = $response['latest_completed_donation'];
 
-    // Determine when it became Processed or Ready for Use from history if available
+    // Determine when it reached a completed status from history if available
     $processed_at = $completed['created_at'] ?? null;
     $completed_status = $completed['current_status'] ?? '';
     
-    // Check history for when it reached "Processed" or "Ready for Use" status
+    // Check history for when it reached one of the completed statuses
     $history_params = [
         'donation_id' => 'eq.' . $completed['donation_id'],
         'order' => 'changed_at.desc'
     ];
     $history_result = get_records('donation_status_history', $history_params);
     if ($history_result['success'] && !empty($history_result['data'])) {
-        // Find the most recent "Processed" or "Ready for Use" status change
+        // Find the most recent completed status change
+        $completed_history_statuses = [
+            'Processed',
+            'Ready for Use',
+            'Used',
+            'Expired'
+        ];
         foreach ($history_result['data'] as $history_item) {
             $status = $history_item['status'] ?? '';
-            if ($status === 'Processed' || $status === 'Ready for Use') {
+            if (in_array($status, $completed_history_statuses, true)) {
                 $processed_at = $history_item['changed_at'] ?? $processed_at;
                 break;
             }

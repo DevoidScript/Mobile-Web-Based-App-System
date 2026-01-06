@@ -214,6 +214,31 @@ if ($validated) {
             box-shadow: 0 0 0 2px rgba(211, 47, 47, 0.2);
         }
         
+        .input-error-text {
+            color: #d32f2f;
+            font-size: 13px;
+            margin-top: 6px;
+            padding-left: 2px;
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+        
+        .field-group.has-error .input,
+        .field-group.has-error .select {
+            border-color: #d32f2f;
+            background-color: rgba(211, 47, 47, 0.05);
+        }
+        
+        .field-group.has-error {
+            animation: shake 0.5s ease-in-out;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        
         .select {
             width: 100%;
             padding: 13px 16px;
@@ -531,6 +556,74 @@ if ($validated) {
             .section-title {
             font-size: 16px;
             }
+            
+            /* Address fields mobile adjustments */
+            .address-row {
+                flex-direction: column;
+                gap: 0;
+            }
+            
+            .address-row .field-group {
+                flex: 1 1 100%;
+                width: 100%;
+                margin-bottom: 16px;
+            }
+            
+            .address-row .field-group:last-child {
+                margin-bottom: 0;
+            }
+            
+            .field-group .input {
+                margin-bottom: 0;
+                font-size: 16px; /* Prevents zoom on iOS */
+            }
+            
+            .field-group label {
+                font-size: 13px;
+                margin-bottom: 6px;
+            }
+            
+            /* Phone input mobile adjustments */
+            .phone-input {
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+            
+            .phone-prefix {
+                font-size: 14px;
+                padding: 0 10px !important;
+            }
+            
+            #mobile {
+                font-size: 16px !important; /* Prevents zoom on iOS */
+            }
+            
+            .address-title {
+                font-size: 14px;
+            }
+            
+            .address-note {
+                font-size: 12px;
+                margin-bottom: 12px;
+            }
+            
+            .combined-address-preview {
+                font-size: 13px;
+                padding: 8px 12px;
+                margin: 12px 0;
+            }
+            
+            /* Ensure proper spacing between address sections */
+            .address-fields {
+                margin-bottom: 12px;
+            }
+            
+            /* Postal code autofill indicator on mobile */
+            .postal-code-autofilled::after {
+                font-size: 10px;
+                padding: 2px 6px;
+                right: 8px;
+            }
         }
         
         /**
@@ -561,10 +654,12 @@ if ($validated) {
             display: flex;
             gap: 10px;
             margin-bottom: 10px;
+            flex-wrap: wrap;
         }
         
         .address-row .field-group {
             flex: 1;
+            min-width: 0;
         }
         
         .field-group label {
@@ -572,6 +667,7 @@ if ($validated) {
             font-size: 14px;
             margin-bottom: 4px;
             color: #444;
+            font-weight: 500;
         }
         
         .combined-address-preview {
@@ -582,6 +678,26 @@ if ($validated) {
             margin: 15px 0;
                 font-size: 14px;
             line-height: 1.4;
+        }
+        
+        /* Postal code autofill indicator */
+        .postal-code-autofilled {
+            position: relative;
+        }
+        
+        .postal-code-autofilled::after {
+            content: '✓ Auto-filled';
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 11px;
+            color: #4CAF50;
+            font-weight: 600;
+            background-color: #E8F5E9;
+            padding: 2px 8px;
+            border-radius: 4px;
+            pointer-events: none;
         }
         
         /* Cancel Registration Button Styling */
@@ -610,14 +726,14 @@ if ($validated) {
             font-style: italic;
         }
         
-        /* Error Modal Styling */
-        .error-modal-overlay {
+        /* Friendly Notification Modal Styling - Replaces error modal */
+        .notification-modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
+            background-color: rgba(0, 0, 0, 0.5);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -627,16 +743,33 @@ if ($validated) {
             animation: fadeIn 0.3s ease;
         }
         
-        .error-modal {
+        .notification-modal {
             background-color: white;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
             max-width: 500px;
             width: 100%;
             max-height: 90vh;
             overflow-y: auto;
             animation: slideUp 0.3s ease;
             position: relative;
+            border-top: 4px solid #2196F3;
+        }
+        
+        .notification-modal.info {
+            border-top-color: #2196F3;
+        }
+        
+        .notification-modal.warning {
+            border-top-color: #FF9800;
+        }
+        
+        .notification-modal.error {
+            border-top-color: #F44336;
+        }
+        
+        .notification-modal.success {
+            border-top-color: #4CAF50;
         }
         
         @keyframes fadeIn {
@@ -655,55 +788,75 @@ if ($validated) {
             }
         }
         
-        .error-modal-header {
-            background-color: #d32f2f;
+        .notification-modal-header {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
             color: white;
-            padding: 20px;
+            padding: 20px 24px;
             border-radius: 12px 12px 0 0;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
         
-        .error-modal-header h3 {
+        .notification-modal-header.warning {
+            background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+        }
+        
+        .notification-modal-header.error {
+            background: linear-gradient(135deg, #F44336 0%, #D32F2F 100%);
+        }
+        
+        .notification-modal-header.success {
+            background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+        }
+        
+        .notification-modal-header h3 {
             margin: 0;
             font-size: 20px;
             font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
         
-        .error-modal-header .error-icon {
-            font-size: 24px;
+        .notification-modal-header .notification-icon {
+            font-size: 28px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
         }
         
-        .error-modal-close {
-            background: none;
+        .notification-modal-close {
+            background: rgba(255, 255, 255, 0.2);
             border: none;
             color: white;
-            font-size: 28px;
+            font-size: 24px;
             cursor: pointer;
             padding: 0;
-            width: 32px;
-            height: 32px;
+            width: 36px;
+            height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
             border-radius: 50%;
-            transition: background-color 0.2s;
+            transition: all 0.2s;
         }
         
-        .error-modal-close:hover {
-            background-color: rgba(255, 255, 255, 0.2);
+        .notification-modal-close:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
         }
         
-        .error-modal-body {
+        .notification-modal-body {
             padding: 24px;
         }
         
-        .error-modal-body .error-type {
-            font-size: 14px;
+        .notification-modal-body .notification-type {
+            font-size: 13px;
             color: #666;
             text-transform: uppercase;
             font-weight: 600;
@@ -711,14 +864,14 @@ if ($validated) {
             letter-spacing: 0.5px;
         }
         
-        .error-modal-body .error-message {
+        .notification-modal-body .notification-message {
             font-size: 16px;
             color: #333;
             line-height: 1.6;
             margin-bottom: 16px;
         }
         
-        .error-modal-body .error-details {
+        .notification-modal-body .notification-details {
             background-color: #f5f5f5;
             padding: 12px;
             border-radius: 6px;
@@ -729,25 +882,35 @@ if ($validated) {
             word-break: break-word;
         }
         
-        .error-modal-body .error-help {
+        .notification-modal-body .notification-help {
             font-size: 14px;
-            color: #666;
-            line-height: 1.5;
-            padding: 12px;
-            background-color: #fff3cd;
-            border-left: 4px solid #ffc107;
-            border-radius: 4px;
+            color: #555;
+            line-height: 1.6;
+            padding: 14px;
+            background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+            border-left: 4px solid #2196F3;
+            border-radius: 6px;
             margin-bottom: 20px;
         }
         
-        .error-modal-footer {
+        .notification-modal-body .notification-help.warning {
+            background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+            border-left-color: #FF9800;
+        }
+        
+        .notification-modal-body .notification-help.error {
+            background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+            border-left-color: #F44336;
+        }
+        
+        .notification-modal-footer {
             padding: 0 24px 24px;
             display: flex;
             gap: 12px;
             justify-content: flex-end;
         }
         
-        .error-modal-button {
+        .notification-modal-button {
             padding: 12px 24px;
             border: none;
             border-radius: 8px;
@@ -758,22 +921,25 @@ if ($validated) {
             min-width: 100px;
         }
         
-        .error-modal-button-primary {
-            background-color: #d32f2f;
+        .notification-modal-button-primary {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
             color: white;
+            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
         }
         
-        .error-modal-button-primary:hover {
-            background-color: #b71c1c;
+        .notification-modal-button-primary:hover {
+            background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
         }
         
-        .error-modal-button-secondary {
+        .notification-modal-button-secondary {
             background-color: #f5f5f5;
             color: #333;
             border: 1px solid #ddd;
         }
         
-        .error-modal-button-secondary:hover {
+        .notification-modal-button-secondary:hover {
             background-color: #e0e0e0;
         }
         
@@ -784,30 +950,51 @@ if ($validated) {
                 font-size: 13px;
             }
             
-            .error-modal {
+            .notification-modal {
                 max-width: 100%;
                 margin: 10px;
             }
             
-            .error-modal-header {
+            .notification-modal-header {
                 padding: 16px;
             }
             
-            .error-modal-header h3 {
+            .notification-modal-header h3 {
                 font-size: 18px;
             }
             
-            .error-modal-body {
+            .notification-modal-body {
                 padding: 20px;
             }
             
-            .error-modal-footer {
+            .notification-modal-footer {
                 flex-direction: column;
                 padding: 0 20px 20px;
             }
             
-            .error-modal-button {
+            .notification-modal-button {
                 width: 100%;
+            }
+        }
+        
+        /* Medium mobile screens (481px to 600px) */
+        @media (min-width: 481px) and (max-width: 600px) {
+            .address-row {
+                gap: 8px;
+            }
+            
+            .address-row .field-group {
+                flex: 1 1 calc(50% - 4px);
+                min-width: 150px;
+            }
+            
+            /* Stack three-column layout into two columns on medium screens */
+            .address-row .field-group:nth-child(3) {
+                flex: 1 1 100%;
+            }
+            
+            .phone-input {
+                max-width: 100% !important;
             }
         }
     </style>
@@ -896,7 +1083,7 @@ if ($validated) {
                         </select>
                     
                     <div class="form-navigation">
-                        <a href="../login.php" class="nav-button cancel-button">Cancel</a>
+                        <a href="../index.php" class="nav-button cancel-button">Cancel</a>
                         <button type="button" class="nav-button prev-button" data-prev="1">Previous</button>
                         <button type="button" class="nav-button next-button" data-next="3">Next</button>
                     </div>
@@ -923,23 +1110,23 @@ if ($validated) {
                     </div>
                     
 						<!-- Province, Municipality/City, Barangay in one compact row -->
-						<div class="address-row" style="display:flex; gap:12px;">
+						<div class="address-row">
 						<!-- Province first (with autofill) -->
-						<div class="field-group" style="flex:1;">
+						<div class="field-group">
 							<label for="province" class="required">Province</label>
 							<input type="text" id="province" name="province" class="input" value="<?php echo $_POST['province'] ?? ''; ?>" placeholder="Enter your province" list="provinceList" autocomplete="off" required>
 							<datalist id="provinceList"></datalist>
 						</div>
 					
 						<!-- Municipality/City (autofill filtered by Province) -->
-						<div class="field-group" style="flex:1;">
+						<div class="field-group">
 							<label for="municipality" class="required">Municipality/City</label>
 							<input type="text" id="municipality" name="municipality" class="input" value="<?php echo $_POST['municipality'] ?? ''; ?>" placeholder="Enter your municipality or city" list="municipalityList" autocomplete="off" required>
 							<datalist id="municipalityList"></datalist>
 						</div>
 					
 						<!-- Barangay (autofill filtered by Municipality/City) -->
-						<div class="field-group" style="flex:1;">
+						<div class="field-group">
 							<label for="barangay" class="required">Barangay</label>
 							<input type="text" id="barangay" name="barangay" class="input" value="<?php echo $_POST['barangay'] ?? ''; ?>" placeholder="Enter your barangay" list="barangayList" autocomplete="off" required>
 							<datalist id="barangayList"></datalist>
@@ -948,8 +1135,8 @@ if ($validated) {
                     
                         <div class="address-row">
                             <div class="field-group">
-                                <label for="postal_code">Postal Code</label>
-                                <input type="text" id="postal_code" name="postal_code" class="input" value="<?php echo $_POST['postal_code'] ?? ''; ?>" placeholder="e.g. 1234">
+                                <label for="postal_code">Enter your Postal Code</label>
+                                <input type="text" id="postal_code" name="postal_code" class="input" value="<?php echo $_POST['postal_code'] ?? ''; ?>">
                 </div>
                     </div>
                     </div>
@@ -963,13 +1150,13 @@ if ($validated) {
                     </div>
                     
 					<label class="label required" for="mobile">Mobile Number:</label>
-					<div class="phone-input" style="display:flex; align-items:stretch; max-width:420px; height:44px; border:1px solid #ccc; border-radius:6px; overflow:hidden;">
-						<span class="phone-prefix" style="display:flex; align-items:center; padding:0 12px; background:#f5f5f5; font-weight:600; color:#333; border-right:1px solid #ccc; height:100%;">+63</span>
-						<input type="tel" id="mobile" name="mobile" class="input" value="<?php echo isset($_POST['mobile']) ? preg_replace('/[^0-9]/', '', $_POST['mobile']) : ''; ?>" placeholder="9123456789" inputmode="numeric" pattern="9[0-9]{9}" title="Enter 10 digits starting with 9 (e.g., 9123456789)" maxlength="10" style="height:100%; border:0; outline:none; border-radius:0; padding:0 12px; flex:1 1 auto;" required oninput="sanitizePhMobile(this)">
+					<div class="phone-input" style="display:flex; align-items:stretch; max-width:420px; width:100%; height:44px; border:1px solid #ccc; border-radius:6px; overflow:hidden; box-sizing:border-box;">
+						<span class="phone-prefix" style="display:flex; align-items:center; padding:0 12px; background:#f5f5f5; font-weight:600; color:#333; border-right:1px solid #ccc; height:100%; flex-shrink:0;">+63</span>
+						<input type="tel" id="mobile" name="mobile" class="input" value="<?php echo isset($_POST['mobile']) ? preg_replace('/[^0-9]/', '', $_POST['mobile']) : ''; ?>" placeholder="9123456789" inputmode="numeric" pattern="9[0-9]{9}" title="Enter 10 digits starting with 9 (e.g., 9123456789)" maxlength="10" style="height:100%; border:0; outline:none; border-radius:0; padding:0 12px; flex:1 1 auto; margin:0;" required oninput="sanitizePhMobile(this)">
 					</div>
                     
                     <div class="form-navigation">
-                        <a href="../login.php" class="nav-button cancel-button">Cancel</a>
+                        <a href="../index.php" class="nav-button cancel-button">Cancel</a>
                         <button type="button" class="nav-button prev-button" data-prev="2">Previous</button>
                         <button type="button" class="nav-button next-button" data-next="4">Next</button>
                     </div>
@@ -1031,7 +1218,7 @@ if ($validated) {
 					</select>
                     
                     <div class="form-navigation">
-                        <a href="../login.php" class="nav-button cancel-button">Cancel</a>
+                        <a href="../index.php" class="nav-button cancel-button">Cancel</a>
                         <button type="button" class="nav-button prev-button" data-prev="3">Previous</button>
                         <button type="button" class="nav-button next-button" data-next="5">Next</button>
                     </div>
@@ -1059,7 +1246,7 @@ if ($validated) {
 					<p class="password-hint">Password must be at least 8 characters long</p>
                     
                     <div class="form-navigation">
-                        <a href="index.php" class="nav-button cancel-button">Cancel</a>
+                        <a href="../index.php" class="nav-button cancel-button">Cancel</a>
                         <button type="button" class="nav-button prev-button" data-prev="4">Previous</button>
                         <button type="submit" class="nav-button next-button submit-button">Register</button>
                     </div>
@@ -1164,16 +1351,7 @@ if ($validated) {
                     if (digits.length !== 10 || digits.charAt(0) !== '9') {
                         if (stepNumber >= 3) {
                             isValid = false;
-                            mobileField.style.borderColor = '#d32f2f';
-                            mobileField.style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
-                            const mobileError = categorizeError(
-                                new Error('Please enter a valid Philippine mobile number. It must be 10 digits starting with 9 (e.g., 9123456789).'),
-                                null
-                            );
-                            mobileError.type = 'Invalid Mobile Number';
-                            mobileError.category = 'Validation Error';
-                            mobileError.help = 'Philippine mobile numbers should be entered as 10 digits starting with 9. The +63 prefix is automatically added. Example: 9123456789';
-                            showErrorModal(mobileError);
+                            showFieldError('mobile', 'Please enter a valid Philippine mobile number (10 digits starting with 9)');
                         }
                     } else {
                         mobileField.style.borderColor = '#ccc';
@@ -1200,15 +1378,7 @@ if ($validated) {
                 });
                 
                 if (!isValid) {
-                    // Show error modal for validation errors
-                    const validationError = categorizeError(
-                        new Error('Please fill in all required fields correctly.'),
-                        null
-                    );
-                    validationError.type = 'Validation Error';
-                    validationError.category = 'Validation Error';
-                    validationError.help = 'Please review the form and make sure all required fields (marked with *) are filled correctly.';
-                    showErrorModal(validationError);
+                    // Errors are already shown inline below each field
                 }
                 
                 // Special case for step 5 (the final step)
@@ -1218,142 +1388,214 @@ if ($validated) {
                     const confirmPassword = document.getElementById('confirm_password').value;
                     
                     // Check password length first
+                    const passwordField = document.getElementById('password');
                     if (!password || password.length < 8) {
-                        const passwordLengthError = categorizeError(
-                            new Error('Password must be at least 8 characters long. Your password is too short.'),
-                            null
-                        );
-                        passwordLengthError.type = 'Password Too Short';
-                        passwordLengthError.category = 'Validation Error';
-                        passwordLengthError.help = 'Please enter a password that is at least 8 characters long. Make sure it\'s secure and easy for you to remember.';
-                        showErrorModal(passwordLengthError);
-                        document.getElementById('password').style.borderColor = '#d32f2f';
-                        document.getElementById('password').style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
+                        showFieldError('password', 'Password must be at least 8 characters long');
                         isValid = false;
                     } else {
-                        document.getElementById('password').style.borderColor = '#ccc';
-                        document.getElementById('password').style.backgroundColor = 'white';
+                        clearFieldError('password');
+                        passwordField.style.borderColor = '#ccc';
+                        passwordField.style.backgroundColor = 'white';
                     }
                     
                     // Check confirm password length
+                    const confirmPasswordField = document.getElementById('confirm_password');
                     if (confirmPassword && confirmPassword.length < 8) {
-                        document.getElementById('confirm_password').style.borderColor = '#d32f2f';
-                        document.getElementById('confirm_password').style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
+                        showFieldError('confirm_password', 'Confirm password must be at least 8 characters long');
                         isValid = false;
                     }
                     
                     // Password matching validation (only if both passwords are valid length)
                     if (isValid && password !== confirmPassword) {
-                        const passwordError = categorizeError(
-                            new Error('The passwords you entered do not match. Please make sure both password fields contain the same password.'),
-                            null
-                        );
-                        passwordError.type = 'Password Mismatch';
-                        passwordError.category = 'Validation Error';
-                        passwordError.help = 'Please enter the same password in both the "Password" and "Confirm Password" fields.';
-                        showErrorModal(passwordError);
-                        document.getElementById('confirm_password').style.borderColor = '#d32f2f';
-                        document.getElementById('confirm_password').style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
+                        showFieldError('password', 'Passwords do not match');
+                        showFieldError('confirm_password', 'Passwords do not match');
                         isValid = false;
                     } else if (isValid && password === confirmPassword) {
-                        document.getElementById('confirm_password').style.borderColor = '#ccc';
-                        document.getElementById('confirm_password').style.backgroundColor = 'white';
+                        clearFieldError('password');
+                        clearFieldError('confirm_password');
+                        confirmPasswordField.style.borderColor = '#ccc';
+                        confirmPasswordField.style.backgroundColor = 'white';
                     }
                 }
                 
                 return isValid;
             }
             
-            // Toast notification for better mobile experience
-            function showToast(message) {
-                const toast = document.createElement('div');
-                toast.className = 'toast-message';
-                toast.textContent = message;
-                document.body.appendChild(toast);
+            /**
+             * Show inline error text below input field
+             */
+            function showFieldError(fieldId, message) {
+                const field = document.getElementById(fieldId);
+                if (!field) return;
                 
-                setTimeout(() => {
-                    toast.classList.add('show');
-                }, 100);
+                // Find the parent container (could be field-group or direct parent)
+                let container = field.closest('.field-group');
+                if (!container) {
+                    container = field.parentElement;
+                }
                 
+                // Add shake animation
+                container.classList.add('has-error');
                 setTimeout(() => {
-                    toast.classList.remove('show');
-                    setTimeout(() => {
-                        document.body.removeChild(toast);
-                    }, 300);
-                }, 3000);
+                    // Keep error styling but remove shake animation class
+                    if (container.classList.contains('has-error')) {
+                        container.style.animation = 'none';
+                        setTimeout(() => {
+                            container.style.animation = '';
+                        }, 10);
+                    }
+                }, 500);
+                
+                // Find or create error text element - place it right after the input
+                let errorText = container.querySelector('.input-error-text');
+                if (!errorText) {
+                    errorText = document.createElement('div');
+                    errorText.className = 'input-error-text';
+                    // Insert after the input field
+                    field.parentElement.insertBefore(errorText, field.nextSibling);
+                }
+                errorText.textContent = message;
+                
+                // Style the field
+                field.style.borderColor = '#d32f2f';
+                field.style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
             }
             
             /**
-             * Enhanced Error Modal System
-             * Displays user-friendly error messages in a modal dialog
+             * Clear error from a specific field
              */
-            function showErrorModal(errorData) {
-                // Remove any existing error modals
-                const existingModal = document.querySelector('.error-modal-overlay');
+            function clearFieldError(fieldId) {
+                const field = document.getElementById(fieldId);
+                if (!field) return;
+                
+                let container = field.closest('.field-group');
+                if (!container) {
+                    container = field.parentElement;
+                }
+                
+                container.classList.remove('has-error');
+                const errorText = container.querySelector('.input-error-text');
+                if (errorText) {
+                    errorText.remove();
+                }
+                
+                field.style.borderColor = '';
+                field.style.backgroundColor = '';
+            }
+            
+            // Clear errors when user starts typing
+            document.addEventListener('input', function(e) {
+                if (e.target && e.target.id) {
+                    clearFieldError(e.target.id);
+                }
+            });
+            
+            /**
+             * Clear all field errors
+             */
+            function clearAllFieldErrors() {
+                document.querySelectorAll('.has-error').forEach(container => {
+                    container.classList.remove('has-error');
+                    const errorText = container.querySelector('.input-error-text');
+                    if (errorText) {
+                        errorText.remove();
+                    }
+                });
+                
+                document.querySelectorAll('.input, .select').forEach(field => {
+                    if (field.style.borderColor === 'rgb(211, 47, 47)' || field.style.borderColor === '#d32f2f') {
+                        field.style.borderColor = '';
+                        field.style.backgroundColor = '';
+                    }
+                });
+            }
+            
+            /**
+             * Friendly Notification Modal System
+             * Displays user-friendly messages in an intuitive, non-threatening modal dialog
+             */
+            function showNotificationModal(notificationData) {
+                // Remove any existing modals
+                const existingModal = document.querySelector('.notification-modal-overlay');
                 if (existingModal) {
                     existingModal.remove();
                 }
                 
-                // Determine error type and message
-                const errorType = errorData.type || 'Registration Error';
-                const errorMessage = errorData.message || 'An unknown error occurred';
-                const errorDetails = errorData.details || null;
-                const errorHelp = errorData.help || 'Please check your information and try again. If the problem persists, contact technical support.';
+                // Determine notification type and styling
+                const notificationType = notificationData.type || 'info';
+                const notificationTitle = notificationData.title || notificationData.type || 'Information';
+                const notificationMessage = notificationData.message || 'An unknown issue occurred';
+                const notificationDetails = notificationData.details || null;
+                const notificationHelp = notificationData.help || 'Please check your information and try again. If the problem persists, contact technical support.';
+                
+                // Choose icon and modal class based on type
+                let icon = 'ℹ️';
+                let modalClass = 'info';
+                if (notificationType === 'warning' || notificationData.category === 'Validation Error') {
+                    icon = '⚠️';
+                    modalClass = 'warning';
+                } else if (notificationType === 'error' || notificationData.category === 'Server Error' || notificationData.category === 'Network Error') {
+                    icon = '❌';
+                    modalClass = 'error';
+                } else if (notificationType === 'success') {
+                    icon = '✅';
+                    modalClass = 'success';
+                }
                 
                 // Create modal overlay
                 const overlay = document.createElement('div');
-                overlay.className = 'error-modal-overlay';
+                overlay.className = 'notification-modal-overlay';
                 
                 // Create modal
                 const modal = document.createElement('div');
-                modal.className = 'error-modal';
+                modal.className = `notification-modal ${modalClass}`;
                 
                 // Modal header
                 const header = document.createElement('div');
-                header.className = 'error-modal-header';
+                header.className = `notification-modal-header ${modalClass}`;
                 header.innerHTML = `
                     <h3>
-                        <span class="error-icon">⚠️</span>
-                        <span>${errorType}</span>
+                        <span class="notification-icon">${icon}</span>
+                        <span>${notificationTitle}</span>
                     </h3>
-                    <button class="error-modal-close" aria-label="Close">&times;</button>
+                    <button class="notification-modal-close" aria-label="Close">&times;</button>
                 `;
                 
                 // Modal body
                 const body = document.createElement('div');
-                body.className = 'error-modal-body';
+                body.className = 'notification-modal-body';
                 
                 const typeLabel = document.createElement('div');
-                typeLabel.className = 'error-type';
-                typeLabel.textContent = errorData.category || 'Error';
+                typeLabel.className = 'notification-type';
+                typeLabel.textContent = notificationData.category || 'Information';
                 
                 const message = document.createElement('div');
-                message.className = 'error-message';
-                message.textContent = errorMessage;
+                message.className = 'notification-message';
+                message.textContent = notificationMessage;
                 
                 body.appendChild(typeLabel);
                 body.appendChild(message);
                 
-                // Add error details if available
-                if (errorDetails) {
+                // Add details if available
+                if (notificationDetails) {
                     const details = document.createElement('div');
-                    details.className = 'error-details';
-                    details.textContent = errorDetails;
+                    details.className = 'notification-details';
+                    details.textContent = notificationDetails;
                     body.appendChild(details);
                 }
                 
                 // Add help text
                 const help = document.createElement('div');
-                help.className = 'error-help';
-                help.textContent = errorHelp;
+                help.className = `notification-help ${modalClass}`;
+                help.textContent = notificationHelp;
                 body.appendChild(help);
                 
                 // Modal footer
                 const footer = document.createElement('div');
-                footer.className = 'error-modal-footer';
+                footer.className = 'notification-modal-footer';
                 footer.innerHTML = `
-                    <button class="error-modal-button error-modal-button-primary" onclick="this.closest('.error-modal-overlay').remove()">
-                        OK, I Understand
+                    <button class="notification-modal-button notification-modal-button-primary" onclick="this.closest('.notification-modal-overlay').remove()">
+                        Got it, thanks!
                     </button>
                 `;
                 
@@ -1374,7 +1616,7 @@ if ($validated) {
                 });
                 
                 // Close on close button click
-                header.querySelector('.error-modal-close').addEventListener('click', function() {
+                header.querySelector('.notification-modal-close').addEventListener('click', function() {
                     overlay.remove();
                 });
                 
@@ -1389,6 +1631,26 @@ if ($validated) {
                 
                 // Scroll to top
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            
+            // Alias for backward compatibility
+            function showErrorModal(errorData) {
+                // Convert error data to notification format
+                const notificationData = {
+                    type: 'warning',
+                    title: errorData.type || 'Please Check',
+                    message: errorData.message || 'An issue occurred',
+                    category: errorData.category || 'Information',
+                    details: errorData.details || null,
+                    help: errorData.help || 'Please check your information and try again.'
+                };
+                
+                // Use error type for critical errors
+                if (errorData.category === 'Server Error' || errorData.category === 'Network Error') {
+                    notificationData.type = 'error';
+                }
+                
+                showNotificationModal(notificationData);
             }
             
             /**
@@ -1476,25 +1738,6 @@ if ($validated) {
                 }
                 .shake {
                     animation: shake 0.5s ease-in-out;
-                }
-                .toast-message {
-                    position: fixed;
-                    bottom: -60px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    background-color: rgba(33, 33, 33, 0.9);
-                    color: white;
-                    padding: 12px 24px;
-                    border-radius: 24px;
-                    font-size: 14px;
-                    z-index: 9999;
-                    transition: bottom 0.3s ease-in-out;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-                    text-align: center;
-                    max-width: 85%;
-                }
-                .toast-message.show {
-                    bottom: 30px;
                 }
             `;
             document.head.appendChild(style);
@@ -1698,16 +1941,36 @@ if ($validated) {
 					provinceInput.addEventListener('change', () => {
 						loadMunicipalitiesForProvinceName(provinceInput.value);
 						updateCombinedAddress();
+						// Trigger postal code autofill after a short delay
+						setTimeout(() => {
+							if (window.tryFillPostalCode) {
+								window.tryFillPostalCode();
+							}
+						}, 300);
 					});
 				}
 				if (municipalityInput) {
 					municipalityInput.addEventListener('change', () => {
 						loadBarangaysForMunicipality(provinceInput.value, municipalityInput.value);
 						updateCombinedAddress();
+						// Trigger postal code autofill after a short delay
+						setTimeout(() => {
+							if (window.tryFillPostalCode) {
+								window.tryFillPostalCode();
+							}
+						}, 300);
 					});
 				}
 				if (barangayInput) {
-					barangayInput.addEventListener('change', updateCombinedAddress);
+					barangayInput.addEventListener('change', () => {
+						updateCombinedAddress();
+						// Trigger postal code autofill after a short delay
+						setTimeout(() => {
+							if (window.tryFillPostalCode) {
+								window.tryFillPostalCode();
+							}
+						}, 300);
+					});
 				}
 
 				// Initialize
@@ -1766,8 +2029,11 @@ if ($validated) {
 				});
 			})();
 
-			// --- Attempt auto-fill of Postal Code using public datasets (best-effort) ---
-			// Note: PSGC does not provide postal codes; this uses a community dataset if available.
+			// --- Enhanced Postal Code Auto-fill ---
+			// Automatically fills postal code when address fields are selected
+			// Only fills if postal code field is empty (allows user override)
+			// Expose tryFillPostal globally for integration with address autofill
+			window.tryFillPostalCode = null;
 			(async function initPostalAutoFill() {
 				const postalInput = document.getElementById('postal_code');
 				const provinceInput = document.getElementById('province');
@@ -1779,6 +2045,7 @@ if ($validated) {
 				// Best-effort dataset source (may change over time). Cached in localStorage.
 				const ZIP_DATA_URL = 'https://raw.githubusercontent.com/erwinsie/ph-zipcodes/master/zipcodes.json';
 				let zipIndex = null; // { "Province|City/Municipality|Barangay" : "Zip" } and fallbacks
+				let wasAutoFilled = false; // Track if postal code was auto-filled
 
 				async function loadZipDataset() {
 					try {
@@ -1824,32 +2091,104 @@ if ($validated) {
 
 				function tryFillPostal() {
 					if (!zipIndex) return;
+					
+					// Only auto-fill if postal code is empty (allows user to override)
+					if (postalInput.value.trim() !== '' && !wasAutoFilled) {
+						return;
+					}
+					
 					const p = (provinceInput.value || '').trim().toLowerCase();
 					const m = (municipalityInput.value || '').trim().toLowerCase();
 					const b = (barangayInput.value || '').trim().toLowerCase();
 
 					let found = null;
+					// Try exact match first (province + municipality + barangay)
 					if (p && m && b) {
 						found = zipIndex.exact[`${p}|${m}|${b}`] || null;
 					}
+					// Fallback to municipality level
 					if (!found && p && m) {
 						found = zipIndex.byCity[`${p}|${m}`] || null;
 					}
+					
 					if (found) {
 						postalInput.value = found;
+						wasAutoFilled = true;
+						postalInput.classList.add('postal-code-autofilled');
+						
+						// Remove indicator after 3 seconds
+						setTimeout(() => {
+							postalInput.classList.remove('postal-code-autofilled');
+						}, 3000);
+						
+						// Update address preview
+						if (typeof updateCombinedAddress === 'function') {
+							updateCombinedAddress();
+						}
+					} else {
+						wasAutoFilled = false;
+						postalInput.classList.remove('postal-code-autofilled');
 					}
 				}
+				
+				// Expose function globally for integration
+				window.tryFillPostalCode = tryFillPostal;
 
+				// Track manual input to remove auto-fill indicator
+				postalInput.addEventListener('input', function() {
+					if (this.value.trim() === '') {
+						wasAutoFilled = false;
+					} else {
+						// If user manually types, remove auto-fill class
+						if (!this.classList.contains('postal-code-autofilled')) {
+							wasAutoFilled = false;
+						}
+					}
+					this.classList.remove('postal-code-autofilled');
+				});
+
+				// Load dataset and set up event listeners
 				const dataset = await loadZipDataset();
 				if (dataset) {
 					zipIndex = buildZipIndex(dataset);
 
-					if (provinceInput) provinceInput.addEventListener('change', tryFillPostal);
-					if (municipalityInput) municipalityInput.addEventListener('change', tryFillPostal);
-					if (barangayInput) barangayInput.addEventListener('change', tryFillPostal);
+					// Listen to all address field changes
+					if (provinceInput) {
+						provinceInput.addEventListener('change', tryFillPostal);
+						provinceInput.addEventListener('input', function() {
+							// Clear postal code when province changes if it was auto-filled
+							if (wasAutoFilled) {
+								postalInput.value = '';
+								wasAutoFilled = false;
+								postalInput.classList.remove('postal-code-autofilled');
+							}
+						});
+					}
+					if (municipalityInput) {
+						municipalityInput.addEventListener('change', tryFillPostal);
+						municipalityInput.addEventListener('input', function() {
+							// Clear postal code when municipality changes if it was auto-filled
+							if (wasAutoFilled) {
+								postalInput.value = '';
+								wasAutoFilled = false;
+								postalInput.classList.remove('postal-code-autofilled');
+							}
+						});
+					}
+					if (barangayInput) {
+						barangayInput.addEventListener('change', tryFillPostal);
+						barangayInput.addEventListener('input', function() {
+							// Clear postal code when barangay changes if it was auto-filled
+							if (wasAutoFilled) {
+								postalInput.value = '';
+								wasAutoFilled = false;
+								postalInput.classList.remove('postal-code-autofilled');
+							}
+						});
+					}
 
 					// Try on load in case fields already filled
-					tryFillPostal();
+					setTimeout(tryFillPostal, 500);
 				}
 			})();
             
@@ -1875,14 +2214,14 @@ if ($validated) {
                 requiredFields.forEach(fieldId => {
                     const field = document.getElementById(fieldId);
                     if (!field.value.trim()) {
-                        field.style.borderColor = '#d32f2f';
-                        field.style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
+                        showFieldError(fieldId, 'This field is required');
                         isValid = false;
+                    } else {
+                        clearFieldError(fieldId);
                     }
                 });
                 
                 if (!isValid) {
-                    showToast('Please fill in all required address fields.');
                     return false;
                 }
                 
@@ -1891,7 +2230,7 @@ if ($validated) {
                 
                 // Validate if we have a combined address now
                 if (!document.getElementById('permanent_address').value) {
-                    showToast('Please provide a valid address.');
+                    showFieldError('barangay', 'Please provide a complete address');
                     return false;
                 }
                 
@@ -1926,14 +2265,8 @@ if ($validated) {
                 // Always ensure we're on step 5 when submitting
                 if (currentStepNum !== 5) {
                     // If we're not on the final step, prevent submission
-                    const stepError = categorizeError(
-                        new Error('Please complete all steps before submitting the registration form.'),
-                        null
-                    );
-                    stepError.type = 'Incomplete Registration';
-                    stepError.category = 'Validation Error';
-                    stepError.help = 'Please navigate through all 5 steps and fill in all required information before submitting.';
-                    showErrorModal(stepError);
+                    // Navigate to step 5 to show the form
+                    navigateToStep(5);
                     return false;
                 }
                 
@@ -1944,34 +2277,18 @@ if ($validated) {
                 }
                 
                 // Additional password validation before submission (double-check)
+                clearAllFieldErrors();
                 const password = document.getElementById('password').value;
                 const confirmPassword = document.getElementById('confirm_password').value;
                 
                 if (!password || password.length < 8) {
-                    const passwordLengthError = categorizeError(
-                        new Error('Password must be at least 8 characters long. Your password is too short.'),
-                        null
-                    );
-                    passwordLengthError.type = 'Password Too Short';
-                    passwordLengthError.category = 'Validation Error';
-                    passwordLengthError.help = 'Please enter a password that is at least 8 characters long. Make sure it\'s secure and easy for you to remember.';
-                    showErrorModal(passwordLengthError);
-                    document.getElementById('password').style.borderColor = '#d32f2f';
-                    document.getElementById('password').style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
+                    showFieldError('password', 'Password must be at least 8 characters long');
                     return false;
                 }
                 
                 if (password !== confirmPassword) {
-                    const passwordMatchError = categorizeError(
-                        new Error('The passwords you entered do not match. Please make sure both password fields contain the same password.'),
-                        null
-                    );
-                    passwordMatchError.type = 'Password Mismatch';
-                    passwordMatchError.category = 'Validation Error';
-                    passwordMatchError.help = 'Please enter the same password in both the "Password" and "Confirm Password" fields.';
-                    showErrorModal(passwordMatchError);
-                    document.getElementById('confirm_password').style.borderColor = '#d32f2f';
-                    document.getElementById('confirm_password').style.backgroundColor = 'rgba(211, 47, 47, 0.05)';
+                    showFieldError('password', 'Passwords do not match');
+                    showFieldError('confirm_password', 'Passwords do not match');
                     return false;
                 }
                 
@@ -2084,29 +2401,31 @@ if ($validated) {
                     }
                     
                     if (data.success) {
-                        // Show success message and redirect
-                        showToast('Registration successful! Redirecting...');
-                        
-                        /**
-                         * Enhanced Redirect Handling
-                         * - Using server-provided redirect or relative fallback
-                         * - Added delay for toast visibility
-                         */
-                        setTimeout(() => {
-                            // Use the redirect path from server if available,
-                            // otherwise fall back to relative path
-                            window.location.href = data.data.redirect;
-                        }, 1500);
+                        // Redirect immediately on success
+                        window.location.href = data.data.redirect;
                     } else {
-                        // Categorize and show error in modal
-                        const errorData = categorizeError(
-                            new Error(data.message || 'Unknown error occurred'),
+                        // Check if it's a validation error (email already exists, etc.)
+                        const errorMessage = data.message || 'Unknown error occurred';
+                        const errorCategory = categorizeError(
+                            new Error(errorMessage),
                             data.status || 400
                         );
-                        showErrorModal(errorData);
                         
-                        // Also show toast for quick feedback
-                        showToast('Registration failed. Please see the error message below.');
+                        // Show modal only for critical server/network errors
+                        if (errorCategory.category === 'Server Error' || errorCategory.category === 'Network Error' || errorCategory.category === 'Timeout Error') {
+                            showErrorModal(errorCategory);
+                        } else {
+                            // For validation errors (email exists, invalid data, etc.), show inline error text
+                            clearAllFieldErrors();
+                            if (errorMessage.toLowerCase().includes('email') && errorMessage.toLowerCase().includes('already')) {
+                                showFieldError('email', 'This email is already registered. Please use a different email or try logging in.');
+                            } else if (errorMessage.toLowerCase().includes('mobile')) {
+                                showFieldError('mobile', errorMessage);
+                            } else {
+                                // Try to find the relevant field or show on email as fallback
+                                showFieldError('email', errorMessage);
+                            }
+                        }
                     }
                 })
                 .catch(error => {
@@ -2119,12 +2438,17 @@ if ($validated) {
                     // Log error for debugging
                     console.error('Registration error:', error);
                     
-                    // Categorize and show error in modal
+                    // Categorize error
                     const errorData = categorizeError(error, error.status || null);
-                    showErrorModal(errorData);
                     
-                    // Also show toast for quick feedback
-                    showToast('An error occurred. Please see the error message below.');
+                    // Show modal only for critical server/network errors
+                    if (errorData.category === 'Server Error' || errorData.category === 'Network Error' || errorData.category === 'Timeout Error') {
+                        showErrorModal(errorData);
+                    } else {
+                        // For other errors, show inline error text
+                        clearAllFieldErrors();
+                        showFieldError('email', errorData.message || 'An error occurred. Please try again.');
+                    }
                 });
             });
             
@@ -2148,33 +2472,21 @@ if ($validated) {
                     return false;
                 }
                 
+                // Clear all previous errors
+                clearAllFieldErrors();
+                
                 // Verify password fields explicitly
                 const password = document.getElementById('password').value;
                 const confirmPassword = document.getElementById('confirm_password').value;
                 
                 if (!password || password.length < 8) {
-                    const passwordLengthError = categorizeError(
-                        new Error('Password must be at least 8 characters long. Your password is too short.'),
-                        null
-                    );
-                    passwordLengthError.type = 'Password Too Short';
-                    passwordLengthError.category = 'Validation Error';
-                    passwordLengthError.help = 'Please enter a password that is at least 8 characters long. Make sure it\'s secure and easy for you to remember.';
-                    showErrorModal(passwordLengthError);
-                    document.getElementById('password').style.borderColor = '#d32f2f';
+                    showFieldError('password', 'Password must be at least 8 characters long');
                     return false;
                 }
                 
                 if (password !== confirmPassword) {
-                    const passwordMatchError = categorizeError(
-                        new Error('The passwords you entered do not match. Please make sure both password fields contain the same password.'),
-                        null
-                    );
-                    passwordMatchError.type = 'Password Mismatch';
-                    passwordMatchError.category = 'Validation Error';
-                    passwordMatchError.help = 'Please enter the same password in both the "Password" and "Confirm Password" fields.';
-                    showErrorModal(passwordMatchError);
-                    document.getElementById('confirm_password').style.borderColor = '#d32f2f';
+                    showFieldError('password', 'Passwords do not match');
+                    showFieldError('confirm_password', 'Passwords do not match');
                     return false;
                 }
                 
@@ -2186,37 +2498,30 @@ if ($validated) {
                 ];
                 
                 let missingFields = [];
-                requiredFields.forEach(field => {
-                    const fieldElement = document.getElementById(field);
+                requiredFields.forEach(fieldId => {
+                    const fieldElement = document.getElementById(fieldId);
                     if (fieldElement && !fieldElement.value.trim()) {
-                        missingFields.push(field);
-                        fieldElement.style.borderColor = '#d32f2f';
+                        missingFields.push(fieldId);
+                        showFieldError(fieldId, 'This field is required');
                     }
                 });
                 
                 if (missingFields.length > 0) {
-                    const missingFieldsError = categorizeError(
-                        new Error('Some required fields are missing. Please fill in all required fields before submitting.'),
-                        null
-                    );
-                    missingFieldsError.type = 'Incomplete Form';
-                    missingFieldsError.category = 'Validation Error';
-                    missingFieldsError.help = 'Please go through all steps and make sure all required fields (marked with *) are filled correctly.';
-                    showErrorModal(missingFieldsError);
                     return false;
                 }
                 
                 // Ensure the permanent address is combined and set
                 updateCombinedAddress();
-                if (!document.getElementById('permanent_address').value) {
-                    const addressError = categorizeError(
-                        new Error('Please provide a valid permanent address. The address field cannot be empty.'),
-                        null
-                    );
-                    addressError.type = 'Missing Address';
-                    addressError.category = 'Validation Error';
-                    addressError.help = 'Please go back to Step 3 (Address Information) and fill in at least the required address fields: Province, Municipality/City, and Barangay.';
-                    showErrorModal(addressError);
+                const addressField = document.getElementById('permanent_address');
+                if (!addressField || !addressField.value) {
+                    // Show errors on address fields
+                    const addressFields = ['barangay', 'municipality', 'province'];
+                    addressFields.forEach(fieldId => {
+                        const field = document.getElementById(fieldId);
+                        if (field && !field.value.trim()) {
+                            showFieldError(fieldId, 'This field is required');
+                        }
+                    });
                     return false;
                 }
                 

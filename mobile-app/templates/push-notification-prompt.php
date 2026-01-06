@@ -286,13 +286,44 @@ function dismissPushPrompt() {
 
 async function handlePushPromptPrimaryAction() {
     if (pushPromptMode === 'notification' && latestPromptData) {
+        // Prepare the notification data to ensure all fields are present
+        const notificationData = {
+            id: latestPromptData.id || Date.now().toString(),
+            title: latestPromptData.title || 'Notification',
+            message_template: latestPromptData.message_template || latestPromptData.body || latestPromptData.message || '',
+            body: latestPromptData.body || latestPromptData.message_template || latestPromptData.message || '',
+            timestamp: latestPromptData.timestamp || Date.now(),
+            url: latestPromptData.url || null,
+            location: latestPromptData.location || null,
+            drive_date: latestPromptData.drive_date || null,
+            drive_time: latestPromptData.drive_time || null,
+            blood_drive_id: latestPromptData.blood_drive_id || null
+        };
+        
+        // Dismiss the popup
         dismissPushPrompt();
-        if (typeof window.stopNotificationPromptCycle === 'function') {
-            window.stopNotificationPromptCycle();
-        }
-        if (typeof window.showNotificationModal === 'function') {
-            window.showNotificationModal(latestPromptData);
-        }
+        
+        // Small delay to ensure popup is dismissed before showing modal
+        setTimeout(() => {
+            // Show the modal with notification details (without stopping the cycle)
+            if (typeof window.showNotificationModal === 'function') {
+                window.showNotificationModal(notificationData);
+            } else {
+                console.error('showNotificationModal function is not available');
+                // Fallback: try to show modal directly
+                const modal = document.getElementById('notificationDetailModal');
+                if (modal) {
+                    const titleEl = document.getElementById('notificationModalTitle');
+                    const bodyEl = document.getElementById('notificationModalBody');
+                    if (titleEl) titleEl.textContent = notificationData.title;
+                    if (bodyEl) bodyEl.textContent = notificationData.message_template || notificationData.body;
+                    modal.classList.add('show');
+                    modal.setAttribute('aria-hidden', 'false');
+                }
+            }
+        }, 150);
+        
+        // Don't stop the cycle - let it continue with the next notification
         return;
     }
     await enablePushNotifications();

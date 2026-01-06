@@ -62,6 +62,30 @@ $latest_donation = null;
 if ($user && isset($user['id'])) {
     list($has_donated, $latest_donation) = has_successful_donation($user['id']);
 }
+
+// Eligibility-based countdown (match donation_history logic)
+$countdown_months = 0;
+$countdown_days = 0;
+$next_donation_date = null;
+$can_donate_now = false;
+$eligibility_data = null;
+
+$donor_id_for_eligibility = $donorForm['donor_id'] ?? ($user['donor_id'] ?? ($user['id'] ?? null));
+if (!empty($donor_id_for_eligibility)) {
+    $eligibility_data = compute_donation_eligibility($donor_id_for_eligibility);
+    if ($eligibility_data['success']) {
+        $next_donation_date = $eligibility_data['next_donation_date'] ?? null;
+        $can_donate_now = $eligibility_data['can_donate_now'] ?? false;
+        $countdown_months = $eligibility_data['remaining_months'] ?? 0;
+        $countdown_days = $eligibility_data['remaining_days'] ?? 0;
+
+        // If both are zero but not marked as can_donate_now, allow now (mirror donation_history)
+        if ($countdown_months == 0 && $countdown_days == 0 && !$can_donate_now) {
+            $can_donate_now = true;
+        }
+        // Show remainder days even when months>0 (already provided)
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -652,9 +676,8 @@ if ($user && isset($user['id'])) {
                 <div class="card-content-wrapper">
                     <div class="card-icon">📊</div>
                     <div class="card-text-container">
-                        <h3>Blood Tracker</h3>
-                        <p>Track your blood donation progress and status</p>
-                        <p style="color: #007bff; font-size: 12px;">Tap to view tracker</p>
+                        <h3>My Donations</h3>
+                        <p>View and track your current donations</p>
                     </div>
                 </div>
             </a>
@@ -711,16 +734,34 @@ if ($user && isset($user['id'])) {
         <div class="countdown-section">
             <img src="../assets/icons/redcrosslogo.jpg" alt="Philippine Red Cross Logo" class="red-cross-logo-large" width="200" height="200" loading="lazy">
             <h3>You can donate again in</h3>
-            <div class="countdown-timer">
-                <div class="timer-box">
-                    <span class="time">02</span>
-                    <span class="label">months</span>
+            <?php if ($can_donate_now): ?>
+                <div class="countdown-timer" style="justify-content:center;">
+                    <div class="timer-box">
+                        <span class="time">Now</span>
+                        <span class="label">Eligible</span>
+                    </div>
                 </div>
-                <div class="timer-box">
-                    <span class="time">28</span>
-                    <span class="label">days</span>
+            <?php else: ?>
+                <div class="countdown-timer">
+                    <?php if ($countdown_months > 0): ?>
+                        <div class="timer-box">
+                            <span class="time"><?php echo $countdown_months; ?></span>
+                            <span class="label"><?php echo $countdown_months == 1 ? 'Month' : 'Months'; ?></span>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($countdown_days > 0 || $countdown_months == 0): ?>
+                        <div class="timer-box">
+                            <span class="time"><?php echo $countdown_days; ?></span>
+                            <span class="label"><?php echo $countdown_days == 1 ? 'Day' : 'Days'; ?></span>
+                        </div>
+                    <?php endif; ?>
                 </div>
-            </div>
+                <?php if ($next_donation_date): ?>
+                    <p class="next_donation-date" style="text-align:center; color:#555; margin-top:8px;">
+                        Next eligible date: <?php echo date('F j, Y', strtotime($next_donation_date)); ?>
+                    </p>
+                <?php endif; ?>
+            <?php endif; ?>
         </div>
         
         <div class="card">
@@ -1081,16 +1122,41 @@ if ($user && isset($user['id'])) {
         }
 
         function showNotificationModal(notification) {
-            stopNotificationPromptCycle();
+            if (!notification) {
+                console.error('showNotificationModal: No notification data provided');
+                return;
+            }
+            
             notificationModalData = notification;
             const modal = document.getElementById('notificationDetailModal');
-            document.getElementById('notificationModalTitle').textContent = notification.title || 'Notification';
-            document.getElementById('notificationModalBody').textContent = notification.message_template || notification.body || '';
-            document.getElementById('notificationModalTime').textContent = buildNotificationMeta(notification) || formatTime(notification.timestamp);
+            
+            if (!modal) {
+                console.error('showNotificationModal: Modal element not found');
+                return;
+            }
+            
+            // Set modal content
+            const titleEl = document.getElementById('notificationModalTitle');
+            const bodyEl = document.getElementById('notificationModalBody');
+            const timeEl = document.getElementById('notificationModalTime');
             const confirmBtn = document.getElementById('notificationModalConfirm');
-            confirmBtn.onclick = () => {
-                closeNotificationModal();
-            };
+            
+            if (titleEl) {
+                titleEl.textContent = notification.title || 'Notification';
+            }
+            if (bodyEl) {
+                bodyEl.textContent = notification.message_template || notification.body || notification.message || '';
+            }
+            if (timeEl) {
+                timeEl.textContent = buildNotificationMeta(notification) || formatTime(notification.timestamp || Date.now());
+            }
+            if (confirmBtn) {
+                confirmBtn.onclick = () => {
+                    closeNotificationModal();
+                };
+            }
+            
+            // Show the modal
             modal.classList.add('show');
             modal.setAttribute('aria-hidden', 'false');
         }
@@ -1103,6 +1169,25 @@ if ($user && isset($user['id'])) {
                 markNotificationAsRead(notificationModalData.id);
             }
             notificationModalData = null;
+            
+            // Continue the notification cycle after closing the modal
+            // This ensures the next notification popup appears after user closes the modal
+            setTimeout(() => {
+                // Check if cycle is not active and we have notifications to show
+                if (!notificationPromptCycleActive) {
+                    // Check if there are more notifications to show
+                    const lastPromptedId = localStorage.getItem('lastPromptedNotificationId');
+                    const hasUnshownNotifications = notifications.some(n => {
+                        if (!n || !n.id) return false;
+                        if (lastPromptedId && n.id === lastPromptedId) return false;
+                        return true;
+                    });
+                    
+                    if (hasUnshownNotifications || !lastPromptedId) {
+                        queueNotificationPromptCycle();
+                    }
+                }
+            }, 500); // Small delay to allow modal close animation
         }
 
         document.getElementById('notificationDetailModal').addEventListener('click', function(e) {
@@ -1115,7 +1200,24 @@ if ($user && isset($user['id'])) {
         window.stopNotificationPromptCycle = stopNotificationPromptCycle;
 
         function maybeShowLatestPrompt() {
-            if (typeof window.showLatestNotificationPrompt !== 'function') return;
+            // On mobile, the popup component might not be loaded yet
+            // Retry with delay to ensure it's available
+            if (typeof window.showLatestNotificationPrompt !== 'function') {
+                // Retry after a short delay (for mobile/slower connections)
+                setTimeout(() => {
+                    if (typeof window.showLatestNotificationPrompt === 'function') {
+                        queueNotificationPromptCycle();
+                    } else {
+                        // Retry once more after longer delay
+                        setTimeout(() => {
+                            if (typeof window.showLatestNotificationPrompt === 'function') {
+                                queueNotificationPromptCycle();
+                            }
+                        }, 500);
+                    }
+                }, 100);
+                return;
+            }
             queueNotificationPromptCycle();
         }
 
@@ -1208,14 +1310,39 @@ if ($user && isset($user['id'])) {
             navigator.serviceWorker.addEventListener('message', (event) => {
                 const { type, payload } = event.data || {};
                 if (type === 'PUSH_IN_APP') {
-                    // Add to in-app notifications
-                    addNotification({
+                    // Add to in-app notifications with all required fields
+                    const notification = {
                         id: Date.now().toString(),
                         title: payload.title || 'New notification',
-                        body: payload.body || '',
-                        url: payload.url || '/mobile-app/templates/dashboard.php',
-                        timestamp: Date.now()
-                    });
+                        body: payload.body || payload.message_template || '',
+                        message_template: payload.message_template || payload.body || '',
+                        url: payload.url || null,
+                        location: payload.location || null,
+                        drive_date: payload.drive_date || null,
+                        drive_time: payload.drive_time || null,
+                        timestamp: payload.timestamp || Date.now(),
+                        blood_drive_id: payload.blood_drive_id || null
+                    };
+                    
+                    // Add the notification (this will trigger maybeShowLatestPrompt)
+                    addNotification(notification);
+                    
+                    // Ensure popup cycle starts even if popup component isn't loaded yet
+                    // Retry with delay to ensure popup component is available
+                    if (typeof window.showLatestNotificationPrompt !== 'function') {
+                        let retries = 0;
+                        const maxRetries = 10;
+                        const checkPopupComponent = setInterval(() => {
+                            retries++;
+                            if (typeof window.showLatestNotificationPrompt === 'function') {
+                                clearInterval(checkPopupComponent);
+                                queueNotificationPromptCycle();
+                            } else if (retries >= maxRetries) {
+                                clearInterval(checkPopupComponent);
+                                console.warn('Popup component not loaded after retries');
+                            }
+                        }, 200);
+                    }
                 }
             });
         }
@@ -1224,6 +1351,14 @@ if ($user && isset($user['id'])) {
         document.addEventListener('DOMContentLoaded', function() {
             loadNotifications();
             updateNotificationBadge();
+            
+            // Queue notifications for popup cycle after popup component is loaded
+            // This ensures notifications cycle when page is refreshed
+            setTimeout(() => {
+                if (notifications && notifications.length > 0 && typeof window.showLatestNotificationPrompt === 'function') {
+                    queueNotificationPromptCycle();
+                }
+            }, 1500); // Delay to ensure popup component script is loaded
         });
     </script>
 </body>

@@ -153,11 +153,23 @@ function create_record($table, $data) {
     $tableName = str_replace('public.', '', $table);
     
     // Use service role key for tables that need to bypass RLS
+    $result = null;
     if ($tableName === 'donations' || $tableName === 'email_verifications') {
-        return supabase_request("rest/v1/$tableName", 'POST', $data, $headers, true);
+        $result = supabase_request("rest/v1/$tableName", 'POST', $data, $headers, true);
+    } else {
+        $result = supabase_request("rest/v1/$tableName", 'POST', $data, $headers);
     }
     
-    return supabase_request("rest/v1/$tableName", 'POST', $data, $headers);
+    // Automatically log donation status history for donation records
+    if ($result['success'] && $tableName === 'donations' && isset($data['current_status'])) {
+        $donation_id = $result['data'][0]['donation_id'] ?? null;
+        if ($donation_id) {
+            $notes = $data['notes'] ?? null;
+            record_donation_status_history($donation_id, $data['current_status'], $notes);
+        }
+    }
+    
+    return $result;
 }
 
 /**
@@ -178,7 +190,67 @@ function update_record($table, $id, $data, $primaryKey = 'id') {
     // Use service role key for tables that need to bypass RLS
     $use_service_role = ($tableName === 'donations' || $tableName === 'email_verifications');
     
-    return supabase_request("rest/v1/$tableName?$primaryKey=eq.$id", 'PATCH', $data, $headers, $use_service_role);
+    $result = supabase_request("rest/v1/$tableName?$primaryKey=eq.$id", 'PATCH', $data, $headers, $use_service_role);
+
+    // If a donation status changed, record it in donation_status_history
+    if ($result['success'] && $tableName === 'donations' && isset($data['current_status'])) {
+        $notes = $data['notes'] ?? null;
+        $changed_by = null;
+        if (isset($_SESSION['user']['id'])) {
+            $changed_by = $_SESSION['user']['id'];
+        }
+        record_donation_status_history($id, $data['current_status'], $notes, $changed_by);
+    }
+
+    return $result;
+}
+
+/**
+ * Record a donation status change in donation_status_history while avoiding duplicates
+ *
+ * @param string $donation_id
+ * @param string $status
+ * @param string|null $notes
+ * @param string|null $changed_by
+ * @return void
+ */
+function record_donation_status_history($donation_id, $status, $notes = null, $changed_by = null) {
+    if (!$donation_id || !$status) {
+        return;
+    }
+
+    // Avoid duplicate consecutive entries with same status and notes
+    $history_params = [
+        'donation_id' => 'eq.' . $donation_id,
+        'order' => 'changed_at.desc',
+        'limit' => 1
+    ];
+
+    $last_history = get_records('donation_status_history', $history_params);
+    if ($last_history['success'] && !empty($last_history['data'])) {
+        $latest = $last_history['data'][0];
+        $last_status = $latest['status'] ?? null;
+        $last_notes = $latest['notes'] ?? null;
+        if ($last_status === $status && ($notes === null || $notes === $last_notes)) {
+            return;
+        }
+    }
+
+    $history_data = [
+        'donation_id' => $donation_id,
+        'status' => $status
+    ];
+
+    if ($notes !== null) {
+        $history_data['notes'] = $notes;
+    }
+
+    if ($changed_by !== null) {
+        $history_data['changed_by'] = $changed_by;
+    }
+
+    // Use service role for history insert if donations requires it
+    create_record('donation_status_history', $history_data);
 }
 
 /**

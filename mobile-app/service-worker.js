@@ -292,10 +292,22 @@ self.addEventListener('push', (event) => {
                 let deliveredToOpenApp = false;
                 
                 for (const client of allClients) {
-                    // Send message to open app tabs
+                    // Send message to open app tabs with all notification data
                     client.postMessage({ 
                         type: 'PUSH_IN_APP', 
-                        payload: data 
+                        payload: {
+                            title: data.title || 'Blood Donation App',
+                            body: data.body || data.message_template || '',
+                            message_template: data.message_template || data.body || '',
+                            url: data.url || null,
+                            location: data.location || null,
+                            drive_date: data.drive_date || null,
+                            drive_time: data.drive_time || null,
+                            timestamp: data.timestamp || Date.now(),
+                            blood_drive_id: data.blood_drive_id || null,
+                            icon: data.icon || null,
+                            badge: data.badge || null
+                        }
                     });
                     deliveredToOpenApp = true;
                 }

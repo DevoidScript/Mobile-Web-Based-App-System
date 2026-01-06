@@ -104,7 +104,7 @@ if ($user && isset($user['email'])) {
             $latest_donation = $donation_history[0];
             $latest_donation_id = $latest_donation['donation_id'];
             
-            // PRIORITY 1: Check blood_bank_units for handed_over_at/disposed_at (highest priority - indicates Used status)
+            // PRIORITY 1: Check blood_bank_units for handed_over_at/disposed_at (highest priority - indicates terminal status)
             $blood_bank_check_params = [
                 'donor_id' => 'eq.' . $donor_id,
                 'order' => 'created_at.desc',
@@ -120,9 +120,11 @@ if ($user && isset($user['email'])) {
                 $bb_status = strtolower(trim($bb_check_unit['status'] ?? ''));
                 
                 if (!empty($disposed_at)) {
-                    $status_from_blood_bank = 'Used'; // Will show as Expired in history
-                    error_log("Donation History - Unit disposed at {$disposed_at}, setting status to Used");
+                    // Disposed units should appear as Expired for donors
+                    $status_from_blood_bank = 'Expired';
+                    error_log("Donation History - Unit disposed at {$disposed_at}, setting status to Expired");
                 } elseif (!empty($handed_over_at)) {
+                    // Handed over units are considered Used (no longer in Red Cross blood bank)
                     $status_from_blood_bank = 'Used';
                     error_log("Donation History - Unit handed over at {$handed_over_at}, setting status to Used");
                 } elseif ($bb_status === 'used' || $bb_status === 'transfused' || $bb_status === 'buffer') {
@@ -132,7 +134,9 @@ if ($user && isset($user['email'])) {
                 } elseif ($bb_status === 'stored') {
                     $status_from_blood_bank = 'Stored';
                 } elseif ($bb_status === 'allocated') {
-                    $status_from_blood_bank = 'Allocated';
+                    // Allocated to a hospital request – from donor perspective effectively Used
+                    $status_from_blood_bank = 'Used';
+                    error_log("Donation History - Unit status is allocated, treating as Used for donor view");
                 }
             }
             
@@ -216,7 +220,7 @@ if ($user && isset($user['email'])) {
                 $final_status = $donation['current_status'];
                 $status_notes = '';
                 
-                // Priority 1: Check blood_bank_units (most accurate for current status)
+                // Priority 1: Check blood_bank_units (most accurate for current status / terminal states)
                 if (isset($blood_bank_lookup[$donor_id])) {
                     $bb_unit = $blood_bank_lookup[$donor_id];
                     $bb_status = strtolower(trim($bb_unit['status'] ?? ''));
@@ -226,6 +230,7 @@ if ($user && isset($user['email'])) {
                     
                     // Check disposed first (highest priority)
                     if (!empty($disposed_at)) {
+                        // Disposed units are shown as Expired
                         $final_status = 'Expired';
                         $status_notes = ' (Disposed)';
                         error_log("Donation History - Donation {$don_id}: Unit disposed at {$disposed_at}");
@@ -242,7 +247,14 @@ if ($user && isset($user['email'])) {
                     elseif ($bb_status === 'stored') {
                         $final_status = 'Stored';
                     } elseif ($bb_status === 'allocated') {
-                        $final_status = 'Allocated';
+                        // Allocated to a hospital request – treat as Used for the donor
+                        $final_status = 'Used';
+                        if (!empty($hospital_from)) {
+                            $status_notes = ' - Allocated to ' . htmlspecialchars($hospital_from);
+                        } else {
+                            $status_notes = ' (Allocated to hospital request)';
+                        }
+                        error_log("Donation History - Donation {$don_id}: Unit status is Allocated - treated as Used");
                     } elseif ($bb_status === 'used' || $bb_status === 'transfused') {
                         $final_status = 'Used';
                         if (!empty($hospital_from)) {
@@ -909,7 +921,19 @@ if ($has_medical_history_record && $latest_donation_status) {
                     </div>
                     <div class="detail-row">
                         <span class="label">Units Collected:</span>
-                        <span class="value"><?php echo htmlspecialchars($latest_completed_donation['units_collected'] ?? 'N/A'); ?></span>
+                        <span class="value">
+                            <?php
+                            // For whole-blood donations, one unit should be recorded and
+                            // should not change when status changes later.
+                            // If units_collected was never set or was reset to 0 by mistake,
+                            // still display 1 as the historical amount.
+                            $units_collected = $latest_completed_donation['units_collected'] ?? null;
+                            if ($units_collected === null || $units_collected <= 0) {
+                                $units_collected = 1;
+                            }
+                            echo htmlspecialchars($units_collected);
+                            ?>
+                        </span>
                     </div>
                     <div class="detail-row">
                         <span class="label">Donation Site:</span>
@@ -1016,7 +1040,11 @@ if ($has_medical_history_record && $latest_donation_status) {
                                     <div class="donation-site">
                                         <?php echo htmlspecialchars($donation['blood_type'] ?? 'N/A'); ?> • 
                                         <?php 
-                                            $units = $donation['units_collected'] ?? 'N/A';
+                                            // Always display 1 unit unless a positive units_collected exists
+                                            $units = $donation['units_collected'] ?? null;
+                                            if ($units === null || $units <= 0) {
+                                                $units = 1;
+                                            }
                                             $unit_text = ($units == 1) ? 'unit' : 'units';
                                             echo htmlspecialchars($units) . ' ' . $unit_text;
                                         ?>

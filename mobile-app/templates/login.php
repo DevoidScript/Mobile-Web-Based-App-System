@@ -107,6 +107,30 @@
             margin-bottom: 20px;
         }
         
+        .input-error-text {
+            color: #d32f2f;
+            font-size: 13px;
+            margin-top: 6px;
+            padding-left: 2px;
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+        
+        .input-group.has-error .form-control {
+            border-color: #d32f2f;
+            background-color: rgba(211, 47, 47, 0.05);
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        
+        .input-group.shake {
+            animation: shake 0.5s ease-in-out;
+        }
+        
         .input-wrapper, .password-input-wrapper {
             position: relative;
         }
@@ -269,6 +293,53 @@
         
         .fade-out {
             opacity: 0;
+        }
+
+        /* Inline input error + shake feedback */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-4px); }
+            40%, 80% { transform: translateX(4px); }
+        }
+
+        .input-group.has-error .form-control {
+            border-color: #d32f2f;
+            background-color: rgba(211, 47, 47, 0.04);
+        }
+
+        .input-group.shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        .input-error-text {
+            position: absolute;
+            left: 0;
+            right: 0;
+            margin-top: 4px;
+            font-size: 12px;
+            color: #d32f2f;
+        }
+
+        /* Floating info text / toast */
+        .toast-message {
+            position: fixed;
+            bottom: -80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(33, 33, 33, 0.95);
+            color: #fff;
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-size: 13px;
+            z-index: 11000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            max-width: 85%;
+            text-align: center;
+            transition: bottom 0.3s ease-in-out;
+        }
+
+        .toast-message.show {
+            bottom: 60px;
         }
         
         /* Error Modal Styling */
@@ -609,7 +680,249 @@
                     }, 1500);
                 }
             }
-            
+
+            /**
+             * Lightweight field error helpers
+             */
+            function showFieldError(fieldId, message) {
+                const field = document.getElementById(fieldId);
+                if (!field) return;
+
+                const group = field.closest('.input-group');
+                if (!group) return;
+
+                group.classList.add('has-error', 'shake');
+
+                // Remove shake class after animation so it can be retriggered
+                setTimeout(() => {
+                    group.classList.remove('shake');
+                }, 450);
+
+                // Find or create error text element
+                let errorText = group.querySelector('.input-error-text');
+                if (!errorText) {
+                    errorText = document.createElement('div');
+                    errorText.className = 'input-error-text';
+                    group.appendChild(errorText);
+                }
+                errorText.textContent = message;
+            }
+
+            function clearFieldError(fieldId) {
+                const field = document.getElementById(fieldId);
+                if (!field) return;
+                const group = field.closest('.input-group');
+                if (!group) return;
+                group.classList.remove('has-error', 'shake');
+                const errorText = group.querySelector('.input-error-text');
+                if (errorText) {
+                    errorText.remove();
+                }
+            }
+
+            // Clear errors on input
+            ['email', 'password'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', () => clearFieldError(id));
+                }
+            });
+
+            /**
+             * Clear all field errors
+             */
+            function clearAllFieldErrors() {
+                document.querySelectorAll('.input-group.has-error').forEach(group => {
+                    group.classList.remove('has-error', 'shake');
+                    const errorText = group.querySelector('.input-error-text');
+                    if (errorText) {
+                        errorText.remove();
+                    }
+                });
+            }
+
+            // Handle login form submission with AJAX
+            const loginForm = document.getElementById('loginForm');
+            if (loginForm) {
+                loginForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const emailInput = document.getElementById('email');
+                    const passwordInput = document.getElementById('password');
+                    const email = emailInput.value.trim();
+                    const password = passwordInput.value;
+                    const loginButton = document.getElementById('loginButton');
+                    
+                    // Clear previous errors
+                    clearAllFieldErrors();
+                    
+                    // Basic validation: inline error text below inputs
+                    let hasError = false;
+                    if (!email) {
+                        showFieldError('email', 'Please enter your email address.');
+                        hasError = true;
+                    }
+                    if (!password) {
+                        showFieldError('password', 'Please enter your password.');
+                        hasError = true;
+                    }
+
+                    if (hasError) {
+                        const firstErrorInput = document.querySelector('.input-group.has-error input');
+                        if (firstErrorInput) {
+                            firstErrorInput.focus();
+                        }
+                        return false;
+                    }
+                    
+                    // Show loading indicator
+                    const loadingOverlay = document.createElement('div');
+                    loadingOverlay.className = 'loading-overlay';
+                    loadingOverlay.innerHTML = `
+                        <div class="loading-content">
+                            <div class="loading-spinner"></div>
+                            <p>Logging in...</p>
+                        </div>
+                    `;
+                    document.body.appendChild(loadingOverlay);
+                    
+                    // Disable login button
+                    loginButton.disabled = true;
+                    loginButton.textContent = 'Logging in...';
+                    
+                    // Set timeout for loading overlay
+                    const loadingTimeout = setTimeout(() => {
+                        if (document.body.contains(loadingOverlay)) {
+                            loadingOverlay.remove();
+                            const timeoutError = categorizeError(
+                                new Error('The server is taking too long to respond'),
+                                null
+                            );
+                            showErrorModal(timeoutError);
+                            loginButton.disabled = false;
+                            loginButton.textContent = 'Login';
+                        }
+                    }, 15000);
+                    
+                    // Prepare form data
+                    const formData = new FormData(this);
+                    
+                    // Submit via AJAX
+                    fetch('../api/auth.php?login', {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'same-origin',
+                        redirect: 'follow' // Follow redirects
+                    })
+                    .then(response => {
+                        // Get the final URL after redirects
+                        const finalUrl = response.url;
+                        
+                        // Check if the final URL contains an error parameter
+                        if (finalUrl.includes('error=')) {
+                            const urlObj = new URL(finalUrl);
+                            const errorMessage = urlObj.searchParams.get('error');
+                            throw new Error(errorMessage || 'Login failed');
+                        }
+                        
+                        // Check if redirecting to dashboard (success)
+                        if (finalUrl.includes('dashboard.php') || finalUrl.includes('email-verification.php')) {
+                            clearTimeout(loadingTimeout);
+                            loadingOverlay.remove();
+                            loginButton.disabled = false;
+                            loginButton.textContent = 'Login';
+                            window.location.href = finalUrl;
+                            return;
+                        }
+                        
+                        // Check if redirecting to index.php (likely an error)
+                        if (finalUrl.includes('index.php')) {
+                            const urlObj = new URL(finalUrl);
+                            const errorMessage = urlObj.searchParams.get('error');
+                            if (errorMessage) {
+                                throw new Error(errorMessage);
+                            }
+                        }
+                        
+                        // If response is not ok, try to get error message
+                        if (!response.ok) {
+                            return response.text().then(text => {
+                                let errorMessage = 'Login failed. Please try again.';
+                                try {
+                                    const jsonData = JSON.parse(text);
+                                    errorMessage = jsonData.message || errorMessage;
+                                } catch (e) {
+                                    if (text) {
+                                        errorMessage = text;
+                                    }
+                                }
+                                throw new Error(errorMessage);
+                            });
+                        }
+                        
+                        return response.text();
+                    })
+                    .then(data => {
+                        // If we get here and have data, try to parse it
+                        if (data) {
+                            clearTimeout(loadingTimeout);
+                            loadingOverlay.remove();
+                            loginButton.disabled = false;
+                            loginButton.textContent = 'Login';
+                            
+                            try {
+                                const jsonData = JSON.parse(data);
+                                if (jsonData.success && jsonData.redirect) {
+                                    window.location.href = jsonData.redirect;
+                                } else if (jsonData.success) {
+                                    window.location.href = '../templates/dashboard.php';
+                                } else {
+                                    throw new Error(jsonData.message || 'Login failed');
+                                }
+                            } catch (e) {
+                                // If parsing fails, check if it's an error message
+                                if (data.includes('error') || data.includes('Error')) {
+                                    throw new Error(data);
+                                }
+                                // Otherwise assume success
+                                window.location.href = '../templates/dashboard.php';
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        // Remove loading timeout and overlay
+                        clearTimeout(loadingTimeout);
+                        if (document.body.contains(loadingOverlay)) {
+                            loadingOverlay.remove();
+                        }
+                        
+                        // Re-enable login button
+                        loginButton.disabled = false;
+                        loginButton.textContent = 'Login';
+                        
+                        // Log error for debugging
+                        console.error('Login error:', error);
+                        
+                        // Categorize error
+                        const errorData = categorizeError(error, null);
+
+                        // For invalid credentials, use inline error text instead of modal
+                        const isInvalidCreds = (errorData.type && errorData.type.toLowerCase().includes('invalid')) ||
+                                               (errorData.category && errorData.category.toLowerCase().includes('authentication'));
+                        if (isInvalidCreds) {
+                            clearAllFieldErrors();
+                            showFieldError('email', 'Please check your email address.');
+                            showFieldError('password', 'Please check your password.');
+                            return;
+                        }
+
+                        // Otherwise, show modal for more serious errors
+                        showErrorModal(errorData);
+                    });
+                });
+            }
+
             // Show error modal if there's an error in URL
             const urlParams = new URLSearchParams(window.location.search);
             const error = urlParams.get('error');
@@ -802,162 +1115,6 @@
                 help: help
             };
         }
-        
-        // Handle login form submission with AJAX
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
-            const loginButton = document.getElementById('loginButton');
-            
-            // Basic validation
-            if (!email || !password) {
-                const validationError = categorizeError(
-                    new Error('Please enter both your email address and password.'),
-                    null
-                );
-                validationError.type = 'Missing Information';
-                validationError.category = 'Validation Error';
-                validationError.help = 'Make sure both the email and password fields are filled in before attempting to login.';
-                showErrorModal(validationError);
-                return false;
-            }
-            
-            // Show loading indicator
-            const loadingOverlay = document.createElement('div');
-            loadingOverlay.className = 'loading-overlay';
-            loadingOverlay.innerHTML = `
-                <div class="loading-content">
-                    <div class="loading-spinner"></div>
-                    <p>Logging in...</p>
-                </div>
-            `;
-            document.body.appendChild(loadingOverlay);
-            
-            // Disable login button
-            loginButton.disabled = true;
-            loginButton.textContent = 'Logging in...';
-            
-            // Set timeout for loading overlay
-            const loadingTimeout = setTimeout(() => {
-                if (document.body.contains(loadingOverlay)) {
-                    loadingOverlay.remove();
-                    const timeoutError = categorizeError(
-                        new Error('The server is taking too long to respond'),
-                        null
-                    );
-                    showErrorModal(timeoutError);
-                    loginButton.disabled = false;
-                    loginButton.textContent = 'Login';
-                }
-            }, 15000);
-            
-            // Prepare form data
-            const formData = new FormData(this);
-            
-            // Submit via AJAX
-            fetch('../api/auth.php?login', {
-                method: 'POST',
-                body: formData,
-                credentials: 'same-origin',
-                redirect: 'follow' // Follow redirects
-            })
-            .then(response => {
-                // Get the final URL after redirects
-                const finalUrl = response.url;
-                
-                // Check if the final URL contains an error parameter
-                if (finalUrl.includes('error=')) {
-                    const urlObj = new URL(finalUrl);
-                    const errorMessage = urlObj.searchParams.get('error');
-                    throw new Error(errorMessage || 'Login failed');
-                }
-                
-                // Check if redirecting to dashboard (success)
-                if (finalUrl.includes('dashboard.php') || finalUrl.includes('email-verification.php')) {
-                    clearTimeout(loadingTimeout);
-                    loadingOverlay.remove();
-                    loginButton.disabled = false;
-                    loginButton.textContent = 'Login';
-                    window.location.href = finalUrl;
-                    return;
-                }
-                
-                // Check if redirecting to index.php (likely an error)
-                if (finalUrl.includes('index.php')) {
-                    const urlObj = new URL(finalUrl);
-                    const errorMessage = urlObj.searchParams.get('error');
-                    if (errorMessage) {
-                        throw new Error(errorMessage);
-                    }
-                }
-                
-                // If response is not ok, try to get error message
-                if (!response.ok) {
-                    return response.text().then(text => {
-                        let errorMessage = 'Login failed. Please try again.';
-                        try {
-                            const jsonData = JSON.parse(text);
-                            errorMessage = jsonData.message || errorMessage;
-                        } catch (e) {
-                            if (text) {
-                                errorMessage = text;
-                            }
-                        }
-                        throw new Error(errorMessage);
-                    });
-                }
-                
-                return response.text();
-            })
-            .then(data => {
-                // If we get here and have data, try to parse it
-                if (data) {
-                    clearTimeout(loadingTimeout);
-                    loadingOverlay.remove();
-                    loginButton.disabled = false;
-                    loginButton.textContent = 'Login';
-                    
-                    try {
-                        const jsonData = JSON.parse(data);
-                        if (jsonData.success && jsonData.redirect) {
-                            window.location.href = jsonData.redirect;
-                        } else if (jsonData.success) {
-                            window.location.href = '../templates/dashboard.php';
-                        } else {
-                            throw new Error(jsonData.message || 'Login failed');
-                        }
-                    } catch (e) {
-                        // If parsing fails, check if it's an error message
-                        if (data.includes('error') || data.includes('Error')) {
-                            throw new Error(data);
-                        }
-                        // Otherwise assume success
-                        window.location.href = '../templates/dashboard.php';
-                    }
-                }
-            })
-            .catch(error => {
-                // Remove loading timeout and overlay
-                clearTimeout(loadingTimeout);
-                if (document.body.contains(loadingOverlay)) {
-                    loadingOverlay.remove();
-                }
-                
-                // Re-enable login button
-                loginButton.disabled = false;
-                loginButton.textContent = 'Login';
-                
-                // Log error for debugging
-                console.error('Login error:', error);
-                
-                // Categorize and show error in modal
-                const errorData = categorizeError(error, null);
-                showErrorModal(errorData);
-            });
-        });
         
         // Check if this is a PWA
         const isInStandaloneMode = () => 
