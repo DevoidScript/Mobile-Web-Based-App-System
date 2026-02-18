@@ -17,3 +17,25 @@ You can generate these icons from a single source image using tools like:
 - https://app-manifest.firebaseapp.com/
 - https://maskable.app/
 - https://realfavicongenerator.net/ 
+
+
+
+
+
+
+
+
+int returnVal = JOptionPane.showConfirmDialog(this,"PANASON?","Do not PANAS", JOptionPane.YES_NO_OPTION);
+if (returnVal==JOptionPane.YES_OPTION){
+     recNav=water(recNav, reCount);
+     JOptionPane.showMessageDialog(this, "Gin delete mo haw!");
+     ling(true);
+     reCount--;
+     btnView.setEnabled(true);
+     view(false);
+     recNav=0;
+    ViewInst(recNav);
+ } 
+lbledit.setText("");
+EDS(false);
+btnDelete.setEnabled(false);

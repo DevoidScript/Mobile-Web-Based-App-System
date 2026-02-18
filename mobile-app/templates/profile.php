@@ -638,30 +638,190 @@ if ($user && isset($user['email'])) {
             // Push notification toggle functionality
             const pushToggle = document.getElementById('pushNotificationToggle');
             if (pushToggle) {
-                // Wait a bit for push-notifications.js to load, then check status
+                // Flag to prevent updateToggleState from overwriting during enable/disable
+                let isUpdatingPushState = false;
+                
+                // Wait for push-notifications.js to load, then check status
+                // Increased delay for mobile devices and ngrok/median.co
                 setTimeout(() => {
-                    updateToggleState();
-                }, 500);
+                    if (!isUpdatingPushState) {
+                        updateToggleState();
+                    }
+                }, 1000);
                 
                 pushToggle.addEventListener('change', function() {
-                    if (this.checked) {
-                        enablePushNotifications();
+                    // Prevent default state change until operation completes
+                    const desiredState = this.checked;
+                    isUpdatingPushState = true;
+                    
+                    if (desiredState) {
+                        enablePushNotifications().finally(() => {
+                            // Re-check state after enabling
+                            setTimeout(() => {
+                                isUpdatingPushState = false;
+                                updateToggleState();
+                            }, 1500);
+                        });
                     } else {
-                        disablePushNotifications();
+                        disablePushNotifications().finally(() => {
+                            // Re-check state after disabling
+                            setTimeout(() => {
+                                isUpdatingPushState = false;
+                                updateToggleState();
+                            }, 500);
+                        });
                     }
                 });
+                
+                // Store the flag globally so updateToggleState can check it
+                window.isUpdatingPushState = () => isUpdatingPushState;
+                window.setUpdatingPushState = (value) => { isUpdatingPushState = value; };
             }
         });
 
-        // Update toggle state based on current permission
+        // Show status message for push notifications
+        function showPushStatus(message, isError) {
+            // Try to use the status indicator from push-notification-prompt.php if available
+            const indicator = document.getElementById('pushStatusIndicator');
+            const messageEl = document.getElementById('pushStatusMessage');
+            
+            if (indicator && messageEl) {
+                messageEl.textContent = message;
+                indicator.classList.toggle('error', isError);
+                indicator.classList.add('show');
+                
+                setTimeout(() => {
+                    indicator.classList.remove('show');
+                }, 4000);
+            } else {
+                // Fallback: use console and show a simple alert for critical errors
+                console.log(isError ? 'Push notification error:' : 'Push notification:', message);
+                if (isError) {
+                    // For mobile, a brief console message is better than blocking alerts
+                    // You could also create a simple toast notification here
+                }
+            }
+        }
+
+        // Helper function to convert VAPID key (from push-notifications.js)
+        function urlBase64ToUint8Array(base64String) {
+            if (typeof window.urlBase64ToUint8Array === 'function') {
+                return window.urlBase64ToUint8Array(base64String);
+            }
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding)
+                .replace(/\-/g, '+')
+                .replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        // Check push notification support with detailed diagnostics
+        function checkPushSupport() {
+            const checks = {
+                https: window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1',
+                serviceWorker: 'serviceWorker' in navigator,
+                notification: 'Notification' in window,
+                pushManager: 'PushManager' in window,
+                userAgent: navigator.userAgent
+            };
+            
+            // PushManager might only be available after service worker registration
+            // Try to get it from service worker registration if available
+            if (!checks.pushManager && 'serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then(registration => {
+                    if (registration && registration.pushManager) {
+                        checks.pushManager = true;
+                        console.log('PushManager found in service worker registration');
+                    }
+                }).catch(() => {});
+            }
+            
+            console.log('Push notification support check:', checks);
+            
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            
+            if (isIOS && !window.navigator.standalone && !window.matchMedia('(display-mode: standalone)').matches) {
+                return {
+                    supported: false,
+                    error: 'iOS requires PWA installation',
+                    message: 'On iOS, push notifications only work when the app is installed via "Add to Home Screen". Please install the PWA first.',
+                    checks: checks
+                };
+            }
+            
+            if (!checks.https) {
+                return {
+                    supported: false,
+                    error: 'HTTPS required',
+                    message: 'Push notifications require HTTPS (or localhost). Make sure you\'re accessing via ngrok or median.co.',
+                    checks: checks
+                };
+            }
+            
+            if (!checks.serviceWorker) {
+                return {
+                    supported: false,
+                    error: 'Service Worker not supported',
+                    message: 'Your browser doesn\'t support Service Workers. Please use Chrome, Edge, Firefox, or Safari 16.4+.',
+                    checks: checks
+                };
+            }
+            
+            if (!checks.notification) {
+                return {
+                    supported: false,
+                    error: 'Notifications not supported',
+                    message: 'Your browser doesn\'t support the Notification API.',
+                    checks: checks
+                };
+            }
+            
+            // PushManager might not be available until service worker is registered
+            // This is OK - we'll check again after service worker registration
+            return {
+                supported: true,
+                checks: checks
+            };
+        }
+
+        // Update toggle state based on actual subscription status (not just permission)
         async function updateToggleState() {
             const toggle = document.getElementById('pushNotificationToggle');
             if (!toggle) return;
+            
+            // Don't update if we're in the middle of enabling/disabling
+            if (typeof window.isUpdatingPushState === 'function' && window.isUpdatingPushState()) {
+                console.log('Skipping toggle state update - operation in progress');
+                return;
+            }
 
             try {
+                // First check basic support
+                const supportCheck = checkPushSupport();
+                if (!supportCheck.supported) {
+                    toggle.disabled = true;
+                    toggle.title = supportCheck.message || 'Push notifications not supported';
+                    return;
+                } else {
+                    toggle.disabled = false;
+                    toggle.title = '';
+                }
+                
                 // Check if push notification functions are available
                 if (typeof getNotificationPermission !== 'function') {
-                    console.warn('Push notification functions not loaded yet');
+                    console.warn('Push notification functions not loaded yet, retrying...');
+                    // Retry after a longer delay for mobile devices
+                    setTimeout(() => {
+                        if (!window.isUpdatingPushState || !window.isUpdatingPushState()) {
+                            updateToggleState();
+                        }
+                    }, 1000);
                     // Fallback: check permission directly
                     if ('Notification' in window) {
                         toggle.checked = Notification.permission === 'granted';
@@ -669,56 +829,267 @@ if ($user && isset($user['email'])) {
                     return;
                 }
 
+                // Check if service worker is ready (important for mobile/ngrok)
+                if ('serviceWorker' in navigator) {
+                    try {
+                        await navigator.serviceWorker.ready;
+                    } catch (e) {
+                        console.warn('Service worker not ready yet:', e);
+                        return; // Wait for service worker
+                    }
+                }
+
                 const permission = getNotificationPermission();
-                toggle.checked = permission === 'granted';
                 
-                // If permission is granted, try to subscribe
-                if (permission === 'granted') {
-                    await fetchVapidKey();
-                    if (VAPID_PUBLIC_KEY) {
-                        const result = await initializePushNotifications(VAPID_PUBLIC_KEY);
-                        if (!result.success && result.error !== 'permission_denied') {
-                            console.log('Push subscription status:', result);
+                // For mobile devices via ngrok/median.co, check actual subscription status
+                if (permission === 'granted' && 'serviceWorker' in navigator) {
+                    try {
+                        const registration = await navigator.serviceWorker.ready;
+                        const subscription = await registration.pushManager.getSubscription();
+                        
+                        // Only update if not in the middle of an operation
+                        if (!window.isUpdatingPushState || !window.isUpdatingPushState()) {
+                            toggle.checked = subscription !== null;
+                            console.log('Toggle state updated - subscription exists:', subscription !== null);
                         }
+                        
+                        // If permission is granted but no subscription, only auto-subscribe on initial load
+                        // Don't auto-subscribe if user just disabled it
+                        if (subscription === null && localStorage.getItem('pushNotificationsEnabled') === 'true') {
+                            console.log('Permission granted but no subscription found, attempting to subscribe...');
+                            if (typeof window.setUpdatingPushState === 'function') {
+                                window.setUpdatingPushState(true);
+                            }
+                            await fetchVapidKey();
+                            if (VAPID_PUBLIC_KEY) {
+                                const result = await initializePushNotifications(VAPID_PUBLIC_KEY);
+                                if (result.success) {
+                                    toggle.checked = true;
+                                    console.log('Push notifications enabled successfully');
+                                } else if (result.error !== 'permission_denied') {
+                                    console.log('Push subscription attempt:', result);
+                                    toggle.checked = false;
+                                }
+                            }
+                            if (typeof window.setUpdatingPushState === 'function') {
+                                window.setUpdatingPushState(false);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error checking subscription:', error);
+                        // Fallback to permission check (only if not updating)
+                        if (!window.isUpdatingPushState || !window.isUpdatingPushState()) {
+                            toggle.checked = permission === 'granted';
+                        }
+                    }
+                } else {
+                    // Permission not granted, set toggle accordingly (only if not updating)
+                    if (!window.isUpdatingPushState || !window.isUpdatingPushState()) {
+                        toggle.checked = permission === 'granted';
                     }
                 }
             } catch (error) {
                 console.error('Error updating toggle state:', error);
-                // Fallback: check permission directly
-                if ('Notification' in window) {
+                // Fallback: check permission directly (only if not updating)
+                if ((!window.isUpdatingPushState || !window.isUpdatingPushState()) && 'Notification' in window) {
                     toggle.checked = Notification.permission === 'granted';
                 }
             }
         }
 
-        // Enable push notifications
+        // Enable push notifications (optimized for mobile/ngrok/median.co)
         async function enablePushNotifications() {
+            const toggle = document.getElementById('pushNotificationToggle');
+            
             try {
-                // Check if functions are available
-                if (typeof fetchVapidKey !== 'function' || typeof promptForPushNotifications !== 'function') {
-                    // Fallback: simple permission request
-                    if ('Notification' in window) {
-                        showPushStatus('Requesting permission...', false);
-                        const permission = await Notification.requestPermission();
-                        if (permission === 'granted') {
-                            showPushStatus('✓ Notifications enabled!', false);
-                            localStorage.setItem('pushNotificationsEnabled', 'true');
-                        } else {
-                            showPushStatus('Notifications blocked. Enable in browser settings.', true);
-                            document.getElementById('pushNotificationToggle').checked = false;
+                // First, check support with diagnostics
+                const supportCheck = checkPushSupport();
+                if (!supportCheck.supported) {
+                    showPushStatus(supportCheck.message || 'Push notifications not supported', true);
+                    if (toggle) {
+                        toggle.checked = false;
+                    }
+                    console.error('Push notification support check failed:', supportCheck);
+                    return;
+                }
+                
+                // Set flag to prevent state updates during operation
+                if (typeof window.setUpdatingPushState === 'function') {
+                    window.setUpdatingPushState(true);
+                }
+                
+                // Keep toggle on while processing
+                if (toggle) {
+                    toggle.checked = true;
+                }
+                
+                // Ensure service worker is ready (critical for mobile)
+                // PushManager is often only available after service worker registration
+                if ('serviceWorker' in navigator) {
+                    try {
+                        let registration = null;
+                        try {
+                            registration = await navigator.serviceWorker.ready;
+                        } catch (e) {
+                            console.warn('Service worker not ready, waiting...', e);
+                            showPushStatus('Registering service worker...', false);
+                            // Try to register if not already registered
+                            const basePath = (() => {
+                                const pathname = window.location.pathname;
+                                const marker = '/mobile-app/';
+                                const idx = pathname.indexOf(marker);
+                                return idx !== -1 ? pathname.substring(0, idx + marker.length) : '/mobile-app/';
+                            })();
+                            const swPath = basePath + 'service-worker.js';
+                            registration = await navigator.serviceWorker.register(swPath, { scope: basePath });
+                            await registration.ready;
                         }
-                    } else {
-                        showPushStatus('Push notifications not supported', true);
-                        document.getElementById('pushNotificationToggle').checked = false;
+                        
+                        // Now check if PushManager is available in the registration
+                        if (!registration.pushManager && 'PushManager' in window) {
+                            console.log('PushManager available globally');
+                        } else if (registration.pushManager) {
+                            console.log('PushManager available in service worker registration');
+                        } else {
+                            // Wait a bit and check again
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                        }
+                    } catch (e) {
+                        console.error('Service worker registration failed:', e);
+                        showPushStatus('Failed to register service worker. Please refresh the page.', true);
+                        if (toggle) {
+                            toggle.checked = false;
+                        }
+                        if (typeof window.setUpdatingPushState === 'function') {
+                            window.setUpdatingPushState(false);
+                        }
+                        return;
+                    }
+                } else {
+                    showPushStatus('Service Workers not supported in this browser', true);
+                    if (toggle) {
+                        toggle.checked = false;
+                    }
+                    if (typeof window.setUpdatingPushState === 'function') {
+                        window.setUpdatingPushState(false);
                     }
                     return;
                 }
 
+                // Re-check support now that service worker is ready
+                // PushManager should be available now
+                const registration = await navigator.serviceWorker.ready;
+                if (!registration.pushManager && typeof PushManager === 'undefined') {
+                    console.error('PushManager not available even after service worker registration');
+                    showPushStatus('Push notifications not supported. Please use Chrome, Edge, or Firefox on Android.', true);
+                    if (toggle) {
+                        toggle.checked = false;
+                    }
+                    if (typeof window.setUpdatingPushState === 'function') {
+                        window.setUpdatingPushState(false);
+                    }
+                    return;
+                }
+                
+                // Check if functions are available
+                if (typeof fetchVapidKey !== 'function' || typeof promptForPushNotifications !== 'function') {
+                    console.warn('Push notification functions not available, waiting...');
+                    // Wait a bit longer for mobile devices
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    if (typeof fetchVapidKey !== 'function' || typeof promptForPushNotifications !== 'function') {
+                        // Fallback: simple permission request and manual subscription
+                        if ('Notification' in window) {
+                            showPushStatus('Requesting permission...', false);
+                            const permission = await Notification.requestPermission();
+                            if (permission === 'granted') {
+                                // Try to subscribe manually
+                                try {
+                                    const reg = await navigator.serviceWorker.ready;
+                                    const pushManager = reg.pushManager || (typeof PushManager !== 'undefined' ? new PushManager() : null);
+                                    
+                                    if (!pushManager) {
+                                        throw new Error('PushManager not available');
+                                    }
+                                    
+                                    // Fetch VAPID key manually
+                                    const base = (() => {
+                                        const pathname = window.location.pathname;
+                                        const marker = '/mobile-app/';
+                                        const idx = pathname.indexOf(marker);
+                                        return idx !== -1 ? pathname.substring(0, idx + marker.length) : '/mobile-app/';
+                                    })();
+                                    const url = new URL(base + 'api/get-vapid-key.php', window.location.origin);
+                                    const keyResponse = await fetch(url.toString(), { credentials: 'same-origin' });
+                                    const keyData = await keyResponse.json();
+                                    
+                                    if (keyData.success && keyData.publicKey) {
+                                        // Subscribe manually
+                                        const subscription = await pushManager.subscribe({
+                                            userVisibleOnly: true,
+                                            applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
+                                        });
+                                        
+                                        // Save to backend
+                                        const saveUrl = new URL(base + 'api/save-subscription.php', window.location.origin);
+                                        await fetch(saveUrl.toString(), {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            credentials: 'same-origin',
+                                            body: JSON.stringify({ subscription: subscription.toJSON() })
+                                        });
+                                        
+                                        showPushStatus('✓ Notifications enabled!', false);
+                                        localStorage.setItem('pushNotificationsEnabled', 'true');
+                                        if (toggle) {
+                                            toggle.checked = true;
+                                        }
+                                    } else {
+                                        throw new Error('Failed to fetch VAPID key');
+                                    }
+                                } catch (e) {
+                                    console.error('Fallback subscription failed:', e);
+                                    showPushStatus('Failed to enable: ' + e.message, true);
+                                    if (toggle) {
+                                        toggle.checked = false;
+                                    }
+                                }
+                            } else {
+                                showPushStatus('Notifications blocked. Enable in browser settings.', true);
+                                if (toggle) {
+                                    toggle.checked = false;
+                                }
+                            }
+                        } else {
+                            showPushStatus('Push notifications not supported', true);
+                            if (toggle) {
+                                toggle.checked = false;
+                            }
+                        }
+                        if (typeof window.setUpdatingPushState === 'function') {
+                            window.setUpdatingPushState(false);
+                        }
+                        return;
+                    }
+                }
+
                 await fetchVapidKey();
                 if (!VAPID_PUBLIC_KEY) {
-                    showPushStatus('Failed to load configuration', true);
-                    document.getElementById('pushNotificationToggle').checked = false;
-                    return;
+                    showPushStatus('Failed to load configuration. Retrying...', false);
+                    // Retry fetching VAPID key (may need more time on mobile)
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await fetchVapidKey();
+                    
+                    if (!VAPID_PUBLIC_KEY) {
+                        showPushStatus('Failed to load configuration', true);
+                        if (toggle) {
+                            toggle.checked = false;
+                        }
+                        if (typeof window.setUpdatingPushState === 'function') {
+                            window.setUpdatingPushState(false);
+                        }
+                        return;
+                    }
                 }
                 
                 showPushStatus('Requesting permission...', false);
@@ -728,6 +1099,21 @@ if ($user && isset($user['email'])) {
                 if (result.success) {
                     showPushStatus('✓ Notifications enabled!', false);
                     localStorage.setItem('pushNotificationsEnabled', 'true');
+                    
+                    // Verify subscription exists
+                    try {
+                        const registration = await navigator.serviceWorker.ready;
+                        const subscription = await registration.pushManager.getSubscription();
+                        if (toggle) {
+                            toggle.checked = subscription !== null;
+                        }
+                        console.log('Push notifications enabled - subscription verified:', subscription !== null);
+                    } catch (e) {
+                        console.error('Error verifying subscription:', e);
+                        if (toggle) {
+                            toggle.checked = true; // Assume success if we got here
+                        }
+                    }
                 } else {
                     const fallbackMessage = () => {
                         if (result.error === 'permission_denied') {
@@ -736,29 +1122,84 @@ if ($user && isset($user['email'])) {
                         if (result.error === 'not_supported') {
                             return 'Push notifications not supported';
                         }
-                        return 'Failed to enable notifications';
+                        if (result.error === 'permission_required') {
+                            return 'Permission is required to enable notifications';
+                        }
+                        return 'Failed to enable notifications: ' + (result.error || 'Unknown error');
                     };
                     const errorMessage = (typeof describePushError === 'function')
                         ? describePushError(result)
                         : fallbackMessage();
                     showPushStatus(errorMessage, true);
-                    document.getElementById('pushNotificationToggle').checked = false;
+                    if (toggle) {
+                        toggle.checked = false;
+                    }
                 }
             } catch (error) {
                 console.error('Error enabling push notifications:', error);
                 showPushStatus('Error: ' + error.message, true);
-                document.getElementById('pushNotificationToggle').checked = false;
+                if (toggle) {
+                    toggle.checked = false;
+                }
+            } finally {
+                // Always clear the flag
+                if (typeof window.setUpdatingPushState === 'function') {
+                    window.setUpdatingPushState(false);
+                }
             }
         }
 
         // Disable push notifications
         async function disablePushNotifications() {
+            const toggle = document.getElementById('pushNotificationToggle');
+            
             try {
+                // Set flag to prevent state updates during operation
+                if (typeof window.setUpdatingPushState === 'function') {
+                    window.setUpdatingPushState(true);
+                }
+                
+                // Keep toggle off while processing
+                if (toggle) {
+                    toggle.checked = false;
+                }
+                
+                // Ensure service worker is ready
+                if ('serviceWorker' in navigator) {
+                    try {
+                        await navigator.serviceWorker.ready;
+                    } catch (e) {
+                        console.warn('Service worker not ready:', e);
+                    }
+                }
+
                 // Check if function is available
                 if (typeof unsubscribeFromPush !== 'function') {
-                    // Fallback: just remove from localStorage
+                    // Fallback: manually unsubscribe and remove from localStorage
+                    if ('serviceWorker' in navigator) {
+                        try {
+                            const registration = await navigator.serviceWorker.ready;
+                            const subscription = await registration.pushManager.getSubscription();
+                            if (subscription) {
+                                await subscription.unsubscribe();
+                            }
+                        } catch (e) {
+                            console.warn('Manual unsubscribe failed:', e);
+                        }
+                    }
                     showPushStatus('Notifications disabled', false);
                     localStorage.removeItem('pushNotificationsEnabled');
+                    
+                    // Verify unsubscription
+                    if (toggle && 'serviceWorker' in navigator) {
+                        try {
+                            const registration = await navigator.serviceWorker.ready;
+                            const subscription = await registration.pushManager.getSubscription();
+                            toggle.checked = subscription !== null; // Should be false
+                        } catch (e) {
+                            toggle.checked = false;
+                        }
+                    }
                     return;
                 }
 
@@ -766,22 +1207,45 @@ if ($user && isset($user['email'])) {
                 if (result.success) {
                     showPushStatus('Notifications disabled', false);
                     localStorage.removeItem('pushNotificationsEnabled');
+                    
+                    // Verify unsubscription
+                    if (toggle && 'serviceWorker' in navigator) {
+                        try {
+                            const registration = await navigator.serviceWorker.ready;
+                            const subscription = await registration.pushManager.getSubscription();
+                            toggle.checked = subscription !== null; // Should be false
+                            console.log('Push notifications disabled - subscription verified:', subscription === null);
+                        } catch (e) {
+                            console.error('Error verifying unsubscription:', e);
+                            toggle.checked = false;
+                        }
+                    }
                 } else {
                     showPushStatus('Failed to disable notifications', true);
-                    document.getElementById('pushNotificationToggle').checked = true;
+                    if (toggle) {
+                        toggle.checked = true;
+                    }
                 }
             } catch (error) {
                 console.error('Error disabling push notifications:', error);
                 showPushStatus('Error: ' + error.message, true);
-                document.getElementById('pushNotificationToggle').checked = true;
+                if (toggle) {
+                    toggle.checked = true;
+                }
+            } finally {
+                // Always clear the flag
+                if (typeof window.setUpdatingPushState === 'function') {
+                    window.setUpdatingPushState(false);
+                }
             }
         }
     </script>
-    <!-- Register Service Worker for PWA -->
+    <!-- Register Service Worker for PWA (optimized for ngrok/median.co) -->
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                // Determine correct path based on current location
+            // Register immediately and also on load (better for mobile)
+            (function registerServiceWorker() {
+                // Determine correct path based on current location (works with ngrok/median.co)
                 const getBasePath = function() {
                     const pathname = window.location.pathname;
                     const marker = '/mobile-app/';
@@ -789,6 +1253,9 @@ if ($user && isset($user['email'])) {
                     if (idx !== -1) {
                         return pathname.substring(0, idx + marker.length);
                     }
+                    // Fallback: try to determine from origin and pathname
+                    const origin = window.location.origin;
+                    // For ngrok/median.co, use the full path
                     return '/mobile-app/';
                 };
                 
@@ -800,6 +1267,24 @@ if ($user && isset($user['email'])) {
                 })
                 .then(function(registration) {
                     console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    
+                    // For mobile devices, ensure service worker is ready before initializing push
+                    if ('PushManager' in window && 'Notification' in window) {
+                        registration.update(); // Check for updates
+                        
+                        // Once ready, try to initialize push notifications if permission is already granted
+                        navigator.serviceWorker.ready.then(function() {
+                            if (Notification.permission === 'granted') {
+                                // Permission already granted, try to subscribe (only if not already updating)
+                                setTimeout(() => {
+                                    if (typeof updateToggleState === 'function' && 
+                                        (!window.isUpdatingPushState || !window.isUpdatingPushState())) {
+                                        updateToggleState();
+                                    }
+                                }, 1500); // Increased delay to avoid race conditions
+                            }
+                        });
+                    }
                 })
                 .catch(function(error) {
                     // Only log if it's not a 404 (file might not exist in some environments)
@@ -807,6 +1292,29 @@ if ($user && isset($user['email'])) {
                         console.warn('ServiceWorker registration warning: ', error.message);
                     }
                 });
+            })();
+            
+            // Also register on load as backup
+            window.addEventListener('load', function() {
+                // Already registered above, but this ensures it's done on load as well
+                if (!navigator.serviceWorker.controller) {
+                    // If no controller, try registering again
+                    setTimeout(function() {
+                        const pathname = window.location.pathname;
+                        const marker = '/mobile-app/';
+                        const idx = pathname.indexOf(marker);
+                        const basePath = idx !== -1 ? pathname.substring(0, idx + marker.length) : '/mobile-app/';
+                        const swPath = basePath + 'service-worker.js';
+                        
+                        navigator.serviceWorker.register(swPath, {
+                            scope: basePath
+                        }).catch(function(error) {
+                            if (error.message && !error.message.includes('404')) {
+                                console.warn('ServiceWorker backup registration warning: ', error.message);
+                            }
+                        });
+                    }, 500);
+                }
             });
         }
     </script>

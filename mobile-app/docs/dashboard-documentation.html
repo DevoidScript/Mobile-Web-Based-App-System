@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Blood Management - Mobile/Web App Documentation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --app-red: #db2323;
+            --app-dark: #941a1a;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            font-size: 16px;
+            line-height: 1.8;
+            color: #212529;
+            padding-top: 56px;
+        }
+        .navbar {
+            background-color: var(--app-red) !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1030;
+            transition: transform 0.3s ease-in-out;
+        }
+        .navbar.hidden {
+            transform: translateY(-100%);
+        }
+        .sidebar {
+            position: fixed;
+            top: 56px;
+            left: 0;
+            height: calc(100vh - 56px);
+            width: 290px;
+            background: white;
+            border-right: 1px solid #dee2e6;
+            overflow-y: auto;
+            padding: 20px 0;
+            z-index: 1000;
+            font-size: 0.98rem;
+            transition: top 0.3s ease-in-out, height 0.3s ease-in-out;
+        }
+        .sidebar.full-height {
+            top: 0;
+            height: 100vh;
+        }
+        .sidebar .nav-link {
+            color: #333;
+            padding: 10px 22px;
+            border-left: 3px solid transparent;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .sidebar .nav-link:hover {
+            background-color: #f8f9fa;
+            border-left-color: var(--app-red);
+        }
+        .sidebar .nav-link.active {
+            background-color: #fff5f5;
+            border-left-color: var(--app-red);
+            color: var(--app-red);
+            font-weight: 600;
+        }
+        .main-content {
+            margin-left: 290px;
+            padding: 36px;
+            max-width: 1240px;
+            font-size: 17px;
+        }
+        .section {
+            background: white;
+            border-radius: 10px;
+            padding: 32px 34px;
+            margin-bottom: 32px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+        }
+        .section h2 {
+            color: var(--app-red);
+            border-bottom: 3px solid var(--app-red);
+            padding-bottom: 12px;
+            margin-bottom: 28px;
+            font-size: 2rem;
+            letter-spacing: 0.02em;
+        }
+        .section h3 {
+            color: #333;
+            margin-top: 28px;
+            margin-bottom: 16px;
+            font-size: 1.4rem;
+        }
+        .section h4 {
+            margin-top: 22px;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .section p {
+            margin-bottom: 0.9rem;
+        }
+        .section ul {
+            padding-left: 1.3rem;
+        }
+        .section li {
+            margin-bottom: 0.35rem;
+        }
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 16px 18px;
+            margin: 12px 0 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            overflow-x: auto;
+        }
+        .dependency-list {
+            list-style: none;
+            padding-left: 0;
+        }
+        .dependency-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .dependency-list li:last-child {
+            border-bottom: none;
+        }
+        .search-box {
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+            padding: 0.6rem 0.75rem;
+        }
+        .mermaid {
+            background: white;
+            padding: 22px;
+            border-radius: 10px;
+            margin: 22px 0;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+        .table-responsive {
+            margin-top: 16px;
+        }
+        table.table {
+            font-size: 0.96rem;
+        }
+        table.table thead th {
+            background-color: #f1f3f5;
+            border-bottom-width: 2px;
+        }
+        table.table td,
+        table.table th {
+            vertical-align: middle;
+        }
+        .endpoint-card {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 16px 18px;
+            margin-bottom: 16px;
+            background: #f8f9fa;
+        }
+        .endpoint-method {
+            display: inline-block;
+            padding: 4px 11px;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 0.85em;
+            margin-right: 10px;
+        }
+        .method-get { background-color: #28a745; color: white; }
+        .method-post { background-color: #007bff; color: white; }
+        .method-patch { background-color: #ffc107; color: #000; }
+        .method-delete { background-color: #dc3545; color: white; }
+        @media (max-width: 768px) {
+            body {
+                padding-top: 56px;
+            }
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s, top 0.3s ease-in-out, height 0.3s ease-in-out;
+                top: 56px;
+                height: calc(100vh - 56px);
+            }
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            .sidebar.full-height {
+                top: 0;
+                height: 100vh;
+            }
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">
+                <i class="fas fa-file-alt me-2"></i>Smart Blood Management - Mobile/Web App Documentation
+            </span>
+            <button class="btn btn-outline-light d-md-none" id="sidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <div class="sidebar" id="sidebar">
+        <div class="px-3 mb-3">
+            <input type="text" class="form-control search-box" id="searchBox" placeholder="Search documentation...">
+        </div>
+        <nav class="nav flex-column">
+            <a class="nav-link active" href="#overview">System Overview</a>
+            <a class="nav-link" href="#pages">Pages & Screens</a>
+            <a class="nav-link" href="#dependencies">Dependencies</a>
+            <a class="nav-link" href="#apis">API Endpoints</a>
+            <a class="nav-link" href="#dataflows">Data Flows</a>
+            <a class="nav-link" href="#security">Security</a>
+            <a class="nav-link" href="#guide">Change Guide</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <!-- System Overview -->
+        <section id="overview" class="section">
+            <h2><i class="fas fa-info-circle me-2"></i>System Overview</h2>
+
+            <h3>Architecture</h3>
+            <p>Smart Blood Management (Mobile/Web App) is a Progressive Web App (PWA) that provides a donor-facing platform for the Philippine Red Cross. The application is PHP-based with Supabase as the backend database. Donors can register, log in, track donations, view eligibility countdowns, and receive push notifications.</p>
+
+            <h3>User Type</h3>
+            <p>This application is designed for <strong>donors</strong> (no admin/hospital/staff roles). All authenticated users are donors who can:</p>
+            <ul>
+                <li>Register and manage their profile</li>
+                <li>Start and track blood donation (parcel-style tracking)</li>
+                <li>View donation history and eligibility countdown</li>
+                <li>Subscribe to push notifications (blood drives, urgent requests)</li>
+                <li>Explore Red Cross resources and locations</li>
+            </ul>
+
+            <h3>Technology Stack</h3>
+            <ul>
+                <li><strong>Backend:</strong> PHP 7.4+</li>
+                <li><strong>Database:</strong> Supabase (PostgreSQL)</li>
+                <li><strong>Frontend:</strong> HTML5, CSS3, vanilla JavaScript; mobile-first responsive design</li>
+                <li><strong>PWA:</strong> Service worker, Web App Manifest, installable on mobile/desktop</li>
+                <li><strong>Push:</strong> Web Push API, VAPID keys; subscription storage in Supabase</li>
+                <li><strong>Email:</strong> PHPMailer for password reset and verification</li>
+            </ul>
+
+            <h3>Key Database Tables</h3>
+            <div class="code-block">
+donor_form               - Donor registration and profile data
+donations                - Blood donation records (per donation)
+donation_status_history  - Status change history for parcel-style tracking
+users / donors_detail    - Account and auth-related user data (project-specific)
+email_verifications      - Email verification tokens
+push_subscriptions       - Web Push subscription endpoints for notifications
+            </div>
+        </section>
+
+        <!-- Pages & Screens -->
+        <section id="pages" class="section">
+            <h2><i class="fas fa-th-large me-2"></i>Pages & Screens</h2>
+
+            <h3>1. Landing / Welcome</h3>
+            <p><strong>File:</strong> <code>index.php</code></p>
+            <p><strong>Purpose:</strong> Entry point; login and register buttons, app branding.</p>
+            <h4>Key Features:</h4>
+            <ul>
+                <li>Smart Blood Management branding and Philippine Red Cross subtitle</li>
+                <li>Login and Register CTAs</li>
+                <li>Preload of critical assets (logo, icons) for LCP</li>
+            </ul>
+
+            <hr>
+
+            <h3>2. Login</h3>
+            <p><strong>File:</strong> <code>templates/login.php</code></p>
+            <p><strong>Purpose:</strong> Authenticate donor via email/password; session-based auth.</p>
+            <h4>Key Features:</h4>
+            <ul>
+                <li>Email and password form; validation</li>
+                <li>Redirect to dashboard on success; error messages on failure</li>
+                <li>Links to forgot password and registration</li>
+            </ul>
+            <h4>Dependencies:</h4>
+            <ul class="dependency-list">
+                <li><code>api/auth.php?login</code> - POST login handler</li>
+                <li><code>config/database.php</code>, <code>includes/functions.php</code></li>
+            </ul>
+
+            <hr>
+
+            <h3>3. Registration</h3>
+            <p><strong>File:</strong> <code>templates/register.php</code></p>
+            <p><strong>Purpose:</strong> Multi-step donor registration (personal info, address, credentials).</p>
+            <h4>Key Features:</h4>
+            <ul>
+                <li>Multi-step form; donor and account data</li>
+                <li>Email verification flow (optional, project-dependent)</li>
+                <li>Integration with <code>api/donor_register.php</code> and/or <code>api/auth.php?register</code></li>
+            </ul>
+            <h4>Dependencies:</h4>
+            <ul class="dependency-list">
+                <li><code>api/donor_register.php</code> - Donor registration API</li>
+                <li><code>api/auth.php?register</code> - Account creation</li>
+                <li><code>templates/forms/donor-form-modal.php</code> - Form components</li>
+            </ul>
+
+            <hr>
+
+            <h3>4. Dashboard (Home)</h3>
+            <p><strong>File:</strong> <code>templates/dashboard.php</code></p>
+            <p><strong>Purpose:</strong> Post-login home; eligibility countdown, quick actions, current donation status.</p>
+            <h4>Key Features:</h4>
+            <ul>
+                <li>Welcome message; donor name from session</li>
+                <li>Eligibility countdown (next donation date, days/months remaining)</li>
+                <li>Quick actions: Donate Blood, Donation History, Blood Tracker, Profile</li>
+                <li>Current donation status if user has an active donation</li>
+            </ul>
+            <h4>Dependencies:</h4>
+            <ul class="dependency-list">
+                <li><code>config/database.php</code>, <code>includes/functions.php</code></li>
+                <li><code>api/blood_tracker.php</code> - Donation status and history</li>
+                <li>Eligibility logic in <code>includes/functions.php</code> (e.g. <code>compute_donation_eligibility</code>)</li>
+            </ul>
+
+            <hr>
+
+            <h3>5. Blood Donation (Donation Flow)</h3>
+            <p><strong>File:</strong> <code>templates/blood_donation.php</code></p>
+            <p><strong>Purpose:</strong> Start and progress through donation (registration, medical history, consent, tracking).</p>
+            <h4>Key Features:</h4>
+            <ul>
+                <li>Start donation (creates donation record via <code>blood_tracker.php?action=start_donation</code>)</li>
+                <li>Multi-step flow: donor info, medical history modal, declaration/consent</li>
+                <li>Link to Blood Tracker for status</li>
+            </ul>
+            <h4>Dependencies:</h4>
+            <ul class="dependency-list">
+                <li><code>api/blood_tracker.php</code> (start_donation, update_stage, get_tracker)</li>
+                <li><code>templates/forms/medical-history-modal.php</code></li>
+            </ul>
+
+            <hr>
+
+            <h3>6. Blood Tracker</h3>
+            <p><strong>File:</strong> <code>templates/blood_tracker.php</code></p>
+            <p><strong>Purpose:</strong> Parcel-style tracking of current donation through stages.</p>
+            <h4>Key Features:</h4>
+            <ul>
+                <li>Stages: Registered → Sample Collected → Medical Screening → Testing → Testing Complete → Processed → Ready for Use</li>
+                <li>Progress bar; status history list</li>
+                <li>Auto-refresh (e.g. every 5 minutes); manual refresh</li>
+            </ul>
+            <h4>Dependencies:</h4>
+            <ul class="dependency-list">
+                <li><code>api/blood_tracker.php</code> (get_tracker, get_status_history, auto_update_status)</li>
+            </ul>
+
+            <hr>
+
+            <h3>7. Donation History</h3>
+            <p><strong>File:</strong> <code>templates/donation_history.php</code></p>
+            <p><strong>Purpose:</strong> List of past donations with status and eligibility info.</p>
+            <h4>Key Features:</h4>
+            <ul>
+                <li>List of donations with date, status, blood type</li>
+                <li>Eligibility countdown for next donation</li>
+            </ul>
+            <h4>Dependencies:</h4>
+            <ul class="dependency-list">
+                <li><code>includes/functions.php</code> (eligibility, donation listing)</li>
+                <li><code>config/database.php</code> (Supabase)</li>
+            </ul>
+
+            <hr>
+
+            <h3>8. Profile</h3>
+            <p><strong>File:</strong> <code>templates/profile.php</code></p>
+            <p><strong>Purpose:</strong> View and edit donor profile; account settings.</p>
+            <h4>Key Features:</h4>
+            <ul>
+                <li>Display and edit personal info</li>
+                <li>Profile picture/avatar; donation stats; blood type</li>
+                <li>Links to edit profile, change password, push notification settings</li>
+            </ul>
+            <h4>Dependencies:</h4>
+            <ul class="dependency-list">
+                <li><code>templates/edit-profile.php</code></li>
+                <li><code>templates/change-password.php</code></li>
+                <li><code>templates/push-notification-prompt.php</code> or notification preferences</li>
+            </ul>
+
+            <hr>
+
+            <h3>9. Explore</h3>
+            <p><strong>File:</strong> <code>templates/explore.php</code></p>
+            <p><strong>Purpose:</strong> Discover Red Cross locations, resources, and information.</p>
+            <h4>Key Features:</h4>
+            <ul>
+                <li>Location/GIS-style exploration (if implemented)</li>
+                <li>Resources, tips, FAQ, eligibility info</li>
+            </ul>
+            <h4>Dependencies:</h4>
+            <ul class="dependency-list">
+                <li><code>api/geocode.php</code> - Geocoding if location features are used</li>
+            </ul>
+
+            <hr>
+
+            <h3>10. Password Reset & Verification</h3>
+            <p><strong>Files:</strong> <code>templates/forgot-password.php</code>, <code>templates/reset-password.php</code>, <code>templates/change-password.php</code>, <code>templates/email-verification.php</code></p>
+            <p><strong>Purpose:</strong> Forgot password flow, reset via email link, in-app change password, email verification.</p>
+            <h4>Dependencies:</h4>
+            <ul class="dependency-list">
+                <li><code>api/password-reset.php</code></li>
+                <li><code>api/email_verification.php</code></li>
+                <li><code>config/email.php</code>, PHPMailer (vendor)</li>
+            </ul>
+
+            <hr>
+
+            <h3>11. Push Notifications (Admin)</h3>
+            <p><strong>File:</strong> <code>templates/admin-send-notification.php</code></p>
+            <p><strong>Purpose:</strong> Admin UI to broadcast blood drive or urgent requests (if used).</p>
+            <h4>Dependencies:</h4>
+            <ul class="dependency-list">
+                <li><code>api/broadcast-blood-drive.php</code></li>
+                <li><code>config/push.php</code>, VAPID keys</li>
+            </ul>
+        </section>
+
+        <!-- Dependencies Section -->
+        <section id="dependencies" class="section">
+            <h2><i class="fas fa-project-diagram me-2"></i>Dependency Inventory</h2>
+
+            <h3>Core PHP</h3>
+            <ul class="dependency-list">
+                <li><code>config/database.php</code> - Supabase URL, API key, <code>supabase_request()</code>, <code>get_records</code>, <code>create_record</code>, <code>update_record</code>, donation status history helper</li>
+                <li><code>includes/functions.php</code> - Session, auth helpers, sanitization, eligibility, donation helpers</li>
+                <li><code>config/email.php</code> - Email configuration for PHPMailer</li>
+                <li><code>config/push.php</code> - Push/VAPID configuration</li>
+            </ul>
+
+            <h3>Authentication & Session</h3>
+            <ul class="dependency-list">
+                <li><code>api/auth.php</code> - Login, register, logout (query params: <code>login</code>, <code>register</code>, <code>logout</code>)</li>
+                <li><code>api/password-reset.php</code> - Forgot/reset password</li>
+                <li><code>api/email_verification.php</code> - Email verification</li>
+            </ul>
+
+            <h3>Donation & Tracker</h3>
+            <ul class="dependency-list">
+                <li><code>api/blood_tracker.php</code> - Donation CRUD, status history, auto-update</li>
+                <li><code>api/donor_register.php</code> - Donor registration</li>
+                <li><code>api/staff_tracker.php</code> - Staff-side tracker (if used)</li>
+                <li><code>api/auto_status_update.php</code> - Auto status sync (if used)</li>
+            </ul>
+
+            <h3>Push Notifications</h3>
+            <ul class="dependency-list">
+                <li><code>api/save-subscription.php</code> - Save/update push subscription</li>
+                <li><code>api/get-notifications.php</code> - Fetch notifications for bell panel</li>
+                <li><code>api/get-vapid-key.php</code> - Public VAPID key for client</li>
+                <li><code>api/broadcast-blood-drive.php</code> - Send broadcast notifications</li>
+                <li><code>assets/js/push-notifications.js</code> - Client-side push subscription</li>
+                <li><code>assets/js/service-worker-register.js</code> - Service worker registration</li>
+                <li><code>service-worker.js</code> - Push event handling</li>
+            </ul>
+
+            <h3>PWA & Assets</h3>
+            <ul class="dependency-list">
+                <li><code>manifest.json</code> - App name, icons, theme, start URL, shortcuts</li>
+                <li><code>service-worker.js</code> - Offline and push</li>
+                <li><code>assets/css/styles.css</code> - Global styles</li>
+                <li><code>assets/js/browser-compat.js</code> - Browser compatibility checks</li>
+            </ul>
+        </section>
+
+        <!-- API Endpoints Section -->
+        <section id="apis" class="section">
+            <h2><i class="fas fa-plug me-2"></i>API Endpoints Catalog</h2>
+
+            <h3>Authentication</h3>
+
+            <div class="endpoint-card">
+                <span class="endpoint-method method-post">POST</span>
+                <strong>api/auth.php?login</strong>
+                <p><strong>Purpose:</strong> User login (email/password).</p>
+                <p><strong>Auth:</strong> None (public).</p>
+                <p><strong>Request:</strong> POST body <code>email</code>, <code>password</code>.</p>
+                <p><strong>Response:</strong> Redirect to dashboard on success; redirect to index with error on failure.</p>
+                <p><strong>Used By:</strong> templates/login.php</p>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="endpoint-method method-post">POST</span>
+                <strong>api/auth.php?register</strong>
+                <p><strong>Purpose:</strong> User registration (donor account).</p>
+                <p><strong>Auth:</strong> None (public).</p>
+                <p><strong>Used By:</strong> templates/register.php</p>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="endpoint-method method-get">GET</span>
+                <strong>api/auth.php?logout</strong>
+                <p><strong>Purpose:</strong> Logout; destroy session and redirect.</p>
+                <p><strong>Used By:</strong> Logout links across app</p>
+            </div>
+
+            <h3>Donor & Donation</h3>
+
+            <div class="endpoint-card">
+                <span class="endpoint-method method-post">POST</span>
+                <strong>api/donor_register.php</strong>
+                <p><strong>Purpose:</strong> Register donor (donor_form and related data).</p>
+                <p><strong>Auth:</strong> Session or public (project-specific).</p>
+                <p><strong>Used By:</strong> templates/register.php, donor forms</p>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="endpoint-method method-get">GET</span> / <span class="endpoint-method method-post">POST</span>
+                <strong>api/blood_tracker.php</strong>
+                <p><strong>Purpose:</strong> Donation tracker actions: get_tracker, start_donation, update_stage, get_status_history, auto_update_status.</p>
+                <p><strong>Auth:</strong> Session required (<code>is_logged_in()</code>).</p>
+                <p><strong>Params:</strong> <code>action</code> (get_tracker | start_donation | update_stage | get_status_history | auto_update_status); POST for update_stage.</p>
+                <p><strong>Response:</strong> JSON (donation data, status history, or error).</p>
+                <p><strong>Used By:</strong> templates/blood_donation.php, templates/blood_tracker.php, templates/dashboard.php</p>
+            </div>
+
+            <h3>Push Notifications</h3>
+
+            <div class="endpoint-card">
+                <span class="endpoint-method method-post">POST</span>
+                <strong>api/save-subscription.php</strong>
+                <p><strong>Purpose:</strong> Save or update push subscription for logged-in donor.</p>
+                <p><strong>Auth:</strong> Session required.</p>
+                <p><strong>Request:</strong> JSON subscription object (endpoint, keys).</p>
+                <p><strong>Response:</strong> <code>{ success, message, data }</code>.</p>
+                <p><strong>Used By:</strong> assets/js/push-notifications.js</p>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="endpoint-method method-get">GET</span>
+                <strong>api/get-notifications.php</strong>
+                <p><strong>Purpose:</strong> Fetch notifications for the bell panel (by donor_id from session).</p>
+                <p><strong>Auth:</strong> Session required.</p>
+                <p><strong>Params:</strong> Optional query params (limit, etc.).</p>
+                <p><strong>Response:</strong> JSON list of notifications.</p>
+                <p><strong>Used By:</strong> Bell/notification UI in app</p>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="endpoint-method method-get">GET</span>
+                <strong>api/get-vapid-key.php</strong>
+                <p><strong>Purpose:</strong> Return public VAPID key for Web Push subscription.</p>
+                <p><strong>Auth:</strong> Typically public or session.</p>
+                <p><strong>Used By:</strong> Client push subscription flow</p>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="endpoint-method method-post">POST</span>
+                <strong>api/broadcast-blood-drive.php</strong>
+                <p><strong>Purpose:</strong> Send broadcast notification (blood drive, urgent request).</p>
+                <p><strong>Auth:</strong> Admin or internal (project-specific).</p>
+                <p><strong>Used By:</strong> templates/admin-send-notification.php</p>
+            </div>
+
+            <h3>Utility</h3>
+
+            <div class="endpoint-card">
+                <span class="endpoint-method method-get">GET</span>
+                <strong>api/geocode.php</strong>
+                <p><strong>Purpose:</strong> Geocoding for location features (Explore, etc.).</p>
+                <p><strong>Auth:</strong> Session or public (project-specific).</p>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="endpoint-method method-post">POST</span>
+                <strong>api/password-reset.php</strong>
+                <p><strong>Purpose:</strong> Request password reset (send email with link).</p>
+                <p><strong>Used By:</strong> templates/forgot-password.php</p>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="endpoint-method method-get">GET</span> / <span class="endpoint-method method-post">POST</span>
+                <strong>api/email_verification.php</strong>
+                <p><strong>Purpose:</strong> Verify email token and activate account.</p>
+                <p><strong>Used By:</strong> templates/email-verification.php, verification links in email</p>
+            </div>
+        </section>
+
+        <!-- Data Flows Section -->
+        <section id="dataflows" class="section">
+            <h2><i class="fas fa-exchange-alt me-2"></i>Data Flow Diagrams</h2>
+
+            <h3>Donor Registration to First Donation</h3>
+            <div class="mermaid">
+flowchart TD
+    A[Landing Page] -->|Login/Register| B[Login or Register]
+    B -->|Register| C[Multi-step Registration]
+    C -->|api/donor_register / auth?register| D[donor_form + account]
+    D --> E[Email Verification optional]
+    E --> F[Dashboard]
+    B -->|Login| F
+    F -->|Donate Blood| G[blood_donation.php]
+    G -->|Start Donation| H[api/blood_tracker start_donation]
+    H -->|Create record| I[donations table]
+    I --> J[donation_status_history: Registered]
+    J --> K[Blood Tracker Screen]
+            </div>
+
+            <h3>Donation Status Lifecycle (Parcel-Style Tracking)</h3>
+            <div class="mermaid">
+flowchart TD
+    A[Registered] --> B[Sample Collected]
+    B --> C[Medical Screening]
+    C --> D[Testing]
+    D --> E[Testing Complete]
+    E --> F[Processed]
+    F --> G[Ready for Use]
+    G --> H[donation_status_history]
+    A --> H
+    B --> H
+    C --> H
+    D --> H
+    E --> H
+    F --> H
+            </div>
+
+            <h3>Push Notification Flow</h3>
+            <div class="code-block">
+1. User grants permission → Client subscribes (PushManager) → POST api/save-subscription.php
+2. Subscription stored in push_subscriptions (donor_id, endpoint, keys)
+3. Admin sends broadcast (api/broadcast-blood-drive.php) → Server sends Web Push to all subscriptions
+4. Service worker receives push event → Shows notification; optional click to open app/page
+            </div>
+        </section>
+
+        <!-- Security Section -->
+        <section id="security" class="section">
+            <h2><i class="fas fa-shield-alt me-2"></i>Security Architecture & Considerations</h2>
+
+            <p class="lead">This section summarizes authentication, access control, and security practices for the donor PWA.</p>
+
+            <h3>1. Authentication & Session</h3>
+            <ul>
+                <li><strong>Session-based auth:</strong> After login, <code>$_SESSION['user']</code> holds user/donor data; pages check <code>is_logged_in()</code>.</li>
+                <li><strong>Password:</strong> Stored hashed (e.g. <code>password_hash()</code> / <code>password_verify()</code>); never stored plain.</li>
+                <li><strong>Session regeneration:</strong> Used on sensitive pages (e.g. dashboard) to reduce fixation risk.</li>
+            </ul>
+
+            <h3>2. Access Control</h3>
+            <ul>
+                <li>Donor-only app: no role_id branching; authenticated users are donors.</li>
+                <li>Protected pages (dashboard, donation, tracker, profile, history) redirect to login if not authenticated.</li>
+                <li>APIs that handle donor data (e.g. blood_tracker, save-subscription, get-notifications) require <code>is_logged_in()</code>.</li>
+            </ul>
+
+            <h3>3. Data Protection</h3>
+            <ul>
+                <li><strong>Supabase:</strong> Use RLS where applicable; service role only where needed (e.g. donations, email_verifications).</li>
+                <li><strong>Input:</strong> <code>sanitize_input()</code>, <code>htmlspecialchars()</code>, validation in includes/functions.php and APIs.</li>
+                <li><strong>Config:</strong> Database and API keys in <code>config/database.php</code>; recommend moving secrets to environment variables in production.</li>
+            </ul>
+
+            <h3>4. Recommendations for Production</h3>
+            <ol>
+                <li><strong>CSRF:</strong> Add CSRF tokens to all state-changing forms (login, register, password reset, donation actions).</li>
+                <li><strong>HTTPS:</strong> Serve app and API over HTTPS only; required for PWA and Web Push.</li>
+                <li><strong>Secrets:</strong> Move Supabase keys, email credentials, and VAPID keys to .env and never commit them.</li>
+                <li><strong>Rate limiting:</strong> Apply to login, registration, and password-reset endpoints.</li>
+                <li><strong>Headers:</strong> Use security headers (CSP, X-Frame-Options, X-Content-Type-Options).</li>
+            </ol>
+        </section>
+
+        <!-- Change Guide Section -->
+        <section id="guide" class="section">
+            <h2><i class="fas fa-wrench me-2"></i>Where to Change What</h2>
+
+            <h3>Business Rules</h3>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>What to Change</th>
+                            <th>File / Location</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Eligibility rules (e.g. interval between donations)</td>
+                            <td><code>includes/functions.php</code> – <code>compute_donation_eligibility()</code> and related helpers</td>
+                        </tr>
+                        <tr>
+                            <td>Donation status stages (tracker labels)</td>
+                            <td><code>templates/blood_tracker.php</code> (UI); <code>api/blood_tracker.php</code> and DB for status values</td>
+                        </tr>
+                        <tr>
+                            <td>Donation status history recording</td>
+                            <td><code>config/database.php</code> – <code>record_donation_status_history()</code>; <code>create_record</code> / <code>update_record</code> for donations</td>
+                        </tr>
+                        <tr>
+                            <td>Email content (reset, verification)</td>
+                            <td><code>config/email.php</code>; <code>api/password-reset.php</code>; <code>api/email_verification.php</code></td>
+                        </tr>
+                        <tr>
+                            <td>Push notification payload / default options</td>
+                            <td><code>config/push.php</code>; <code>api/broadcast-blood-drive.php</code>; <code>service-worker.js</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>UI & Pages</h3>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>File Location</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Landing / welcome</td>
+                            <td><code>index.php</code></td>
+                        </tr>
+                        <tr>
+                            <td>Login form</td>
+                            <td><code>templates/login.php</code></td>
+                        </tr>
+                        <tr>
+                            <td>Registration flow</td>
+                            <td><code>templates/register.php</code>, <code>templates/forms/donor-form-modal.php</code></td>
+                        </tr>
+                        <tr>
+                            <td>Dashboard home</td>
+                            <td><code>templates/dashboard.php</code></td>
+                        </tr>
+                        <tr>
+                            <td>Blood donation flow</td>
+                            <td><code>templates/blood_donation.php</code>, <code>templates/forms/medical-history-modal.php</code></td>
+                        </tr>
+                        <tr>
+                            <td>Blood tracker</td>
+                            <td><code>templates/blood_tracker.php</code></td>
+                        </tr>
+                        <tr>
+                            <td>Profile & edit</td>
+                            <td><code>templates/profile.php</code>, <code>templates/edit-profile.php</code></td>
+                        </tr>
+                        <tr>
+                            <td>Push prompt / settings</td>
+                            <td><code>templates/push-notification-prompt.php</code>, profile notification section</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Configuration</h3>
+            <div class="code-block">
+config/database.php  - SUPABASE_URL, SUPABASE_API_KEY, SUPABASE_SERVICE_KEY
+config/email.php     - SMTP / mail settings for PHPMailer
+config/push.php      - VAPID keys, push options
+manifest.json        - PWA name, theme_color, start_url, icons, shortcuts
+            </div>
+
+            <h3>Shared Functions</h3>
+            <div class="code-block">
+includes/functions.php
+- get_logged_in_user(), is_logged_in()
+- sanitize_input(), is_valid_email(), generate_token()
+- set_flash_message(), get_flash_messages()
+- compute_donation_eligibility(), has_successful_donation(), and other donation helpers
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Sidebar toggle for mobile
+        document.getElementById('sidebarToggle')?.addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('show');
+        });
+
+        // Search filter
+        document.getElementById('searchBox')?.addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+            document.querySelectorAll('.sidebar .nav-link').forEach(function(link) {
+                const text = link.textContent.toLowerCase();
+                link.style.display = text.includes(query) ? '' : 'none';
+            });
+        });
+
+        // Active link on scroll
+        const sections = document.querySelectorAll('.section');
+        const navLinks = document.querySelectorAll('.sidebar .nav-link');
+
+        function setActiveLink() {
+            let current = '';
+            sections.forEach(function(section) {
+                const top = section.offsetTop - 100;
+                const height = section.offsetHeight;
+                if (window.scrollY >= top) {
+                    current = section.getAttribute('id');
+                }
+            });
+            navLinks.forEach(function(link) {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#' + current) {
+                    link.classList.add('active');
+                }
+            });
+        }
+        window.addEventListener('scroll', setActiveLink);
+        window.addEventListener('load', setActiveLink);
+
+        // Mermaid diagrams
+        mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
+    </script>
+</body>
+</html>

@@ -176,19 +176,31 @@ async function subscribeToPush() {
 
 /**
  * Save push subscription to backend
+ * Works with ngrok/median.co by using absolute URLs with current origin
  */
 async function saveSubscriptionToBackend(subscription) {
     try {
         const base = await getAppBasePath();
-        const response = await fetch(base + 'api/save-subscription.php', {
+        // Use absolute URL with current origin for ngrok/median.co compatibility
+        const url = new URL(base + 'api/save-subscription.php', window.location.origin);
+        
+        const response = await fetch(url.toString(), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
+            credentials: 'same-origin', // Include cookies/session for authentication
             body: JSON.stringify({
                 subscription: subscription.toJSON()
             })
         });
+
+        if (!response.ok) {
+            console.error('Failed to save subscription:', response.status, response.statusText);
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            return { success: false, error: `HTTP ${response.status}: ${response.statusText}` };
+        }
 
         const data = await response.json();
         return data;
@@ -273,20 +285,50 @@ async function promptForPushNotifications(vapidPublicKey) {
 
 /**
  * Fetch VAPID public key from server
+ * Works with ngrok/median.co by using relative paths
  */
 async function fetchVapidKey() {
     try {
         const base = await getAppBasePath();
-        const response = await fetch(base + 'api/get-vapid-key.php');
+        // Use absolute URL with current origin for ngrok/median.co compatibility
+        const url = new URL(base + 'api/get-vapid-key.php', window.location.origin);
+        
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            credentials: 'same-origin', // Include cookies/session for authentication
+            cache: 'no-cache' // Ensure fresh key on each request
+        });
+        
+        if (!response.ok) {
+            console.error('Failed to fetch VAPID key:', response.status, response.statusText);
+            return false;
+        }
+        
         const data = await response.json();
-        if (data.success) {
+        if (data.success && data.publicKey) {
             VAPID_PUBLIC_KEY = data.publicKey;
             pushVapidKey = data.publicKey; // Also set the global variable
+            console.log('VAPID key fetched successfully');
             return true;
+        } else {
+            console.error('Invalid VAPID key response:', data);
+            return false;
         }
-        return false;
     } catch (error) {
         console.error('Error fetching VAPID key:', error);
+        // Fallback: try relative path if absolute URL failed
+        try {
+            const base = await getAppBasePath();
+            const response = await fetch(base + 'api/get-vapid-key.php');
+            const data = await response.json();
+            if (data.success && data.publicKey) {
+                VAPID_PUBLIC_KEY = data.publicKey;
+                pushVapidKey = data.publicKey;
+                return true;
+            }
+        } catch (fallbackError) {
+            console.error('Fallback VAPID key fetch also failed:', fallbackError);
+        }
         return false;
     }
 }
