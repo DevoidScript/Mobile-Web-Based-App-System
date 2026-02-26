@@ -1,3 +1,45 @@
+# 🩸 Red Cross Donor Mobile Web App (PWA)
+
+This repository contains the **donor-facing Progressive Web App** that works alongside your separate **Red Cross Blood Donation & Inventory Management System** (admin / staff / hospital side).
+
+- The **main thesis “big” system** (inventory, forecasting, hospital requests, staff roles) lives in its own GitHub repo you showed in your description.
+- This repo is **only the donor side**: a mobile-first PWA where donors register, track donations, and receive notifications.
+
+---
+
+## Repository layout (high level)
+
+```text
+Mobile-Web-Based-App-System/
+├── mobile-app/        # Donor PWA (all PHP, JS, CSS, docs for this app)
+└── .git / README.md   # Git metadata + this top-level description
+```
+
+All of the actual donor application code and thesis-relevant implementation details are inside **`mobile-app/`**.
+
+For a **detailed file-by-file structure** of the donor app (matching the real folders and files), see:
+
+- `mobile-app/README.md`
+
+That README documents:
+
+- `api/`, `config/`, `includes/`, `assets/`, `templates/`, `sql/`, `storage/`, `docs/`, `vendor/`
+- How the donor registration, email verification, blood tracking, push notifications, and PWA behavior are implemented.
+
+---
+
+## Thesis notes
+
+When the technical editor reviews this repo:
+
+- Treat the **other GitHub repo** you pasted as the **Admin / Inventory / Hospital system**.
+- Treat this repo’s **`mobile-app/`** as the **Donor PWA** that connects to the same Supabase backend.
+- For a **clean donor-side bundle** in your thesis appendices, you can:
+  - Include from `mobile-app/`: `index.php`, `api/`, `config/`, `includes/`, `assets/`, `templates/`, `sql/`, `docs/`, `service-worker.js`, `manifest.json`, `README.md`
+  - Exclude from `mobile-app/`: `vendor/` and `storage/logs/` (they can be regenerated or created at runtime).
+
+No runtime code or directory layout inside `mobile-app/` has been changed; only documentation has been updated to help the technical editor understand how this donor PWA fits into your overall thesis system.
+
 # 🩸 **Red Cross Donor Mobile Web App (PWA)**
 
 ---
