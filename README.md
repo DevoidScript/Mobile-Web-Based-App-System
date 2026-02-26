@@ -91,8 +91,6 @@ d:\Xampp\htdocs\Mobile-Web-Based-App-System
     └── README.md              # Donor app–specific README
 ```
 
-> **Important:** There is no longer an `MD files` folder; all markdown documentation is grouped under `mobile-app/docs/`.
-
 ---
 
 ## ⚙️ Core Donor Flows
